@@ -11,8 +11,8 @@ files = os.listdir(root_dir)
 
 # Find image details
 axis_res = int(np.sqrt(len(files)))
-kT_range_all = np.zeros((len(files), ))
-mu_range_all = np.zeros((len(files), ))
+kT_range_all = np.zeros((len(files),))
+mu_range_all = np.zeros((len(files),))
 for i, file in enumerate(files):
     img_file = h5py.File(f"{root_dir}/{file}", "r")
     kT_range_all[i] = img_file.attrs["kT"]
@@ -43,14 +43,13 @@ plt.imshow(big_img_arr, cmap=cmap, origin="lower")
 
 # Make plot not look like trash
 plt.xticks(rotation=90)
-plt.xticks(np.arange(len(mu_vals)) * 128 + 64, np.round(mu_vals, 2))
-plt.yticks(np.arange(len(kT_vals)) * 128 + 64, np.round(kT_vals, 2))
+plt.xticks(np.arange(len(mu_vals)) * 128 + 64, [f"{mu_val:.2f}" for mu_val in mu_vals])
+plt.yticks(np.arange(len(kT_vals)) * 128 + 64, [f"{kT_val:.2f}" for kT_val in kT_vals])
 
 ax.set_xticks([x * img_res for x in range(axis_res)], minor=True)
 ax.set_yticks([y * img_res for y in range(axis_res)], minor=True)
 
 plt.grid(which="minor", ls="-", lw=2, color="r")
 
-# Set labels
 plt.xlabel("mu")
 plt.ylabel("kT")
