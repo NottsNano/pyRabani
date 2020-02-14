@@ -8,14 +8,16 @@ Rabani.m - Andrew Stannard 27/06/19, Rabani model in Matlab
 from math import exp
 from numba import jit
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import colors
 
 
-@jit(nopython=True)
+@jit(nopython=True, fastmath=True)
 def rabani_single(kT, mu):
     L = 128  # System length
     N = L ** 2  # System volume
 
-    MCS = 1000  # Max mc steps
+    MCS = 2000  # Max mc steps
     MR = 1  # Mobility ratio
     C = 0.30  # Nano-particle coverage
 
@@ -34,10 +36,7 @@ def rabani_single(kT, mu):
     liquid_array = np.abs(1 - nano_particles)
 
     # Set up checkpointing
-    I_tmp = np.random.choice(N, int(C * N), replace=False)
-    checkpoint_out = np.zeros((N,))
-    checkpoint_out[I_tmp] = 1
-    checkpoint_out = checkpoint_out.reshape((L, L))
+    checkpoint_out = np.ones((L, L))
     out = 2 * nano_particles + liquid_array
 
     perc_similarities = np.random.random((4,))
@@ -275,8 +274,15 @@ def rabani_single(kT, mu):
             # print(perc_similarities, perc_similarities_std)
             checkpoint_out = 2 * nano_particles + liquid_array
 
-        if 0 < perc_similarities_std < 0.005 and m < 100:
+        if 0 < perc_similarities_std < 0.01 and m > 100:
             break
 
     return out, m
 
+if __name__ == '__main__':
+    img, num_steps = rabani_single(kT=0.6, mu=3.8)
+
+    cmap = colors.ListedColormap(["black", "white", "orange"])
+    boundaries = [0, 0.5, 1]
+    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+    plt.imshow(img, cmap=cmap)
