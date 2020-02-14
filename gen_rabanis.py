@@ -90,9 +90,9 @@ if __name__ == '__main__':
     start = time.time()
     root_dir = "Images"
     total_image_reps = 1
-    axis_res = 4
-    kT_range = [0.1, 3]
-    mu_range = [3, 4]
+    axis_res = 6
+    kT_range = [0.6, 0.7]
+    mu_range = [2.7, 2.8]
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, savetype="hdf5")
     rabani_sweeper.call_rabani_sweep(kT_range=kT_range, mu_range=mu_range,
