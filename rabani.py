@@ -6,10 +6,11 @@ rabani model in python - adapted from:
 Rabani.m - Andrew Stannard 27/06/19, Rabani model in Matlab
 """
 from math import exp
-from numba import jit
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import colors
+from numba import jit, prange
 
 
 @jit(nopython=True, fastmath=True)
@@ -274,10 +275,23 @@ def rabani_single(kT, mu):
             # print(perc_similarities, perc_similarities_std)
             checkpoint_out = 2 * nano_particles + liquid_array
 
-        if 0 < perc_similarities_std < 0.01 and m > 100:
+        if 0 < perc_similarities_std < 0.075 and m > 100:
             break
 
     return out, m
+
+
+@jit(nopython=True, parallel=True, fastmath=True)
+def _run_rabani_sweep(kT_mus):
+    axis_steps = len(kT_mus)
+    runs = np.zeros((128, 128, axis_steps))
+    m_all = np.zeros((axis_steps,))
+
+    for i in prange(axis_steps):
+        runs[:, :, i], m_all[i] = rabani_single(kT_mus[i, 0], kT_mus[i, 1])
+
+    return runs, m_all
+
 
 if __name__ == '__main__':
     img, num_steps = rabani_single(kT=0.6, mu=3.8)
