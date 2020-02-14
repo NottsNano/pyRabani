@@ -11,13 +11,14 @@ from rabani import _run_rabani_sweep
 
 
 class RabaniSweeper:
-    def __init__(self, root_dir, savetype="hdf5"):
+    def __init__(self, root_dir, savetype="hdf5", zip_when_done=False):
         self.system_name = platform.node()
         self.savetype = savetype
         self.root_dir = root_dir
 
         self.start_datetime = datetime.now()
-        self.start_time = self.start_datetime.strftime("%Y-%m-%d--%H-%M-%S")
+        self.start_date = self.start_datetime.strftime("%Y-%m-%d")
+        self.start_time = self.start_datetime.strftime("%H-%M")
         self.end_datetime = None
         self.kT_mus = None
 
@@ -51,15 +52,20 @@ class RabaniSweeper:
             os.makedirs(dir)
 
     def save_rabanis(self, imgs, m_all, image_rep):
+        self.make_storage_folder(f"{self.root_dir}/{self.start_date}/{self.start_time}")
         if self.savetype is "txt":
-            self.make_storage_folder(f"{self.root_dir}/{self.start_time}")
-
             for rep, img in enumerate(imgs):
                 np.savetxt(
-                    f"{self.root_dir}/{self.start_time}/rabani_kT={self.kT_mus[rep, 0]:.2f}_mu={self.kT_mus[rep, 1]:.2f}_nsteps={int(m_all[rep]):d}_rep={image_rep}.txt",
+                    f"{self.root_dir}/{self.start_date}/{self.start_time}/rabani_kT={self.kT_mus[rep, 0]:.2f}_mu={self.kT_mus[rep, 1]:.2f}_nsteps={int(m_all[rep]):d}_rep={image_rep}.txt",
                     img, fmt="%01d")
         elif self.savetype is "hdf5":
-            master_file = h5py.File(f"{self.root_dir}/rabanis--{platform.node()}--{self.start_time}.h5")
+            for rep, img in enumerate(imgs):
+                master_file = h5py.File(f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{image_rep}.h5", "a")
+                master_file.create_dataset("image", data=img, dtype="i1")
+                master_file.attrs["kT"] = self.kT_mus[rep, 0]
+                master_file.attrs["mu"] = self.kT_mus[rep, 1]
+                master_file.attrs["num_mc_steps"] = m_all[rep]
+
         elif self.savetype is None:
             pass
         else:
@@ -78,6 +84,6 @@ if __name__ == '__main__':
     kT_range = [0.001, 2]
     mu_range = [2, 4]
 
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, savetype="txt")
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, savetype="hdf5")
     rabani_sweeper.call_rabani_sweep(kT_range=kT_range, mu_range=mu_range,
                                      axis_steps=axis_res, image_reps=total_image_reps)

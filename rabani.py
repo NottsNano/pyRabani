@@ -294,7 +294,7 @@ def _run_rabani_sweep(kT_mus):
 
 
 if __name__ == '__main__':
-    img, num_steps = rabani_single(kT=0.6, mu=3.8)
+    img, num_steps = rabani_single(kT=0.6, mu=2.8)
 
     cmap = colors.ListedColormap(["black", "white", "orange"])
     boundaries = [0, 0.5, 1]
