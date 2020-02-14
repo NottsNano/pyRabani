@@ -16,25 +16,22 @@ mu_range = [3, 4]
 
 kT_vals = np.linspace(kT_range[0], kT_range[1], axis_res)
 mu_vals = np.linspace(mu_range[0], mu_range[1], axis_res)
+cmap = colors.ListedColormap(["black", "white", "orange"])
+boundaries = [0, 0.5, 1]
+norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
 # Place each image in an array
 big_img_arr = np.zeros((img_res * axis_res, img_res * axis_res))
-i = 0
 for file in files:
     img_file = h5py.File(f"{root_dir}/{file}", "r")
 
     kT_ind = np.searchsorted(kT_vals, img_file.attrs["kT"])
     mu_ind = np.searchsorted(mu_vals, img_file.attrs["mu"])
 
-    # Place in array
-    big_img_arr[(mu_ind * 128):((mu_ind + 1) * 128), (kT_ind * 128):((kT_ind + 1) * 128)] = img_file["image"]
-big_img_arr = np.fliplr(big_img_arr)
+    big_img_arr[(kT_ind * 128):((kT_ind + 1) * 128), (mu_ind * 128):((mu_ind + 1) * 128)] = np.flipud(img_file["image"])
 
 # Plot
-cmap = colors.ListedColormap(["black", "white", "orange"])
-boundaries = [0, 0.5, 1]
-norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-
+plt.figure()
 fig, ax = plt.subplots()
 plt.imshow(big_img_arr, cmap=cmap, origin="lower")
 
