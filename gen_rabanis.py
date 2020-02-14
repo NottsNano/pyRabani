@@ -8,19 +8,22 @@ import numpy as np
 from matplotlib import colors
 
 from rabani import _run_rabani_sweep
-
+import shutil
 
 class RabaniSweeper:
     def __init__(self, root_dir, savetype="hdf5", zip_when_done=False):
         self.system_name = platform.node()
         self.savetype = savetype
         self.root_dir = root_dir
+        self.zip_when_done = zip_when_done
 
         self.start_datetime = datetime.now()
         self.start_date = self.start_datetime.strftime("%Y-%m-%d")
         self.start_time = self.start_datetime.strftime("%H-%M")
         self.end_datetime = None
         self.kT_mus = None
+
+        self.sweep_cnt = 1
 
     def call_rabani_sweep(self, kT_range, mu_range, axis_steps, image_reps):
         assert 0 not in kT_range, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
@@ -47,6 +50,9 @@ class RabaniSweeper:
 
         self.end_datetime = datetime.now()
 
+        if self.zip_when_done:
+            self.zip_rabanis()
+
     def make_storage_folder(self, dir):
         if not os.path.isdir(dir):
             os.makedirs(dir)
@@ -60,16 +66,20 @@ class RabaniSweeper:
                     img, fmt="%01d")
         elif self.savetype is "hdf5":
             for rep, img in enumerate(imgs):
-                master_file = h5py.File(f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{image_rep}.h5", "a")
+                master_file = h5py.File(f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5", "a")
                 master_file.create_dataset("image", data=img, dtype="i1")
                 master_file.attrs["kT"] = self.kT_mus[rep, 0]
                 master_file.attrs["mu"] = self.kT_mus[rep, 1]
                 master_file.attrs["num_mc_steps"] = m_all[rep]
 
+                self.sweep_cnt += 1
         elif self.savetype is None:
             pass
         else:
             raise LookupError("Specified storage format not available")
+
+    def zip_rabanis(self):
+        shutil.make_archive(f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--zipped.zip", 'zip', f"{self.root_dir}/{self.start_date}/{self.start_time}")
 
 
 if __name__ == '__main__':
@@ -80,9 +90,9 @@ if __name__ == '__main__':
     start = time.time()
     root_dir = "Images"
     total_image_reps = 1
-    axis_res = 5
-    kT_range = [0.001, 2]
-    mu_range = [2, 4]
+    axis_res = 4
+    kT_range = [0.1, 3]
+    mu_range = [3, 4]
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, savetype="hdf5")
     rabani_sweeper.call_rabani_sweep(kT_range=kT_range, mu_range=mu_range,
