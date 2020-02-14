@@ -5,18 +5,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
 
-# Setup
-root_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-14/20-43"
+
+
+root_dir="/home/mltest1/tmp/pycharm_project_883/Images/2020-02-14/21-00"
 files = os.listdir(root_dir)
 
 # Find image details
 axis_res = int(np.sqrt(len(files)))
 kT_range_all = np.zeros((len(files),))
 mu_range_all = np.zeros((len(files),))
+m_all = np.zeros((len(files),))
 for i, file in enumerate(files):
     img_file = h5py.File(f"{root_dir}/{file}", "r")
     kT_range_all[i] = img_file.attrs["kT"]
     mu_range_all[i] = img_file.attrs["mu"]
+    m_all[i] = img_file.attrs["num_mc_steps"]
     img_res = len(img_file["image"])
 
 kT_range = [np.min(kT_range_all), np.max(kT_range_all)]
@@ -31,7 +34,8 @@ for file in files:
 
     kT_ind = np.searchsorted(kT_vals, img_file.attrs["kT"])
     mu_ind = np.searchsorted(mu_vals, img_file.attrs["mu"])
-    big_img_arr[(kT_ind * 128):((kT_ind + 1) * 128), (mu_ind * 128):((mu_ind + 1) * 128)] = np.flipud(img_file["image"])
+    big_img_arr[(kT_ind * 128):((kT_ind + 1) * 128), (mu_ind * 128):((mu_ind + 1) * 128)] = np.flipud(
+        img_file["image"])
 
 # Plot
 cmap = colors.ListedColormap(["black", "white", "orange"])
@@ -53,3 +57,4 @@ plt.grid(which="minor", ls="-", lw=2, color="r")
 
 plt.xlabel("mu")
 plt.ylabel("kT")
+
