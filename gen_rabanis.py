@@ -1,5 +1,6 @@
 import os
 import platform
+import shutil
 import time
 from datetime import datetime
 
@@ -8,7 +9,7 @@ import numpy as np
 from matplotlib import colors
 
 from rabani import _run_rabani_sweep
-import shutil
+
 
 class RabaniSweeper:
     def __init__(self, root_dir, savetype="hdf5", zip_when_done=False):
@@ -66,7 +67,9 @@ class RabaniSweeper:
                     img, fmt="%01d")
         elif self.savetype is "hdf5":
             for rep, img in enumerate(imgs):
-                master_file = h5py.File(f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5", "a")
+                master_file = h5py.File(
+                    f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
+                    "a")
                 master_file.create_dataset("image", data=img, dtype="i1")
                 master_file.attrs["kT"] = self.kT_mus[rep, 0]
                 master_file.attrs["mu"] = self.kT_mus[rep, 1]
@@ -79,7 +82,9 @@ class RabaniSweeper:
             raise LookupError("Specified storage format not available")
 
     def zip_rabanis(self):
-        shutil.make_archive(f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--zipped.zip", 'zip', f"{self.root_dir}/{self.start_date}/{self.start_time}")
+        shutil.make_archive(
+            f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--zipped.zip",
+            'zip', f"{self.root_dir}/{self.start_date}/{self.start_time}")
 
 
 if __name__ == '__main__':
@@ -90,7 +95,7 @@ if __name__ == '__main__':
     start = time.time()
     root_dir = "Images"
     total_image_reps = 1
-    axis_res = 25
+    axis_res = 50
     kT_range = [0.01, 0.5]
     mu_range = [2.15, 3.5]
 
