@@ -4,6 +4,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
+from matplotlib.ticker import MultipleLocator
 from skimage import measure
 
 
@@ -50,26 +51,29 @@ norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 fig1, ax1 = plt.subplots()
 plt.imshow(big_img_arr, cmap=cmap, origin="lower")
 
-def nice_axis(axis, res, grid=True):
-    plt.xticks(rotation=90)
-    plt.xticks(np.arange(len(mu_vals)) * res + res/2, [f"{mu_val:.2f}" for mu_val in mu_vals])
-    plt.yticks(np.arange(len(kT_vals)) * res + res/2, [f"{kT_val:.2f}" for kT_val in kT_vals])
+plt.xticks(np.arange(len(mu_vals)) * img_res + img_res/2, [f"{mu_val:.2f}" for mu_val in mu_vals], rotation=90)
+plt.yticks(np.arange(len(kT_vals)) * img_res + img_res/2, [f"{kT_val:.2f}" for kT_val in kT_vals])
+ax1.set_xticks([x * img_res for x in range(axis_res)], minor=True)
+ax1.set_yticks([y * img_res for y in range(axis_res)], minor=True)
 
-    axis.set_xticks([x * res for x in range(axis_res)], minor=True)
-    axis.set_yticks([y * res for y in range(axis_res)], minor=True)
-    # TODO: Don't write EVERY box as unit - be more intelligent!
-    axis.set_xlabel("mu")
-    axis.set_ylabel("kT")
+ax1.set_xlabel("mu")
+ax1.set_ylabel("kT")
 
-    if grid:
-        plt.grid(which="minor", ls="-", lw=2, color="r")
+plt.grid(which="minor", ls="-", lw=2, color="r")
 
-nice_axis(ax1, img_res)
 
 fig2, ax2 = plt.subplots()
-plt.imshow(eulers, origin="lower", cmap="jet")
+cax2 = ax2.matshow(eulers, origin="lower", cmap="jet")
 
-nice_axis(ax2, 1, grid=False)
-cbar = plt.colorbar()
+ax2.xaxis.tick_bottom()
+ax2.set_xticklabels([''] + [f"{mu_val:.2f}" for mu_val in mu_vals], rotation=90)
+ax2.set_yticklabels([''] + [f"{kT_val:.2f}" for kT_val in kT_vals])
+ax2.xaxis.set_major_locator(MultipleLocator(2))
+ax2.yaxis.set_major_locator(MultipleLocator(2))
+
+cbar = fig2.colorbar(cax2)
 cbar.set_label('Euler Characteristic', rotation=270)
 cbar.ax.get_yaxis().labelpad = 15
+
+ax2.set_xlabel("mu")
+ax2.set_ylabel("kT")
