@@ -49,7 +49,7 @@ boundaries = [0, 0.5, 1]
 norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
 target_axis_labels = 15
-num_tick_skip = len(mu_vals)//target_axis_labels
+num_tick_skip = len(mu_vals)//np.min((target_axis_labels, len(mu_vals)))
 mu_labels = [f"{mu_val:.2f}" for mu_val in mu_vals]
 kT_labels = [f"{kT_val:.2f}" for kT_val in kT_vals]
 
