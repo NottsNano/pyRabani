@@ -39,8 +39,7 @@ for i, file in enumerate(files):
     big_img_arr[(kT_ind * 128):((kT_ind + 1) * 128), (mu_ind * 128):((mu_ind + 1) * 128)] = np.flipud(
         img_file["image"])
 
-    if 2 in img_file["image"][()]:
-        eulers[kT_ind, mu_ind] = measure.regionprops(img_file["image"][()] + 1)[-1]["euler_number"]/np.sum(img_file["image"][()]==2)
+    eulers[kT_ind, mu_ind] = measure.regionprops((img_file["image"][()]!=0).astype(int)+1)[0]["euler_number"]/np.sum(img_file["image"][()]==2)
 
 
 # Plot

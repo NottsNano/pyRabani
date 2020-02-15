@@ -13,7 +13,7 @@ from matplotlib import colors
 from numba import jit, prange
 
 
-@jit(nopython=True, fastmath=True)
+@jit(nopython=True, fastmath=True, cache=True)
 def rabani_single(kT, mu):
     L = 128  # System length
     N = L ** 2  # System volume
