@@ -53,12 +53,17 @@ num_tick_skip = len(mu_vals)//target_axis_labels
 mu_labels = [f"{mu_val:.2f}" for mu_val in mu_vals]
 kT_labels = [f"{kT_val:.2f}" for kT_val in kT_vals]
 
+blank_labels_mu = [None]*len(mu_labels)
+blank_labels_kT = [None]*len(kT_labels)
+blank_labels_mu[::num_tick_skip] = mu_labels[::num_tick_skip]
+blank_labels_kT[::num_tick_skip] = kT_labels[::num_tick_skip]
+
 # Sample grid
 fig1, ax1 = plt.subplots()
 plt.imshow(big_img_arr, cmap=cmap, origin="lower")
 
-plt.xticks(np.arange(len(mu_vals)) * img_res + img_res / 2, mu_labels, rotation=90)
-plt.yticks(np.arange(len(kT_vals)) * img_res + img_res / 2, kT_labels)
+plt.xticks(np.arange(len(mu_vals)) * img_res + img_res / 2, blank_labels_mu, rotation=90)
+plt.yticks(np.arange(len(kT_vals)) * img_res + img_res / 2, blank_labels_kT)
 ax1.set_xticks([x * img_res for x in range(axis_res)], minor=True)
 ax1.set_yticks([y * img_res for y in range(axis_res)], minor=True)
 
@@ -72,7 +77,7 @@ fig2, ax2 = plt.subplots()
 cax2 = ax2.matshow(eulers, origin="lower", cmap="jet")
 
 X2, Y2 = np.meshgrid(np.arange(len(eulers)), np.arange(len(eulers)))
-cnts2 = plt.contour(X2, Y2, gaussian(eulers, 1), colors="w", linestyles="solid")
+cnts2 = plt.contour(X2, Y2, gaussian(eulers, 1), levels=15, colors="w", linestyles="solid")
 
 # Remove small contour circles
 for level in cnts2.collections:
@@ -91,7 +96,7 @@ ax2.yaxis.set_major_locator(MultipleLocator(num_tick_skip))
 
 cbar = fig2.colorbar(cax2)
 cbar.add_lines(cnts2)
-cbar.set_label('Euler Characteristic', rotation=270)
+cbar.set_label('Normalised Euler Characteristic', rotation=270)
 cbar.ax.get_yaxis().labelpad = 15
 
 ax2.set_xlabel("mu")
