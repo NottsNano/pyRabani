@@ -8,7 +8,7 @@ from matplotlib.ticker import MultipleLocator
 from skimage import measure
 from skimage.filters import gaussian
 
-root_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-15/13-56"
+root_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/10-58"
 files = os.listdir(root_dir)
 
 # Find image details

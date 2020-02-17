@@ -3,6 +3,7 @@ import platform
 import shutil
 import time
 from datetime import datetime
+from itertools import product
 
 import h5py
 import numpy as np
@@ -22,26 +23,39 @@ class RabaniSweeper:
         self.start_date = self.start_datetime.strftime("%Y-%m-%d")
         self.start_time = self.start_datetime.strftime("%H-%M")
         self.end_datetime = None
-        self.kT_mus = None
+        self.params = None
 
         self.sweep_cnt = 1
 
-    def call_rabani_sweep(self, kT_range, mu_range, axis_steps, image_reps):
+    def call_rabani_sweep(self, params, axis_steps, image_reps):
         assert 0 not in kT_range, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
+
+        def get_linspace_ranges(ranges, axis_res):
+            if type(ranges) is list:
+                linspace = np.linspace(ranges[0], ranges[1], axis_res)
+            else:
+                linspace = [ranges]
+            return linspace
+
+        kT_linspace = get_linspace_ranges(params["kT"], axis_steps)
+        mu_linspace = get_linspace_ranges(params["mu"], axis_steps)
+        MR_linspace = get_linspace_ranges(params["MR"], axis_steps)
+        C_linspace = get_linspace_ranges(params["C"], axis_steps)
+        e_nl_linspace = get_linspace_ranges(params["e_nl"], axis_steps)
+        e_nn_linspace = get_linspace_ranges(params["e_nn"], axis_steps)
 
         current_time = self.start_datetime.strftime("%H:%M:%S")
         print(f"{current_time} - Beginning generation of {axis_res * axis_res * image_reps} rabanis")
 
-        # Manually permute inputs (numba can't do itertools D:)
-        self.kT_mus = np.zeros((axis_steps ** 2, 2))
-        kT_mus_cnt = 0
-        for kT_val in np.linspace(kT_range[0], kT_range[1], axis_res):
-            for mu_val in np.linspace(mu_range[0], mu_range[1], axis_res):
-                self.kT_mus[kT_mus_cnt, :] = [kT_val, mu_val]
-                kT_mus_cnt += 1
+        self.params = np.zeros(((len(kT_linspace) * len(mu_linspace) * len(MR_linspace) * len(C_linspace) * len(
+            e_nl_linspace) * len(e_nn_linspace)), 6))
+
+        for kT_mus_cnt, (kT_val, mu_val, MR_val, C_val, e_nl_val, e_nn_val) in enumerate(
+                product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace)):
+            self.params[kT_mus_cnt, :] = [kT_val, mu_val, MR_val, C_val, e_nl_val, e_nn_val]
 
         for image_rep in range(image_reps):
-            imgs, m_all = _run_rabani_sweep(self.kT_mus)
+            imgs, m_all = _run_rabani_sweep(self.params)
             imgs = np.swapaxes(imgs, 0, 2)
             self.save_rabanis(imgs, m_all, image_rep)
 
@@ -63,7 +77,7 @@ class RabaniSweeper:
         if self.savetype is "txt":
             for rep, img in enumerate(imgs):
                 np.savetxt(
-                    f"{self.root_dir}/{self.start_date}/{self.start_time}/rabani_kT={self.kT_mus[rep, 0]:.2f}_mu={self.kT_mus[rep, 1]:.2f}_nsteps={int(m_all[rep]):d}_rep={image_rep}.txt",
+                    f"{self.root_dir}/{self.start_date}/{self.start_time}/rabani_kT={self.params[rep, 0]:.2f}_mu={self.params[rep, 1]:.2f}_nsteps={int(m_all[rep]):d}_rep={image_rep}.txt",
                     img, fmt="%01d")
         elif self.savetype is "hdf5":
             for rep, img in enumerate(imgs):
@@ -71,8 +85,13 @@ class RabaniSweeper:
                     f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
                     "a")
                 master_file.create_dataset("image", data=img, dtype="i1")
-                master_file.attrs["kT"] = self.kT_mus[rep, 0]
-                master_file.attrs["mu"] = self.kT_mus[rep, 1]
+                master_file.attrs["kT"] = self.params[rep, 0]
+                master_file.attrs["mu"] = self.params[rep, 1]
+                master_file.attrs["MR"] = self.params[rep, 2]
+                master_file.attrs["C"] = self.params[rep, 3]
+                master_file.attrs["e_nl"] = self.params[rep, 4]
+                master_file.attrs["e_nn"] = self.params[rep, 5]
+
                 master_file.attrs["num_mc_steps"] = m_all[rep]
 
                 self.sweep_cnt += 1
@@ -95,10 +114,21 @@ if __name__ == '__main__':
     start = time.time()
     root_dir = "Images"
     total_image_reps = 1
-    axis_res = 50
-    kT_range = [0.01, 0.5]
-    mu_range = [2.15, 3.5]
+    axis_res = 20
+    kT_range = [0.01, 0.35]
+    mu_range = [2.35, 3.5]
+    MR_range = 1
+    C_range = 0.4
+    e_nl_range = 1.5
+    e_nn_range = 2
+
+    param_dict = {"kT": kT_range,
+                  "mu": mu_range,
+                  "MR": MR_range,
+                  "C": C_range,
+                  "e_nl": e_nl_range,
+                  "e_nn": e_nn_range}
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, savetype="hdf5")
-    rabani_sweeper.call_rabani_sweep(kT_range=kT_range, mu_range=mu_range,
+    rabani_sweeper.call_rabani_sweep(params=param_dict,
                                      axis_steps=axis_res, image_reps=total_image_reps)

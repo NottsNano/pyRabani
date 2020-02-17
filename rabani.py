@@ -14,19 +14,20 @@ from numba import jit, prange
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def rabani_single(kT, mu):
+def rabani_single(kT, mu, MR, C, e_nl, e_nn):
     L = 128  # System length
     N = L ** 2  # System volume
 
     MCS = 5000  # Max mc steps
-    MR = 1  # Mobility ratio
-    C = 0.30  # Nano-particle coverage
+    MR = int(MR)
+    # MR = 1  # Mobility ratio
+    # C = 0.30  # Nano-particle coverage
 
     # kT = 0.6
     B = 1 / kT
 
-    e_nl = 1.5  # nanoparticle-liquid interaction energy
-    e_nn = 2.0  # nanoparticle-nanoparticle interaction energy
+    # e_nl = 1.5  # nanoparticle-liquid interaction energy
+    # e_nn = 2.0  # nanoparticle-nanoparticle interaction energy
     # mu = 2.8  # liquid chemical potential
 
     # Seed system array
@@ -279,20 +280,21 @@ def rabani_single(kT, mu):
     return out, m
 
 
-@jit(nopython=True, parallel=True, fastmath=True)
-def _run_rabani_sweep(kT_mus):
-    axis_steps = len(kT_mus)
+@jit(nopython=True, parallel=True, fastmath=True, cache=True)
+def _run_rabani_sweep(params):
+    axis_steps = len(params)
     runs = np.zeros((128, 128, axis_steps))
     m_all = np.zeros((axis_steps,))
 
     for i in prange(axis_steps):
-        runs[:, :, i], m_all[i] = rabani_single(kT_mus[i, 0], kT_mus[i, 1])
+        runs[:, :, i], m_all[i] = rabani_single(kT=params[i, 0], mu=params[i, 1], MR=params[i, 2], C=params[i, 3],
+                                                e_nl=params[i, 4], e_nn=params[i, 5])
 
     return runs, m_all
 
 
 if __name__ == '__main__':
-    img, num_steps = rabani_single(kT=0.6, mu=2.8)
+    img, num_steps = rabani_single(kT=0.6, mu=2.8, MR=1, C=0.3, e_nl=1.5, e_nn=2)
 
     cmap = colors.ListedColormap(["black", "white", "orange"])
     boundaries = [0, 0.5, 1]
