@@ -6,6 +6,7 @@ import numpy as np
 from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Flatten
 from tensorflow.python.keras.models import Sequential
+from matplotlib import pyplot as plt
 
 
 class h5RabaniDataGenerator(Sequence):
@@ -80,18 +81,15 @@ class h5RabaniDataGenerator(Sequence):
         return batch_x, batch_y
 
 
-if __name__ == '__main__':
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/14-04"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
-    # validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
-
-    original_parameters = ["kT", "mu"]
-    train_generator = h5RabaniDataGenerator(training_data_dir, batch_size=128,
+def train_model(train_datadir, test_datadir, y_params, batch_size, epochs):
+    # Set up generators
+    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size,
                                             output_parameters_list=original_parameters, is_train=True)
-    test_generator = h5RabaniDataGenerator(testing_data_dir, batch_size=128,
+    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size,
                                            output_parameters_list=original_parameters, is_train=False)
 
-    input_shape = (128, 128, 1)
+    # Set up model
+    input_shape = (train_generator.image_res, train_generator.image_res, 1)
     model = Sequential()
     model.add(Conv2D(32, kernel_size=(3, 3),
                      activation='relu',
@@ -102,9 +100,35 @@ if __name__ == '__main__':
     model.add(Flatten())
     model.add(Dense(128, activation='relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(len(original_parameters), activation='linear'))
+    model.add(Dense(len(y_params), activation='linear'))
     model.compile(loss='mse', optimizer='adam', metrics=['mse', 'mae'])
 
+    # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        epochs=100)
+                        steps_per_epoch=train_generator.__len__(),
+                        validation_steps=test_generator.__len__(),
+                        epochs=epochs,
+                        max_queue_size=100)
+
+    return model
+
+
+if __name__ == '__main__':
+    # Train
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/14-04"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
+    # validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
+
+    original_parameters = ["kT", "mu"]
+    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
+                                y_params=original_parameters, batch_size=256, epochs=10)
+
+    # Visualise
+    for plot_metric in ['loss', 'mean_squared_error', 'mean_absolute_error']:
+        plt.figure()
+        plt.plot(trained_model.history.history[plot_metric])
+        plt.plot(trained_model.history.history[f'val_{plot_metric}'])
+        plt.legend([plot_metric, f'val_{plot_metric}'])
+        plt.xlabel("Epoch")
+        plt.ylabel(plot_metric)
