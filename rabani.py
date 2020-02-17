@@ -14,12 +14,11 @@ from numba import jit, prange
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def rabani_single(kT, mu, MR, C, e_nl, e_nn):
-    L = 128  # System length
+def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
+    # L = 128  # System length
     N = L ** 2  # System volume
 
     MCS = 5000  # Max mc steps
-    MR = int(MR)
     # MR = 1  # Mobility ratio
     # C = 0.30  # Nano-particle coverage
 
@@ -283,18 +282,18 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn):
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def _run_rabani_sweep(params):
     axis_steps = len(params)
-    runs = np.zeros((128, 128, axis_steps))
+    runs = np.zeros((int(params[0, 6]), int(params[0, 6]), axis_steps))
     m_all = np.zeros((axis_steps,))
 
     for i in prange(axis_steps):
-        runs[:, :, i], m_all[i] = rabani_single(kT=params[i, 0], mu=params[i, 1], MR=params[i, 2], C=params[i, 3],
-                                                e_nl=params[i, 4], e_nn=params[i, 5])
+        runs[:, :, i], m_all[i] = rabani_single(kT=params[i, 0], mu=params[i, 1], MR=int(params[i, 2]), C=params[i, 3],
+                                                e_nl=params[i, 4], e_nn=params[i, 5], L=int(params[i, 6]))
 
     return runs, m_all
 
 
 if __name__ == '__main__':
-    img, num_steps = rabani_single(kT=0.6, mu=2.8, MR=1, C=0.3, e_nl=1.5, e_nn=2)
+    img, num_steps = rabani_single(kT=0.6, mu=2.8, MR=1, C=0.3, e_nl=1.5, e_nn=2, L=128)
 
     cmap = colors.ListedColormap(["black", "white", "orange"])
     boundaries = [0, 0.5, 1]

@@ -41,16 +41,12 @@ class RabaniSweeper:
         C_linspace = get_linspace_ranges(params["C"], axis_steps)
         e_nl_linspace = get_linspace_ranges(params["e_nl"], axis_steps)
         e_nn_linspace = get_linspace_ranges(params["e_nn"], axis_steps)
+        L = get_linspace_ranges(params["L"], axis_steps)
 
         current_time = self.start_datetime.strftime("%H:%M:%S")
         print(f"{current_time} - Beginning generation of {axis_res * axis_res * image_reps} rabanis")
 
-        self.params = np.zeros(((len(kT_linspace) * len(mu_linspace) * len(MR_linspace) * len(C_linspace) * len(
-            e_nl_linspace) * len(e_nn_linspace)), 6))
-
-        for kT_mus_cnt, (kT_val, mu_val, MR_val, C_val, e_nl_val, e_nn_val) in enumerate(
-                product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace)):
-            self.params[kT_mus_cnt, :] = [kT_val, mu_val, MR_val, C_val, e_nl_val, e_nn_val]
+        self.params = np.array(list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, L)))
 
         for image_rep in range(image_reps):
             imgs, m_all = _run_rabani_sweep(self.params)
@@ -89,6 +85,7 @@ class RabaniSweeper:
                 master_file.attrs["C"] = self.params[rep, 3]
                 master_file.attrs["e_nl"] = self.params[rep, 4]
                 master_file.attrs["e_nn"] = self.params[rep, 5]
+                master_file.attrs["L"] = self.params[rep, 6]
 
                 master_file.attrs["num_mc_steps"] = m_all[rep]
 
@@ -107,22 +104,22 @@ class RabaniSweeper:
 if __name__ == '__main__':
     root_dir = "Images"
     total_image_reps = 1
-    axis_res = 20
+    axis_res = 4
 
-    kT_range = [0.01, 0.35]
-    mu_range = [2.35, 3.5]
+    kT_range = [0.15, 0.20]
+    mu_range = 2.9
     MR_range = 1
-    C_range = 0.4
+    C_range = [0.2, 0.25]
     e_nl_range = 1.5
     e_nn_range = 2
-
-    param_dict = {"kT": kT_range,
-                  "mu": mu_range,
-                  "MR": MR_range,
-                  "C": C_range,
-                  "e_nl": e_nl_range,
-                  "e_nn": e_nn_range}
+    L = 1024
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, savetype="hdf5")
-    rabani_sweeper.call_rabani_sweep(params=param_dict,
+    rabani_sweeper.call_rabani_sweep(params={"kT": kT_range,
+                                             "mu": mu_range,
+                                             "MR": MR_range,
+                                             "C": C_range,
+                                             "e_nl": e_nl_range,
+                                             "e_nn": e_nn_range,
+                                             "L": L},
                                      axis_steps=axis_res, image_reps=total_image_reps)
