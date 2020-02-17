@@ -1,13 +1,11 @@
 import os
 import platform
 import shutil
-import time
 from datetime import datetime
 from itertools import product
 
 import h5py
 import numpy as np
-from matplotlib import colors
 
 from rabani import _run_rabani_sweep
 
@@ -107,14 +105,10 @@ class RabaniSweeper:
 
 
 if __name__ == '__main__':
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-
-    start = time.time()
     root_dir = "Images"
     total_image_reps = 1
     axis_res = 20
+
     kT_range = [0.01, 0.35]
     mu_range = [2.35, 3.5]
     MR_range = 1
