@@ -3,14 +3,15 @@ import subprocess
 
 import h5py
 import numpy as np
-from tensorflow.keras.utils import Sequence
-from tensorflow.python.keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Flatten
-from tensorflow.python.keras.models import Sequential
 from matplotlib import pyplot as plt
+from tensorflow.keras.layers import Input, Dense, Conv2D, MaxPooling2D, Flatten
+from tensorflow.keras.models import Model
+from tensorflow.keras.utils import Sequence
+from tensorflow.keras.optimizers import Adam
 
 
 class h5RabaniDataGenerator(Sequence):
-    def __init__(self, root_dir, batch_size, output_parameters_list, is_train,
+    def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train,
                  horizontal_flip=True, vertical_flip=True, y_noise=None):
         self.root_dir = root_dir
         self.__reset_file_iterator__()
@@ -18,6 +19,7 @@ class h5RabaniDataGenerator(Sequence):
 
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
+        self.original_categories_list = output_categories_list
 
         self.is_training_set = is_train
         self.hflip = horizontal_flip
@@ -49,19 +51,22 @@ class h5RabaniDataGenerator(Sequence):
 
         # Preallocate output
         batch_x = np.empty((self.batch_size, self.image_res, self.image_res, 1))
-        batch_y = np.empty((self.batch_size, len(self.original_parameters_list)))
+        batch_y = [np.empty((self.batch_size, len(self.original_parameters_list))),
+                   np.empty((self.batch_size, len(self.original_categories_list)))]
 
         # For each file in the batch
         for i in range(self.batch_size):
             # Parse parameters from the h5 file
             file_entry = self._file_iterator.__next__().path
-
             h5_file = h5py.File(file_entry, "r")
 
             batch_x[i, :, :, 0] = h5_file["image"]
 
             for j, param in enumerate(self.original_parameters_list):
-                batch_y[i, j] = h5_file.attrs[param]
+                batch_y[0][i, j] = h5_file.attrs[param]
+
+                TESTRAND = np.round(np.random.normal(1))
+                batch_y[1][i, :] = [TESTRAND, np.abs(1 - TESTRAND)]
 
         # Augment if we are training
         if self.is_training_set:
@@ -72,7 +77,7 @@ class h5RabaniDataGenerator(Sequence):
                 augment_inds_hflip = np.random.choice(self.batch_size, size=(self.batch_size,), replace=False)
                 batch_x[augment_inds_hflip, :, :] = np.flip(batch_x[augment_inds_hflip, :, :], axis=2)
             if self.ynoise:
-                batch_y *= np.random.normal(loc=1, scale=self.ynoise)
+                batch_y[0] *= np.random.normal(loc=1, scale=self.ynoise)
 
         self._batches_counter += 1
         if self._batches_counter >= self.__len__() and self.is_training_set is False:
@@ -81,27 +86,42 @@ class h5RabaniDataGenerator(Sequence):
         return batch_x, batch_y
 
 
-def train_model(train_datadir, test_datadir, y_params, batch_size, epochs):
+def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size,
-                                            output_parameters_list=original_parameters, is_train=True)
-    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size,
-                                           output_parameters_list=original_parameters, is_train=False)
+    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True,
+                                            output_parameters_list=y_params, output_categories_list=y_cats)
+    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False,
+                                           output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
-    model = Sequential()
-    model.add(Conv2D(32, kernel_size=(3, 3),
-                     activation='relu',
-                     input_shape=input_shape))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(len(y_params), activation='linear'))
-    model.compile(loss='mse', optimizer='adam', metrics=['mse', 'mae'])
+    # model = Sequential()
+    # model.add(Conv2D(32, kernel_size=(3, 3),
+    #                  activation='relu',
+    #                  input_shape=input_shape))
+    # model.add(Conv2D(64, (3, 3), activation='relu'))
+    # model.add(MaxPooling2D(pool_size=(2, 2)))
+    # model.add(Dropout(0.25))
+    # model.add(Flatten())
+    # model.add(Dense(128, activation='relu'))
+    # model.add(Dropout(0.5))
+    # model.add(Dense(len(y_params), activation='linear'))
+    # model.compile(loss='mse', optimizer='adam', metrics=['mse', 'mae'])
+
+    input_layer = Input(shape=input_shape, name="Image_Input")
+    conv1 = Conv2D(14, kernel_size=4, activation='relu')(input_layer)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    conv2 = Conv2D(7, kernel_size=4, activation='relu')(pool1)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    flatten = Flatten()(pool2)
+
+    output1 = Dense(len(y_params), activation='linear', name="Parameter_Classification")(flatten)
+    output2 = Dense(len(y_cats), activation='sigmoid', name="Category_Classification")(flatten)
+
+    model = Model(inputs=input_layer, outputs=[output1, output2], name="RabaniNet")
+    model.compile(loss={"Parameter_Classification": 'mse', "Category_Classification": 'categorical_crossentropy'},
+                  metrics={"Parameter_Classification": ['mse', 'mae'], "Category_Classification": 'accuracy'},
+                  optimizer=Adam())
 
     # Train
     model.fit_generator(generator=train_generator,
@@ -114,21 +134,24 @@ def train_model(train_datadir, test_datadir, y_params, batch_size, epochs):
     return model
 
 
+def plot_history(model):
+    for plot_metric in model.metrics_names:
+        plt.figure()
+        plt.plot(model.history.history[plot_metric])
+        plt.plot(model.history.history[f'val_{plot_metric}'])
+        plt.legend([plot_metric, f'val_{plot_metric}'])
+        plt.xlabel("Epoch")
+        plt.ylabel(plot_metric)
+
+
 if __name__ == '__main__':
     # Train
     training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/14-04"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
     # validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
-
+    original_categories = ["labyrinthine", "liquid"]
     original_parameters = ["kT", "mu"]
-    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, batch_size=256, epochs=10)
 
-    # Visualise
-    for plot_metric in ['loss', 'mean_squared_error', 'mean_absolute_error']:
-        plt.figure()
-        plt.plot(trained_model.history.history[plot_metric])
-        plt.plot(trained_model.history.history[f'val_{plot_metric}'])
-        plt.legend([plot_metric, f'val_{plot_metric}'])
-        plt.xlabel("Epoch")
-        plt.ylabel(plot_metric)
+    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
+                                y_params=original_parameters, y_cats=original_categories, batch_size=256, epochs=100)
+    plot_history(trained_model)
