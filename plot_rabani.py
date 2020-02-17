@@ -52,12 +52,12 @@ def dualscale_plot(xaxis, yaxis, root_dir, target_axis_labels=15):
     num_tick_skip = len(y_vals) // np.min((target_axis_labels, len(y_vals)))
 
     x_labels = [f"{x_val:.2f}" for x_val in x_vals]
-    x_labels = [f"{y_val:.2f}" for y_val in y_vals]
+    y_labels = [f"{y_val:.2f}" for y_val in y_vals]
 
     blank_labels_mu = [None] * len(x_labels)
-    blank_labels_y = [None] * len(x_labels)
+    blank_labels_y = [None] * len(y_labels)
     blank_labels_mu[::num_tick_skip] = x_labels[::num_tick_skip]
-    blank_labels_y[::num_tick_skip] = x_labels[::num_tick_skip]
+    blank_labels_y[::num_tick_skip] = y_labels[::num_tick_skip]
 
     # Sample grid
     fig1, ax1 = plt.subplots()
