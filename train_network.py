@@ -11,7 +11,6 @@ from tensorflow.python.keras.models import Sequential
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, is_train,
                  horizontal_flip=True, vertical_flip=True, y_noise=None):
-        self.resets = 0
         self.root_dir = root_dir
         self.__reset_file_iterator__()
         self._get_image_res()
@@ -33,10 +32,10 @@ class h5RabaniDataGenerator(Sequence):
 
     def on_epoch_end(self):
         self.__reset_file_iterator__()
-        self.resets += 0
 
     def __reset_file_iterator__(self):
         self._file_iterator = os.scandir(self.root_dir)
+        self._batches_counter = 0
 
     def __len__(self):
         n_files = int(
