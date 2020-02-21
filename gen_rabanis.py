@@ -1,21 +1,25 @@
+import json
 import os
 import platform
-import shutil
 from datetime import datetime
 from itertools import product
 
 import h5py
 import numpy as np
+import paramiko
+from skimage import measure
 
 from rabani import _run_rabani_sweep
 
 
 class RabaniSweeper:
-    def __init__(self, root_dir, savetype="hdf5", zip_when_done=False):
+    def __init__(self, root_dir, sftp_when_done=False):
         self.system_name = platform.node()
-        self.savetype = savetype
         self.root_dir = root_dir
-        self.zip_when_done = zip_when_done
+
+        self.sftp_when_done = sftp_when_done
+        self.ssh = None
+        self.sftp = None
 
         self.start_datetime = datetime.now()
         self.start_date = self.start_datetime.strftime("%Y-%m-%d")
@@ -24,6 +28,16 @@ class RabaniSweeper:
         self.params = None
 
         self.sweep_cnt = 1
+
+    def setup_ssh(self):
+        with open("details.json", 'r') as f:
+            details = json.load(f)
+
+        self.ssh = paramiko.SSHClient()
+        self.ssh.load_system_host_keys()
+        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.ssh.connect(details["ip_addr"], username=details["user"], password=details["pass"])
+        self.sftp = self.ssh.open_sftp()
 
     def call_rabani_sweep(self, params, axis_steps, image_reps):
         assert 0 not in kT_range, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
@@ -46,12 +60,13 @@ class RabaniSweeper:
         current_time = self.start_datetime.strftime("%H:%M:%S")
         print(f"{current_time} - Beginning generation of {axis_res * axis_res * image_reps} rabanis")
 
-        self.params = np.array(list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, L)))
+        self.params = np.array(
+            list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, L)))
 
         for image_rep in range(image_reps):
             imgs, m_all = _run_rabani_sweep(self.params)
             imgs = np.swapaxes(imgs, 0, 2)
-            self.save_rabanis(imgs, m_all, image_rep)
+            self.save_rabanis(imgs, m_all)
 
             now = datetime.now().strftime("%H:%M:%S")
             print(
@@ -59,62 +74,64 @@ class RabaniSweeper:
 
         self.end_datetime = datetime.now()
 
-        if self.zip_when_done:
-            self.zip_rabanis()
-
     def make_storage_folder(self, dir):
         if not os.path.isdir(dir):
             os.makedirs(dir)
 
-    def save_rabanis(self, imgs, m_all, image_rep):
+    def save_rabanis(self, imgs, m_all):
         self.make_storage_folder(f"{self.root_dir}/{self.start_date}/{self.start_time}")
-        if self.savetype is "txt":
-            for rep, img in enumerate(imgs):
-                np.savetxt(
-                    f"{self.root_dir}/{self.start_date}/{self.start_time}/rabani_kT={self.params[rep, 0]:.2f}_mu={self.params[rep, 1]:.2f}_nsteps={int(m_all[rep]):d}_rep={image_rep}.txt",
-                    img, fmt="%01d")
-        elif self.savetype is "hdf5":
-            for rep, img in enumerate(imgs):
-                master_file = h5py.File(
-                    f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
-                    "a")
-                master_file.create_dataset("image", data=img, dtype="i1")
-                master_file.attrs["kT"] = self.params[rep, 0]
-                master_file.attrs["mu"] = self.params[rep, 1]
-                master_file.attrs["MR"] = self.params[rep, 2]
-                master_file.attrs["C"] = self.params[rep, 3]
-                master_file.attrs["e_nl"] = self.params[rep, 4]
-                master_file.attrs["e_nn"] = self.params[rep, 5]
-                master_file.attrs["L"] = self.params[rep, 6]
+        for rep, img in enumerate(imgs):
+            master_file = h5py.File(
+                f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
+                "a")
 
-                master_file.attrs["num_mc_steps"] = m_all[rep]
+            master_file.attrs["kT"] = self.params[rep, 0]
+            master_file.attrs["mu"] = self.params[rep, 1]
+            master_file.attrs["MR"] = self.params[rep, 2]
+            master_file.attrs["C"] = self.params[rep, 3]
+            master_file.attrs["e_nl"] = self.params[rep, 4]
+            master_file.attrs["e_nn"] = self.params[rep, 5]
+            master_file.attrs["L"] = self.params[rep, 6]
 
-                self.sweep_cnt += 1
-        elif self.savetype is None:
-            pass
-        else:
-            raise LookupError("Specified storage format not available")
+            sim_results = master_file.create_group("sim_results")
+            sim_results.create_dataset("image", data=img, dtype="i1")
+            sim_results.create_dataset("num_mc_steps", data=m_all[rep], dtype="i")
 
-    def zip_rabanis(self):
-        shutil.make_archive(
-            f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--zipped.zip",
-            'zip', f"{self.root_dir}/{self.start_date}/{self.start_time}")
+            region = (measure.regionprops((img != 0) + 1)[0])
+            region_props = sim_results.create_group("region_props")
+            region_props.create_dataset("euler_number", data=region["euler_number"], dtype="i")
+            region_props.create_dataset("perimeter", data=region["perimeter"], dtype="f")
+            region_props.create_dataset("eccentricity", data=region["eccentricity"], dtype="f")
+
+            self.sweep_cnt += 1
+
+            if self.sftp_when_done:
+                self.network_rabanis()
+
+    def network_rabanis(self):
+        if not self.ssh:
+            self.setup_ssh()
+        self.sftp.put(
+            f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5",
+            f"/home/mltest1/tmp/pycharm_project_883/Images/ImageDump/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5")
+        os.remove(
+            f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5")
 
 
 if __name__ == '__main__':
     root_dir = "Images"
     total_image_reps = 1
-    axis_res = 4
+    axis_res = 2
 
-    kT_range = [0.15, 0.20]
-    mu_range = 2.9
+    kT_range = [0.01, 0.35]
+    mu_range = [2.35, 3.47]
     MR_range = 1
-    C_range = [0.2, 0.25]
+    C_range = 0.3
     e_nl_range = 1.5
     e_nn_range = 2
-    L = 1024
+    L = 128
 
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, savetype="hdf5")
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir)
     rabani_sweeper.call_rabani_sweep(params={"kT": kT_range,
                                              "mu": mu_range,
                                              "MR": MR_range,

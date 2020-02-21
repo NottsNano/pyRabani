@@ -21,8 +21,8 @@ def dualscale_plot(xaxis, yaxis, root_dir, target_axis_labels=15):
         img_file = h5py.File(f"{root_dir}/{file}", "r")
         x_range_all[i] = img_file.attrs[xaxis]
         y_range_all[i] = img_file.attrs[yaxis]
-        m_all[i] = img_file.attrs["num_mc_steps"]
-        img_res = len(img_file["image"])
+        m_all[i] = img_file["sim_results"]["num_mc_steps"][()]
+        img_res = len(img_file["sim_results"]["image"])
 
     x_range = [np.min(x_range_all), np.max(x_range_all)]
     y_range = [np.min(y_range_all), np.max(y_range_all)]
@@ -39,10 +39,10 @@ def dualscale_plot(xaxis, yaxis, root_dir, target_axis_labels=15):
         x_ind = np.searchsorted(x_vals, img_file.attrs[xaxis])
         y_ind = np.searchsorted(y_vals, img_file.attrs[yaxis])
         big_img_arr[(y_ind * 128):((y_ind + 1) * 128), (x_ind * 128):((x_ind + 1) * 128)] = np.flipud(
-            img_file["image"])
+            img_file["sim_results"]["image"])
 
-        eulers[y_ind, x_ind] = measure.regionprops((img_file["image"][()] != 0).astype(int) + 1)[0][
-                                   "euler_number"] / np.sum(img_file["image"][()] == 2)
+        eulers[y_ind, x_ind] = measure.regionprops((img_file["sim_results"]["image"][()] != 0).astype(int) + 1)[0][
+                                   "euler_number"] / np.sum(img_file["sim_results"]["image"][()] == 2)
 
     # Plot
     cmap = colors.ListedColormap(["black", "white", "orange"])
@@ -103,6 +103,8 @@ def dualscale_plot(xaxis, yaxis, root_dir, target_axis_labels=15):
     ax2.set_xlabel(xaxis)
     ax2.set_ylabel(yaxis)
 
+    return big_img_arr, eulers
+
 
 if __name__ == '__main__':
-    dualscale_plot(xaxis="mu", yaxis="kT", root_dir="/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44")
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir="Images/2020-02-21/16-18")

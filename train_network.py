@@ -8,7 +8,7 @@ from tensorflow.keras.layers import Input, Dense, Conv2D, MaxPooling2D, Flatten
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras.optimizers import Adam
-
+ 
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train,
