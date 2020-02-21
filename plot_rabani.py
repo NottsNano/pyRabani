@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
 from matplotlib.ticker import MultipleLocator
-from skimage import measure
 from skimage.filters import gaussian
 
 
-def dualscale_plot(xaxis, yaxis, root_dir, target_axis_labels=15):
+def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
+    """Plot two variables against another"""
     files = os.listdir(root_dir)
 
     # Find image details
@@ -41,15 +41,15 @@ def dualscale_plot(xaxis, yaxis, root_dir, target_axis_labels=15):
         big_img_arr[(y_ind * 128):((y_ind + 1) * 128), (x_ind * 128):((x_ind + 1) * 128)] = np.flipud(
             img_file["sim_results"]["image"])
 
-        eulers[y_ind, x_ind] = measure.regionprops((img_file["sim_results"]["image"][()] != 0).astype(int) + 1)[0][
-                                   "euler_number"] / np.sum(img_file["sim_results"]["image"][()] == 2)
+        eulers[y_ind, x_ind] = img_file['sim_results']["region_props"]["euler_number"][()] / np.sum(
+            img_file["sim_results"]["image"][()] == 2)
 
     # Plot
     cmap = colors.ListedColormap(["black", "white", "orange"])
     boundaries = [0, 0.5, 1]
     norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
-    num_tick_skip = len(y_vals) // np.min((target_axis_labels, len(y_vals)))
+    num_tick_skip = len(y_vals) // np.min((num_axis_ticks, len(y_vals)))
 
     x_labels = [f"{x_val:.2f}" for x_val in x_vals]
     y_labels = [f"{y_val:.2f}" for y_val in y_vals]
@@ -106,5 +106,59 @@ def dualscale_plot(xaxis, yaxis, root_dir, target_axis_labels=15):
     return big_img_arr, eulers
 
 
+def plot_threshold_selection(root_dir, thresheses, plot_config=(2, 5)):
+    """Plot a selection of images between a range of normalised euler numbers,
+    to eventually determine training labels"""
+    # Setup and parse input
+    files = os.listdir(root_dir)
+    cmap = colors.ListedColormap(["black", "white", "orange"])
+    boundaries = [0, 0.5, 1]
+    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+
+    fig, axs = plt.subplots(1, len(thresheses), sharex=True, sharey=True)
+
+    # For each threshold
+    for plot_num, threshes in enumerate(thresheses):
+        threshes = np.sort(threshes)
+
+        plot_i = -1
+        plot_j = 0
+
+        big_img = np.zeros((128*plot_config[0], 128*plot_config[1]))
+
+        # For each file
+        for file in files:
+            # Determine the euler number
+            img_file = h5py.File(f"{root_dir}/{file}", "r")
+            euler_num = img_file['sim_results']["region_props"]["euler_number"][()] / np.sum(
+                img_file["sim_results"]["image"][()] == 2)
+
+            # If we are going to plot
+            if threshes[0] <= euler_num <= threshes[1]:
+                # Pick the subplot to plot on
+                if plot_i >= plot_config[1] - 1:
+                    plot_i = 0
+                    plot_j += 1
+                else:
+                    plot_i += 1
+                if plot_j >= plot_config[0]:
+                    break
+
+                # Plot
+                big_img[plot_j*128:(plot_j+1)*128, plot_i*128:(plot_i+1)*128] = img_file["sim_results"]["image"]
+
+        axs[plot_num].imshow(big_img, cmap=cmap)
+
+        axs[plot_num].set_xticks(np.arange(0, 128*plot_config[1], 128))
+        axs[plot_num].set_yticks(np.arange(0, 128*plot_config[0], 128))
+        axs[plot_num].grid(ls="-", lw=2, color="r", )
+        axs[plot_num].tick_params(labelcolor='w', top=False, bottom=False, left=False, right=False)
+        axs[plot_num].title.set_text(f"{threshes[0]} <= Euler <= {threshes[1]}")
+
+
 if __name__ == '__main__':
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir="Images/2020-02-21/16-18")
+    dir = "Images/2020-02-21/16-25"
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir)
+    plot_threshold_selection(root_dir=dir,
+                             thresheses=[(-0.06, -0.05), (-0.05, -0.04), (-0.04, -0.03),
+                                         (-0.03, -0.02), (-0.02, -0.01), (-0.01, -0.00)])
