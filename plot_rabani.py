@@ -106,7 +106,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
     return big_img_arr, eulers
 
 
-def plot_threshold_selection(root_dir, thresheses, plot_config=(5, 5)):
+def plot_threshold_selection(root_dir, categories, plot_config=(5, 5)):
     """Plot a selection of images between a range of normalised euler numbers,
     to eventually determine training labels"""
     # Setup and parse input
@@ -115,11 +115,10 @@ def plot_threshold_selection(root_dir, thresheses, plot_config=(5, 5)):
     boundaries = [0, 0.5, 1]
     norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
-    fig, axs = plt.subplots(1, len(thresheses), sharex=True, sharey=True)
+    fig, axs = plt.subplots(1, len(categories), sharex=True, sharey=True)
 
     # For each threshold
-    for plot_num, threshes in enumerate(thresheses):
-        threshes = np.sort(threshes)
+    for plot_num, category in enumerate(categories):
 
         plot_i = -1
         plot_j = 0
@@ -130,11 +129,10 @@ def plot_threshold_selection(root_dir, thresheses, plot_config=(5, 5)):
         for file in files:
             # Determine the euler number
             img_file = h5py.File(f"{root_dir}/{file}", "r")
-            euler_num = img_file['sim_results']["region_props"]["euler_number"][()] / np.sum(
-                img_file["sim_results"]["image"][()] == 2)
+            img_category = img_file.attrs["category"]
 
             # If we are going to plot
-            if threshes[0] <= euler_num <= threshes[1]:
+            if category == img_category:
                 # Pick the subplot to plot on
                 if plot_i >= plot_config[1] - 1:
                     plot_i = 0
@@ -154,12 +152,10 @@ def plot_threshold_selection(root_dir, thresheses, plot_config=(5, 5)):
         axs[plot_num].set_yticks(np.arange(0, 128 * plot_config[0], 128))
         axs[plot_num].grid(ls="-", lw=2, color="r", )
         axs[plot_num].tick_params(labelcolor='w', top=False, bottom=False, left=False, right=False)
-        axs[plot_num].title.set_text(f"{threshes[0]} <= Euler <= {threshes[1]}")
+        axs[plot_num].title.set_text(f"{category}")
 
 
 if __name__ == '__main__':
-    dir = "Images/2020-02-21/16-25"
+    dir = "Images/2020-02-24/16-53"
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir)
-    test = plot_threshold_selection(root_dir=dir,
-                                    thresheses=[(-0.06, -0.05), (-0.05, -0.04), (-0.04, -0.03),
-                                                (-0.03, -0.02), (-0.02, -0.01), (-0.01, -0.00)])
+    plot_threshold_selection(root_dir=dir, categories=["hole", "liquid", "cellular", "labyrinth", "island"])

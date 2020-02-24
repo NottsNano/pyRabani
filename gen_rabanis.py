@@ -7,6 +7,7 @@ from itertools import product
 import h5py
 import numpy as np
 import paramiko
+from scipy.stats import mode
 from skimage import measure
 
 from rabani import _run_rabani_sweep
@@ -85,6 +86,8 @@ class RabaniSweeper:
                 f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
                 "a")
 
+            region, cat = self.calculate_stats(img)
+
             master_file.attrs["kT"] = self.params[rep, 0]
             master_file.attrs["mu"] = self.params[rep, 1]
             master_file.attrs["MR"] = self.params[rep, 2]
@@ -92,12 +95,12 @@ class RabaniSweeper:
             master_file.attrs["e_nl"] = self.params[rep, 4]
             master_file.attrs["e_nn"] = self.params[rep, 5]
             master_file.attrs["L"] = self.params[rep, 6]
+            master_file.attrs["category"] = cat
 
             sim_results = master_file.create_group("sim_results")
             sim_results.create_dataset("image", data=img, dtype="i1")
             sim_results.create_dataset("num_mc_steps", data=m_all[rep], dtype="i")
 
-            region = (measure.regionprops((img != 0) + 1)[0])
             region_props = sim_results.create_group("region_props")
             region_props.create_dataset("euler_number", data=region["euler_number"], dtype="i")
             region_props.create_dataset("perimeter", data=region["perimeter"], dtype="f")
@@ -105,8 +108,36 @@ class RabaniSweeper:
 
             self.sweep_cnt += 1
 
-            if self.sftp_when_done:
-                self.network_rabanis()
+            if cat is "none":
+                del master_file
+                if self.sftp_when_done:
+                    self.network_rabanis()
+
+    def calculate_stats(self, img):
+        # Region Properties
+        region = (measure.regionprops((img != 0) + 1)[0])
+
+        # Broadly estimate category
+        if int(mode(img, axis=None).mode) == 1:
+            if np.sum(img == 0)/self.params[0, 6]**2 >= 0.07:
+                # Hole if dominant category is water and also has an amount of substrate
+                cat = "hole"
+            else:
+                # Liquid if dominant category is water (==1)
+                cat = "liquid"
+        elif -0.01 <= region["euler_number"] <= 0:
+            # Cell/Worm if starting to form
+            cat = "cellular"
+        elif -0.03 <= region["euler_number"] < -0.01:
+            # Labyrinth
+            cat = "labyrinth"
+        elif region["euler_number"] < -0.03:
+            # Island
+            cat = "island"
+        else:
+            cat = "none"
+
+        return region, cat
 
     def network_rabanis(self):
         if not self.ssh:
@@ -121,7 +152,7 @@ class RabaniSweeper:
 if __name__ == '__main__':
     root_dir = "Images"
     total_image_reps = 1
-    axis_res = 2
+    axis_res = 40
 
     kT_range = [0.01, 0.35]
     mu_range = [2.35, 3.47]
