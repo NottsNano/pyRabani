@@ -91,7 +91,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
     # Pretty up axis
     ax2.xaxis.tick_bottom()
     ax2.set_xticklabels([''] + x_labels[::num_tick_skip], rotation=90)
-    ax2.set_yticklabels([''] + x_labels[::num_tick_skip])
+    ax2.set_yticklabels([''] + y_labels[::num_tick_skip])
     ax2.xaxis.set_major_locator(MultipleLocator(num_tick_skip))
     ax2.yaxis.set_major_locator(MultipleLocator(num_tick_skip))
 
@@ -106,7 +106,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
     return big_img_arr, eulers
 
 
-def plot_threshold_selection(root_dir, thresheses, plot_config=(2, 5)):
+def plot_threshold_selection(root_dir, thresheses, plot_config=(5, 5)):
     """Plot a selection of images between a range of normalised euler numbers,
     to eventually determine training labels"""
     # Setup and parse input
@@ -124,7 +124,7 @@ def plot_threshold_selection(root_dir, thresheses, plot_config=(2, 5)):
         plot_i = -1
         plot_j = 0
 
-        big_img = np.zeros((128*plot_config[0], 128*plot_config[1]))
+        big_img = np.zeros((128 * plot_config[0], 128 * plot_config[1]))
 
         # For each file
         for file in files:
@@ -145,12 +145,13 @@ def plot_threshold_selection(root_dir, thresheses, plot_config=(2, 5)):
                     break
 
                 # Plot
-                big_img[plot_j*128:(plot_j+1)*128, plot_i*128:(plot_i+1)*128] = img_file["sim_results"]["image"]
+                big_img[plot_j * 128:(plot_j + 1) * 128, plot_i * 128:(plot_i + 1) * 128] = img_file["sim_results"][
+                    "image"]
 
         axs[plot_num].imshow(big_img, cmap=cmap)
 
-        axs[plot_num].set_xticks(np.arange(0, 128*plot_config[1], 128))
-        axs[plot_num].set_yticks(np.arange(0, 128*plot_config[0], 128))
+        axs[plot_num].set_xticks(np.arange(0, 128 * plot_config[1], 128))
+        axs[plot_num].set_yticks(np.arange(0, 128 * plot_config[0], 128))
         axs[plot_num].grid(ls="-", lw=2, color="r", )
         axs[plot_num].tick_params(labelcolor='w', top=False, bottom=False, left=False, right=False)
         axs[plot_num].title.set_text(f"{threshes[0]} <= Euler <= {threshes[1]}")
@@ -159,6 +160,6 @@ def plot_threshold_selection(root_dir, thresheses, plot_config=(2, 5)):
 if __name__ == '__main__':
     dir = "Images/2020-02-21/16-25"
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir)
-    plot_threshold_selection(root_dir=dir,
-                             thresheses=[(-0.06, -0.05), (-0.05, -0.04), (-0.04, -0.03),
-                                         (-0.03, -0.02), (-0.02, -0.01), (-0.01, -0.00)])
+    test = plot_threshold_selection(root_dir=dir,
+                                    thresheses=[(-0.06, -0.05), (-0.05, -0.04), (-0.04, -0.03),
+                                                (-0.03, -0.02), (-0.02, -0.01), (-0.01, -0.00)])
