@@ -4,19 +4,17 @@ import subprocess
 import h5py
 import numpy as np
 from matplotlib import pyplot as plt
-from tensorflow.keras.layers import Input, Dense, Conv2D, MaxPooling2D, Flatten, Dropout
-from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.utils import Sequence
+from sklearn.utils import class_weight
+from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
- 
+from tensorflow.keras.utils import Sequence
+
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train,
                  horizontal_flip=True, vertical_flip=True, y_noise=None):
         self.root_dir = root_dir
-        self.__reset_file_iterator__()
-        self._get_image_res()
-
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
         self.original_categories_list = output_categories_list
@@ -26,7 +24,31 @@ class h5RabaniDataGenerator(Sequence):
         self.vflip = vertical_flip
         self.ynoise = y_noise
 
+        self.class_weights_dict = None
+        self.__reset_file_iterator__()
+        self._get_image_res()
+        self._get_class_weights()
+
         self._batches_counter = 0
+
+    def _get_class_weights(self):
+        """Open all the files once to compute the class weights"""
+        self.__reset_file_iterator__()
+        length = int(self.__len__() * self.batch_size)
+
+        class_weights_arr = np.zeros((length,))
+
+        for i in range(length):
+            file_entry = self._file_iterator.__next__().path
+            h5_file = h5py.File(file_entry, "r")
+            idx_find = self.original_categories_list.index(h5_file.attrs["category"])
+            class_weights_arr[i] = idx_find
+
+        self.class_weights_dict = class_weight.compute_class_weight('balanced',
+                                                                    np.arange(len(self.original_categories_list)),
+                                                                    class_weights_arr)
+
+        self.__reset_file_iterator__()
 
     def _get_image_res(self):
         """Open one file to check the image resolution"""
@@ -64,13 +86,12 @@ class h5RabaniDataGenerator(Sequence):
             batch_x[i, :, :, 0] = h5_file["sim_results"]["image"]
 
             # for j, (param, cat) in enumerate(zip(self.original_parameters_list, self.original_categories_list)):
-                # batch_y[0][i, j] = h5_file.attrs[param]
-                #
-                # TESTRAND = np.round(np.random.normal(1))
-                # batch_y[1][i, :] = [TESTRAND, np.abs(1 - TESTRAND)]
-            idx_find = np.argwhere(self.original_categories_list.index(h5_file.attrs["category"]))
+            # batch_y[0][i, j] = h5_file.attrs[param]
+            #
+            # TESTRAND = np.round(np.random.normal(1))
+            # batch_y[1][i, :] = [TESTRAND, np.abs(1 - TESTRAND)]
+            idx_find = self.original_categories_list.index(h5_file.attrs["category"])
             batch_y[i, idx_find] = 1
-
 
         # Augment if we are training
         if self.is_training_set:
@@ -143,14 +164,14 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
                   optimizer=Adam(),
                   metrics=['accuracy'])
 
-
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
                         validation_steps=test_generator.__len__(),
                         epochs=epochs,
-                        max_queue_size=100)
+                        max_queue_size=100,
+                        class_weight=train_generator.class_weights_dict)
 
     return model
 
@@ -167,8 +188,8 @@ def plot_history(model):
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/10-22"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/10-22"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/11-26"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/11-26"
     # validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
     original_categories = ["hole", "liquid", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
