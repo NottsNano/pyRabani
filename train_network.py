@@ -4,8 +4,8 @@ import subprocess
 import h5py
 import numpy as np
 from matplotlib import pyplot as plt
-from tensorflow.keras.layers import Input, Dense, Conv2D, MaxPooling2D, Flatten
-from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, Conv2D, MaxPooling2D, Flatten, Dropout
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras.optimizers import Adam
  
@@ -30,7 +30,7 @@ class h5RabaniDataGenerator(Sequence):
 
     def _get_image_res(self):
         """Open one file to check the image resolution"""
-        self.image_res = len(h5py.File(self._file_iterator.__next__().path, "r")["image"])
+        self.image_res = len(h5py.File(self._file_iterator.__next__().path, "r")["sim_results"]["image"])
         self.__reset_file_iterator__()
 
     def on_epoch_end(self):
@@ -51,8 +51,9 @@ class h5RabaniDataGenerator(Sequence):
 
         # Preallocate output
         batch_x = np.empty((self.batch_size, self.image_res, self.image_res, 1))
-        batch_y = [np.empty((self.batch_size, len(self.original_parameters_list))),
-                   np.empty((self.batch_size, len(self.original_categories_list)))]
+        # batch_y = [np.empty((self.batch_size, len(self.original_parameters_list))),
+        #            np.empty((self.batch_size, len(self.original_categories_list)))]
+        batch_y = np.zeros((self.batch_size, len(self.original_categories_list)))
 
         # For each file in the batch
         for i in range(self.batch_size):
@@ -60,13 +61,16 @@ class h5RabaniDataGenerator(Sequence):
             file_entry = self._file_iterator.__next__().path
             h5_file = h5py.File(file_entry, "r")
 
-            batch_x[i, :, :, 0] = h5_file["image"]
+            batch_x[i, :, :, 0] = h5_file["sim_results"]["image"]
 
-            for j, param in enumerate(self.original_parameters_list):
-                batch_y[0][i, j] = h5_file.attrs[param]
+            # for j, (param, cat) in enumerate(zip(self.original_parameters_list, self.original_categories_list)):
+                # batch_y[0][i, j] = h5_file.attrs[param]
+                #
+                # TESTRAND = np.round(np.random.normal(1))
+                # batch_y[1][i, :] = [TESTRAND, np.abs(1 - TESTRAND)]
+            idx_find = np.argwhere(self.original_categories_list.index(h5_file.attrs["category"]))
+            batch_y[i, idx_find] = 1
 
-                TESTRAND = np.round(np.random.normal(1))
-                batch_y[1][i, :] = [TESTRAND, np.abs(1 - TESTRAND)]
 
         # Augment if we are training
         if self.is_training_set:
@@ -108,20 +112,37 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
     # model.add(Dense(len(y_params), activation='linear'))
     # model.compile(loss='mse', optimizer='adam', metrics=['mse', 'mae'])
 
-    input_layer = Input(shape=input_shape, name="Image_Input")
-    conv1 = Conv2D(14, kernel_size=4, activation='relu')(input_layer)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    conv2 = Conv2D(7, kernel_size=4, activation='relu')(pool1)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    flatten = Flatten()(pool2)
+    # input_layer = Input(shape=input_shape, name="Image_Input")
+    # conv1 = Conv2D(14, kernel_size=4, activation='relu')(input_layer)
+    # pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    # conv2 = Conv2D(7, kernel_size=4, activation='relu')(pool1)
+    # pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    # flatten = Flatten()(pool2)
+    #
+    # output1 = Dense(len(y_params), activation='linear', name="Parameter_Classification")(flatten)
+    # output2 = Dense(len(y_cats), activation='sigmoid', name="Category_Classification")(flatten)
+    #
+    # model = Model(inputs=input_layer, outputs=[output1, output2], name="RabaniNet")
+    # model.compile(loss={"Parameter_Classification": 'mse', "Category_Classification": 'categorical_crossentropy'},
+    #               metrics={"Parameter_Classification": ['mse', 'mae'], "Category_Classification": 'accuracy'},
+    #               optimizer=Adam())
 
-    output1 = Dense(len(y_params), activation='linear', name="Parameter_Classification")(flatten)
-    output2 = Dense(len(y_cats), activation='sigmoid', name="Category_Classification")(flatten)
+    model = Sequential()
+    model.add(Conv2D(32, kernel_size=(3, 3),
+                     activation='relu',
+                     input_shape=input_shape))
+    model.add(Conv2D(64, (3, 3), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    model.add(Flatten())
+    model.add(Dense(128, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(len(y_cats), activation='softmax'))
 
-    model = Model(inputs=input_layer, outputs=[output1, output2], name="RabaniNet")
-    model.compile(loss={"Parameter_Classification": 'mse', "Category_Classification": 'categorical_crossentropy'},
-                  metrics={"Parameter_Classification": ['mse', 'mae'], "Category_Classification": 'accuracy'},
-                  optimizer=Adam())
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=Adam(),
+                  metrics=['accuracy'])
+
 
     # Train
     model.fit_generator(generator=train_generator,
@@ -146,12 +167,12 @@ def plot_history(model):
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/14-04"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/10-22"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/10-22"
     # validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
-    original_categories = ["labyrinthine", "liquid"]
+    original_categories = ["hole", "liquid", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=256, epochs=100)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=64, epochs=10)
     plot_history(trained_model)

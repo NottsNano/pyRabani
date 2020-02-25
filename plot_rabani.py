@@ -41,8 +41,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
         big_img_arr[(y_ind * 128):((y_ind + 1) * 128), (x_ind * 128):((x_ind + 1) * 128)] = np.flipud(
             img_file["sim_results"]["image"])
 
-        eulers[y_ind, x_ind] = img_file['sim_results']["region_props"]["euler_number"][()] / np.sum(
-            img_file["sim_results"]["image"][()] == 2)
+        eulers[y_ind, x_ind] = img_file['sim_results']["region_props"]["normalised_euler_number"][()]
 
     # Plot
     cmap = colors.ListedColormap(["black", "white", "orange"])
@@ -156,6 +155,6 @@ def plot_threshold_selection(root_dir, categories, plot_config=(5, 5)):
 
 
 if __name__ == '__main__':
-    dir = "Images/2020-02-24/16-53"
+    dir = "Images/2020-02-25/09-42"
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir)
     plot_threshold_selection(root_dir=dir, categories=["hole", "liquid", "cellular", "labyrinth", "island"])
