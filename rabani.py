@@ -273,7 +273,7 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
             perc_similarities_std = np.std(np.diff(perc_similarities))
             checkpoint_out = 2 * nano_particles + liquid_array
 
-        if 0 < perc_similarities_std < 0.005 and m > 200:
+        if 0 < perc_similarities_std < 0.003 and m > 200:
             break
 
     return out, m
