@@ -4,12 +4,14 @@ import subprocess
 import h5py
 import numpy as np
 from matplotlib import pyplot as plt
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils import class_weight
 from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
-
+from sklearn import metrics
+import itertools
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train,
@@ -36,17 +38,17 @@ class h5RabaniDataGenerator(Sequence):
         self.__reset_file_iterator__()
         length = int(self.__len__() * self.batch_size)
 
-        class_weights_arr = np.zeros((length,))
+        self.class_inds = np.zeros((length,))
 
         for i in range(length):
             file_entry = self._file_iterator.__next__().path
             h5_file = h5py.File(file_entry, "r")
             idx_find = self.original_categories_list.index(h5_file.attrs["category"])
-            class_weights_arr[i] = idx_find
+            self.class_inds[i] = idx_find
 
         self.class_weights_dict = class_weight.compute_class_weight('balanced',
                                                                     np.arange(len(self.original_categories_list)),
-                                                                    class_weights_arr)
+                                                                    self.class_inds)
 
         self.__reset_file_iterator__()
 
@@ -64,7 +66,7 @@ class h5RabaniDataGenerator(Sequence):
 
     def __len__(self):
         n_files = int(
-            subprocess.Popen([f"find {self.root_dir} -maxdepth 1 | wc -l"],
+            subprocess.Popen([f"find '{self.root_dir}' -maxdepth 1 | wc -l"],
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True).communicate()[0]) - 1
         return int(np.floor(n_files // self.batch_size))
 
@@ -167,13 +169,25 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__(),
+                        steps_per_epoch=train_generator.__len__()//10,
                         validation_steps=test_generator.__len__(),
                         epochs=epochs,
-                        max_queue_size=100,
-                        class_weight=train_generator.class_weights_dict)
+                        max_queue_size=100)
 
     return model
+
+
+def validation_pred(model, validation_datadir, y_params, y_cats, batch_size):
+    validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
+                                                 is_train=False, output_parameters_list=y_params,
+                                                 output_categories_list=y_cats)
+
+    validation_preds = model.predict_generator(validation_generator, steps=validation_generator.__len__())
+
+    encoder = OneHotEncoder(sparse=False)
+    validation_truth = encoder.fit_transform(validation_generator.class_inds.reshape(-1, 1))
+
+    return validation_preds, validation_truth
 
 
 def plot_history(model):
@@ -186,14 +200,66 @@ def plot_history(model):
         plt.ylabel(plot_metric)
 
 
+def plot_confusion_matrix(cm,
+                          target_names,
+                          title='Confusion matrix',
+                          cmap=None,
+                          normalize=True):
+
+
+    accuracy = np.trace(cm) / float(np.sum(cm))
+    misclass = 1 - accuracy
+
+    if cmap is None:
+        cmap = plt.get_cmap('Blues')
+
+    plt.figure(figsize=(8, 6))
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+
+    if target_names is not None:
+        tick_marks = np.arange(len(target_names))
+        plt.xticks(tick_marks, target_names, rotation=45)
+        plt.yticks(tick_marks, target_names)
+
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+
+    thresh = cm.max() / 1.5 if normalize else cm.max() / 2
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        if normalize:
+            plt.text(j, i, "{:0.4f}".format(cm[i, j]),
+                     horizontalalignment="center",
+                     color="white" if cm[i, j] > thresh else "black")
+        else:
+            plt.text(j, i, "{:,}".format(cm[i, j]),
+                     horizontalalignment="center",
+                     color="white" if cm[i, j] > thresh else "black")
+
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
+
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/11-26"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/11-26"
-    # validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-17/09-44"
+    training_data_dir = "/media/mltest1/Dat Storage/pyRabani_Images"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/13-27"
+    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/11-26"
     original_categories = ["hole", "liquid", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=64, epochs=10)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=10)
     plot_history(trained_model)
+
+    preds, truth = validation_pred(trained_model, validation_datadir=validation_data_dir,
+                    y_params=original_parameters, y_cats=original_categories, batch_size=512)
+
+    y_pred = np.argmax(preds, axis=1)
+    y_truth = np.argmax(truth, axis=1)
+    conf_mat = metrics.confusion_matrix(y_truth, y_pred, labels=original_categories)
+    plot_confusion_matrix(conf_mat, original_categories)
+    print(metrics.classification_report(y_truth, y_pred, target_names=original_categories))

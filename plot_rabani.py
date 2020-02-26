@@ -4,11 +4,13 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
+from matplotlib.cm import get_cmap
 from matplotlib.ticker import MultipleLocator
 from skimage.filters import gaussian
+from tensorflow.python.keras.models import load_model
 
 
-def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
+def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None):
     """Plot two variables against another"""
     files = os.listdir(root_dir)
 
@@ -29,6 +31,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
 
     # Place each image in an array
     big_img_arr = np.zeros((img_res * axis_res, img_res * axis_res))
+    preds_arr = np.zeros((img_res * axis_res, img_res * axis_res))
     x_vals = np.linspace(x_range[0], x_range[1], axis_res)
     y_vals = np.linspace(y_range[0], y_range[1], axis_res)
     eulers = np.zeros((axis_res, axis_res))
@@ -40,6 +43,12 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
         y_ind = np.searchsorted(y_vals, img_file.attrs[yaxis])
         big_img_arr[(y_ind * 128):((y_ind + 1) * 128), (x_ind * 128):((x_ind + 1) * 128)] = np.flipud(
             img_file["sim_results"]["image"])
+
+        # If there's a trained model input, make an array of predictions
+        if trained_model:
+            pred = np.argmax(
+                trained_model.predict(np.expand_dims(np.expand_dims(img_file["sim_results"]["image"], 0), -1)))
+            preds_arr[(y_ind * 128):((y_ind + 1) * 128), (x_ind * 128):((x_ind + 1) * 128)] = pred
 
         eulers[y_ind, x_ind] = img_file['sim_results']["region_props"]["normalised_euler_number"][()]
 
@@ -61,6 +70,13 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
     # Sample grid
     fig1, ax1 = plt.subplots()
     plt.imshow(big_img_arr, cmap=cmap, origin="lower")
+    if trained_model:
+        cmap_pred = get_cmap("viridis", np.max(preds_arr)+1)
+        cax1 = plt.imshow(preds_arr, cmap=cmap_pred, origin="lower", alpha=0.6)
+        cbar1 = fig1.colorbar(cax1, ticks=np.arange(np.max(preds_arr)+1))
+        if categories:
+            cbar1.ax.set_yticklabels(["hole", "liquid", "cellular", "labyrinth", "island"])
+
 
     plt.xticks(np.arange(len(y_vals)) * img_res + img_res / 2, blank_labels_mu, rotation=90)
     plt.yticks(np.arange(len(x_vals)) * img_res + img_res / 2, blank_labels_y)
@@ -94,10 +110,10 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15):
     ax2.xaxis.set_major_locator(MultipleLocator(num_tick_skip))
     ax2.yaxis.set_major_locator(MultipleLocator(num_tick_skip))
 
-    cbar = fig2.colorbar(cax2)
-    cbar.add_lines(cnts2)
-    cbar.set_label('Normalised Euler Characteristic', rotation=270)
-    cbar.ax.get_yaxis().labelpad = 15
+    cbar2 = fig2.colorbar(cax2)
+    cbar2.add_lines(cnts2)
+    cbar2.set_label('Normalised Euler Characteristic', rotation=270)
+    cbar2.ax.get_yaxis().labelpad = 15
 
     ax2.set_xlabel(xaxis)
     ax2.set_ylabel(yaxis)
@@ -156,5 +172,7 @@ def plot_threshold_selection(root_dir, categories, plot_config=(5, 5)):
 
 if __name__ == '__main__':
     dir = "Images/2020-02-25/09-42"
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir)
-    plot_threshold_selection(root_dir=dir, categories=["hole", "liquid", "cellular", "labyrinth", "island"])
+    model = load_model("orig_model.h5")
+    cats = ["hole", "liquid", "cellular", "labyrinth", "island"]
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, trained_model=model, categories=cats)
+    plot_threshold_selection(root_dir=dir, categories=cats)
