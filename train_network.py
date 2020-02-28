@@ -15,7 +15,7 @@ import itertools
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train,
-                 horizontal_flip=True, vertical_flip=True, y_noise=None):
+                 horizontal_flip=True, vertical_flip=True, y_noise=None, circshift=True):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
@@ -25,6 +25,7 @@ class h5RabaniDataGenerator(Sequence):
         self.hflip = horizontal_flip
         self.vflip = vertical_flip
         self.ynoise = y_noise
+        self.circshift = circshift
 
         self.class_weights_dict = None
         self.__reset_file_iterator__()
@@ -103,6 +104,10 @@ class h5RabaniDataGenerator(Sequence):
             if self.hflip:
                 augment_inds_hflip = np.random.choice(self.batch_size, size=(self.batch_size,), replace=False)
                 batch_x[augment_inds_hflip, :, :] = np.flip(batch_x[augment_inds_hflip, :, :], axis=2)
+            if self.circshift:
+                rand_shifts = np.random.choice(self.image_res, size=(self.batch_size, 2))
+                for i, rand_shift in enumerate(rand_shifts):
+                    batch_x[i, :, :] = np.roll(batch_x[i, :, :], shift=rand_shift, axis=[1, 2])
             if self.ynoise:
                 batch_y[0] *= np.random.normal(loc=1, scale=self.ynoise)
 
