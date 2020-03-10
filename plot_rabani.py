@@ -6,51 +6,63 @@ import numpy as np
 from matplotlib import colors
 from matplotlib.cm import get_cmap
 from matplotlib.ticker import MultipleLocator
+from skimage import measure
 from skimage.filters import gaussian
+from skimage.transform import resize
 from tensorflow.python.keras.models import load_model
 
 
-def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None):
+def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
     """Plot two variables against another"""
     files = os.listdir(root_dir)
 
-    # Find image details
-    axis_res = int(np.sqrt(len(files)))
+    # Find axis details to allow for preallocation
     x_range_all = np.zeros((len(files),))
     y_range_all = np.zeros((len(files),))
     m_all = np.zeros((len(files),))
+    img_res_all = np.zeros((len(files),))
+
     for i, file in enumerate(files):
         img_file = h5py.File(f"{root_dir}/{file}", "r")
         x_range_all[i] = img_file.attrs[xaxis]
         y_range_all[i] = img_file.attrs[yaxis]
         m_all[i] = img_file["sim_results"]["num_mc_steps"][()]
-        img_res = len(img_file["sim_results"]["image"])
+        img_res_all[i] = len(img_file["sim_results"]["image"])
+
+    axis_res = len(np.unique(x_range_all))
+    if len(np.unique(img_res_all)) == 1:
+        img_res = int(np.unique(img_res_all))
 
     x_range = [np.min(x_range_all), np.max(x_range_all)]
     y_range = [np.min(y_range_all), np.max(y_range_all)]
 
-    # Place each image in an array
+    # Preallocate parsers
     big_img_arr = np.zeros((img_res * axis_res, img_res * axis_res))
     preds_arr = np.zeros((img_res * axis_res, img_res * axis_res))
     x_vals = np.linspace(x_range[0], x_range[1], axis_res)
     y_vals = np.linspace(y_range[0], y_range[1], axis_res)
     eulers = np.zeros((axis_res, axis_res))
+    eulers_cmp = np.zeros((axis_res, axis_res))
 
     for i, file in enumerate(files):
         img_file = h5py.File(f"{root_dir}/{file}", "r")
 
+        # Find most appropriate location to place image in image grid
         x_ind = np.searchsorted(x_vals, img_file.attrs[xaxis])
         y_ind = np.searchsorted(y_vals, img_file.attrs[yaxis])
-        big_img_arr[(y_ind * 128):((y_ind + 1) * 128), (x_ind * 128):((x_ind + 1) * 128)] = np.flipud(
-            img_file["sim_results"]["image"])
+        img = resize(img_file["sim_results"]["image"][()], (img_res, img_res), anti_aliasing=False) * 255 // 2
+        big_img_arr[(y_ind * img_res):((y_ind + 1) * img_res), (x_ind * img_res):((x_ind + 1) * img_res)] = np.flipud(
+            img)
 
         # If there's a trained model input, make an array of predictions
         if trained_model:
             pred = np.argmax(
-                trained_model.predict(np.expand_dims(np.expand_dims(img_file["sim_results"]["image"], 0), -1)))
-            preds_arr[(y_ind * 128):((y_ind + 1) * 128), (x_ind * 128):((x_ind + 1) * 128)] = pred
+                trained_model.predict(np.expand_dims(np.expand_dims(img, 0), -1)))
+            preds_arr[(y_ind * img_res):((y_ind + 1) * img_res), (x_ind * img_res):((x_ind + 1) * img_res)] = pred
 
         eulers[y_ind, x_ind] = img_file['sim_results']["region_props"]["normalised_euler_number"][()]
+        reg = measure.regionprops((img_file['sim_results']["image"][()] != 0) + 1)[0]
+        eulers_cmp[y_ind, x_ind] = reg["euler_number"] / np.sum(img_file['sim_results']["image"][()] == 2)
 
     # Plot
     cmap = colors.ListedColormap(["black", "white", "orange"])
@@ -71,12 +83,11 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
     fig1, ax1 = plt.subplots()
     plt.imshow(big_img_arr, cmap=cmap, origin="lower")
     if trained_model:
-        cmap_pred = get_cmap("viridis", np.max(preds_arr)+1)
+        cmap_pred = get_cmap("viridis", np.max(preds_arr) + 1)
         cax1 = plt.imshow(preds_arr, cmap=cmap_pred, origin="lower", alpha=0.6)
-        cbar1 = fig1.colorbar(cax1, ticks=np.arange(np.max(preds_arr)+1))
+        cbar1 = fig1.colorbar(cax1, ticks=np.arange(np.max(preds_arr) + 1))
         if categories:
             cbar1.ax.set_yticklabels(["hole", "liquid", "cellular", "labyrinth", "island"])
-
 
     plt.xticks(np.arange(len(y_vals)) * img_res + img_res / 2, blank_labels_mu, rotation=90)
     plt.yticks(np.arange(len(x_vals)) * img_res + img_res / 2, blank_labels_y)
@@ -121,7 +132,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
     return big_img_arr, eulers
 
 
-def plot_threshold_selection(root_dir, categories, plot_config=(5, 5)):
+def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
     """Plot a selection of images between a range of normalised euler numbers,
     to eventually determine training labels"""
     # Setup and parse input
@@ -138,7 +149,7 @@ def plot_threshold_selection(root_dir, categories, plot_config=(5, 5)):
         plot_i = -1
         plot_j = 0
 
-        big_img = np.zeros((128 * plot_config[0], 128 * plot_config[1]))
+        big_img = np.zeros((img_res * plot_config[0], img_res * plot_config[1]))
 
         # For each file
         for file in files:
@@ -158,21 +169,22 @@ def plot_threshold_selection(root_dir, categories, plot_config=(5, 5)):
                     break
 
                 # Plot
-                big_img[plot_j * 128:(plot_j + 1) * 128, plot_i * 128:(plot_i + 1) * 128] = img_file["sim_results"][
-                    "image"]
+                big_img[plot_j * img_res:(plot_j + 1) * img_res, plot_i * img_res:(plot_i + 1) * img_res] = resize(
+                    img_file["sim_results"]["image"][()], (img_res, img_res), anti_aliasing=False) * 255 // 2
 
         axs[plot_num].imshow(big_img, cmap=cmap)
 
-        axs[plot_num].set_xticks(np.arange(0, 128 * plot_config[1], 128))
-        axs[plot_num].set_yticks(np.arange(0, 128 * plot_config[0], 128))
+        axs[plot_num].set_xticks(np.arange(0, img_res * plot_config[1], img_res))
+        axs[plot_num].set_yticks(np.arange(0, img_res * plot_config[0], img_res))
         axs[plot_num].grid(ls="-", lw=2, color="r", )
         axs[plot_num].tick_params(labelcolor='w', top=False, bottom=False, left=False, right=False)
         axs[plot_num].title.set_text(f"{category}")
 
 
 if __name__ == '__main__':
-    dir = "Images/2020-02-25/09-42"
-    model = load_model("orig_model.h5")
+    dir = "Images/2020-03-10/15-35"
+    # dir = "Images/2020-02-28/15-01"
+    model = load_model("new_model.h5")
     cats = ["hole", "liquid", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, trained_model=model, categories=cats)
-    plot_threshold_selection(root_dir=dir, categories=cats)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, trained_model=model, img_res=128)
+    plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
