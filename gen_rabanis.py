@@ -42,6 +42,7 @@ class RabaniSweeper:
         self.sftp = self.ssh.open_sftp()
 
     def call_rabani_sweep(self, params, axis_steps, image_reps):
+        """Run an optimised set of rabani simulations, sweeping along desired axis/axes"""
         def get_linspace_ranges(param, param_key, axis_res):
             if type(param[param_key]) is list:
                 if type(axis_res) is dict:
@@ -53,7 +54,12 @@ class RabaniSweeper:
                     linspace = np.linspace(param[param_key][0], param[param_key][1], axis_res)
             else:
                 linspace = [param[param_key]]
+
+            # # Do square scaling on L
+            # if param_key is "L":
+            #     linspace = [64, 128, 256]
             return linspace
+
 
         kT_linspace = get_linspace_ranges(params, "kT", axis_steps)
         mu_linspace = get_linspace_ranges(params, "mu", axis_steps)
@@ -90,8 +96,7 @@ class RabaniSweeper:
 
     def save_rabanis(self, imgs, m_all):
         self.make_storage_folder(f"{self.root_dir}/{self.start_date}/{self.start_time}")
-        for rep, img in enumerate(imgs):
-            print(img)
+        for rep, img in enumerate(imgs): # Does rep not match up with params?
             master_file = h5py.File(
                 f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
                 "a")
@@ -140,10 +145,10 @@ class RabaniSweeper:
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        elif -0.015 <= region["euler_number"] / np.sum(img == 2) <= 0:
+        elif -0.01 <= region["euler_number"] / np.sum(img == 2) <= 0:
             # Cell/Worm if starting to form
             cat = "cellular"
-        elif -0.03 <= region["euler_number"] / np.sum(img == 2) < -0.015:
+        elif -0.03 <= region["euler_number"] / np.sum(img == 2) < -0.02:
             # Labyrinth
             cat = "labyrinth"
         elif region["euler_number"] / np.sum(img == 2) <= -0.05:
@@ -166,7 +171,7 @@ class RabaniSweeper:
 
 if __name__ == '__main__':
     root_dir = "Images"
-    total_image_reps = 1
+    total_image_reps = 10
 
     parameters = {"kT": [0.01, 0.35],
                   "mu": [2.35, 3.47],
@@ -174,11 +179,10 @@ if __name__ == '__main__':
                   "C": 0.3,
                   "e_nl": 1.5,
                   "e_nn": 2,
-                  "L": [64, 128]}
+                  "L": 128}
 
-    axis_res = {"kT": 4,
-                "mu": 4,
-                "L": 2}
+    axis_res = {"kT": 25,
+                "mu": 25}
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,

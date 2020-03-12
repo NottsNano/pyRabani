@@ -18,7 +18,7 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
     # L = 128  # System length
     N = L ** 2  # System volume
 
-    MCS = 5000  # Max mc steps
+    MCS = 20000  # Max mc steps
     # MR = 1  # Mobility ratio
     # C = 0.30  # Nano-particle coverage
 
@@ -273,7 +273,7 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
             perc_similarities_std = np.std(np.diff(perc_similarities))
             checkpoint_out = 2 * nano_particles + liquid_array
 
-        if 0 < perc_similarities_std < 0.003 and m > 200:
+        if 0 < perc_similarities_std < 0.002 and m > 200:
             break
 
     return out, m

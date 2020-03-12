@@ -8,8 +8,16 @@ from matplotlib.cm import get_cmap
 from matplotlib.ticker import MultipleLocator
 from skimage import measure
 from skimage.filters import gaussian
-from skimage.transform import resize
 from tensorflow.python.keras.models import load_model
+import cv2
+
+def power_resize(image, newsize):
+    """Enlarge image by a factor of ^2"""
+    num_tiles = (newsize/image.shape[0]) ** 0.5 % 2
+    assert num_tiles == 0, "New image must be ^2 larger than original image"
+    new_image = np.tile(image, int(num_tiles))
+
+    return new_image
 
 
 def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
@@ -29,9 +37,13 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
         m_all[i] = img_file["sim_results"]["num_mc_steps"][()]
         img_res_all[i] = len(img_file["sim_results"]["image"])
 
+    assert len(np.unique(x_range_all)) == len(
+        np.unique(y_range_all)), f"{xaxis} must have same simulation resolution as {yaxis}"
     axis_res = len(np.unique(x_range_all))
-    if len(np.unique(img_res_all)) == 1:
+    if not img_res and len(np.unique(img_res_all)) == 1:
         img_res = int(np.unique(img_res_all))
+    else:
+        assert img_res, "If data folder has multiple values of L, img_res must be defined"
 
     x_range = [np.min(x_range_all), np.max(x_range_all)]
     y_range = [np.min(y_range_all), np.max(y_range_all)]
@@ -50,7 +62,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
         # Find most appropriate location to place image in image grid
         x_ind = np.searchsorted(x_vals, img_file.attrs[xaxis])
         y_ind = np.searchsorted(y_vals, img_file.attrs[yaxis])
-        img = resize(img_file["sim_results"]["image"][()], (img_res, img_res), anti_aliasing=False) * 255 // 2
+        img = power_resize(img_file["sim_results"]["image"][()], img_res) * 255 // 2
         big_img_arr[(y_ind * img_res):((y_ind + 1) * img_res), (x_ind * img_res):((x_ind + 1) * img_res)] = np.flipud(
             img)
 
@@ -169,8 +181,8 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
                     break
 
                 # Plot
-                big_img[plot_j * img_res:(plot_j + 1) * img_res, plot_i * img_res:(plot_i + 1) * img_res] = resize(
-                    img_file["sim_results"]["image"][()], (img_res, img_res), anti_aliasing=False) * 255 // 2
+                big_img[plot_j * img_res:(plot_j + 1) * img_res, plot_i * img_res:(plot_i + 1) * img_res] = power_resize(
+                    img_file["sim_results"]["image"][()], img_res) * 255 // 2
 
         axs[plot_num].imshow(big_img, cmap=cmap)
 
@@ -183,8 +195,7 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
 
 if __name__ == '__main__':
     dir = "Images/2020-03-10/15-35"
-    # dir = "Images/2020-02-28/15-01"
     model = load_model("new_model.h5")
     cats = ["hole", "liquid", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, trained_model=model, img_res=128)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)

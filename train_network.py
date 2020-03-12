@@ -17,7 +17,7 @@ from tensorflow.keras.utils import Sequence
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train, imsize=None,
-                 horizontal_flip=True, vertical_flip=True, x_noise=True, circshift=True):
+                 horizontal_flip=False, vertical_flip=False, x_noise=False, circshift=False):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
@@ -25,7 +25,6 @@ class h5RabaniDataGenerator(Sequence):
 
         self.is_training_set = is_train
         self.is_validation_set = False
-        self.y_true = np.zeros((self.__len__()*self.batch_size, len(self.original_categories_list)))
 
         self.hflip = horizontal_flip
         self.vflip = vertical_flip
@@ -43,6 +42,8 @@ class h5RabaniDataGenerator(Sequence):
         self._get_class_weights()
 
         self._batches_counter = 0
+
+        self.y_true = np.zeros((self.__len__()*self.batch_size, len(self.original_categories_list)))
 
     def _get_class_weights(self):
         """Open all the files once to compute the class weights"""
@@ -98,8 +99,12 @@ class h5RabaniDataGenerator(Sequence):
             # Parse parameters from the h5 file
             file_entry = self._file_iterator.__next__().path
             h5_file = h5py.File(file_entry, "r")
-            batch_x[i, :, :, 0] = resize(h5_file["sim_results"]["image"][()], (self.image_res, self.image_res),
-                                         anti_aliasing=False) * 255 // 2
+            # batch_x[i, :, :, 0] = resize(h5_file["sim_results"]["image"][()], (self.image_res, self.image_res),
+                                         # anti_aliasing=False) * 255 // 2
+            batch_x[i, :, :, 0] = h5_file["sim_results"]["image"][()]
+            batch_x[i, 0, 0, 0] = 0
+            batch_x[i, 1, 0, 0] = 1
+            batch_x[i, 2, 0, 0] = 2
 
             idx_find = self.original_categories_list.index(h5_file.attrs["category"])
             batch_y[i, idx_find] = 1
@@ -126,7 +131,7 @@ class h5RabaniDataGenerator(Sequence):
         if self.circshift:
             rand_shifts = np.random.choice(self.image_res, size=(self.batch_size, 2))
             for i, rand_shift in enumerate(rand_shifts):
-                batch_x[i, :, :] = np.roll(batch_x[i, :, :], shift=rand_shift, axis=[1, 2])
+                batch_x[i, :, :, 0] = np.roll(batch_x[i, :, :, 0], shift=rand_shift, axis=[0, 1])
         if self.xnoise:
             batch_x[np.random.choice([0, 1], size=batch_x.shape, p=[0.99, 0.01]) == 1] = 0
             batch_x[np.random.choice([0, 1], size=batch_x.shape, p=[0.99, 0.01]) == 1] = 1
@@ -163,8 +168,9 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__() // 10,
-                        validation_steps=test_generator.__len__() // 10,
+                        steps_per_epoch=train_generator.__len__(),
+                        validation_steps=test_generator.__len__(),
+                        class_weight=train_generator.class_weights_dict,
                         epochs=epochs,
                         max_queue_size=100)
 
@@ -253,21 +259,21 @@ def plot_confusion_matrix(cm,
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/22-36"  # "/media/mltest1/Dat Storage/pyRabani_Images"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
-    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-02-25/11-26"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-11/16-19"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
+    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=2)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=10)
     plot_history(trained_model)
 
     preds, truth = validation_pred(trained_model, validation_datadir=validation_data_dir,
                                    y_params=original_parameters, y_cats=original_categories, batch_size=512)
 
-    y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
-    y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)
+    # y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
+    # y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)
 
     y_pred = np.argmax(preds, axis=1)
     y_truth = np.argmax(truth, axis=1)
