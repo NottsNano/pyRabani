@@ -55,11 +55,25 @@ class RabaniSweeper:
             else:
                 linspace = [param[param_key]]
 
-            # # Do square scaling on L
-            # if param_key is "L":
-            #     linspace = [64, 128, 256]
             return linspace
 
+        def get_square_ranges(L_param, axis_res):
+            if type(L_param) is list:
+                if type(axis_res) is dict:
+                    if "L" in axis_res.keys():
+                        min_pwr = int(np.sqrt(L_param[0]))
+                        max_pwr = int(np.sqrt(L_param[1]))
+                        sqrspace = np.arange(min_pwr, max_pwr)**2
+                    else:
+                        sqrspace = [L_param]
+                else:
+                    min_pwr = int(np.sqrt(L_param[0]))
+                    max_pwr = int(np.sqrt(L_param[1]))
+                    sqrspace = np.arange(min_pwr, max_pwr) ** 2
+            else:
+                sqrspace = [L_param]
+
+            return sqrspace
 
         kT_linspace = get_linspace_ranges(params, "kT", axis_steps)
         mu_linspace = get_linspace_ranges(params, "mu", axis_steps)
@@ -67,7 +81,7 @@ class RabaniSweeper:
         C_linspace = get_linspace_ranges(params, "C", axis_steps)
         e_nl_linspace = get_linspace_ranges(params, "e_nl", axis_steps)
         e_nn_linspace = get_linspace_ranges(params, "e_nn", axis_steps)
-        L_all = get_linspace_ranges(params, "L", axis_steps)
+        L_all = get_square_ranges(params["L"], axis_steps)
 
         tot_len = len(np.array(
             list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, L_all))))
@@ -171,7 +185,7 @@ class RabaniSweeper:
 
 if __name__ == '__main__':
     root_dir = "Images"
-    total_image_reps = 10
+    total_image_reps = 20
 
     parameters = {"kT": [0.01, 0.35],
                   "mu": [2.35, 3.47],
@@ -179,10 +193,11 @@ if __name__ == '__main__':
                   "C": 0.3,
                   "e_nl": 1.5,
                   "e_nn": 2,
-                  "L": 128}
+                  "L": [64, 256]}
 
     axis_res = {"kT": 25,
-                "mu": 25}
+                "mu": 25,
+                "L": 3}
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,

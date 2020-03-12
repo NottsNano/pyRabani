@@ -17,7 +17,7 @@ from tensorflow.keras.utils import Sequence
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train, imsize=None,
-                 horizontal_flip=False, vertical_flip=False, x_noise=False, circshift=False):
+                 horizontal_flip=True, vertical_flip=True, x_noise=False, circshift=True):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
@@ -124,10 +124,10 @@ class h5RabaniDataGenerator(Sequence):
     def augment(self, batch_x):
         if self.vflip:
             augment_inds_vflip = np.random.choice(self.batch_size, size=(self.batch_size,), replace=False)
-            batch_x[augment_inds_vflip, :, :] = np.flip(batch_x[augment_inds_vflip, :, :], axis=1)
+            batch_x[augment_inds_vflip, :, :, 0] = np.flip(batch_x[augment_inds_vflip, :, :, 0], axis=1)
         if self.hflip:
             augment_inds_hflip = np.random.choice(self.batch_size, size=(self.batch_size,), replace=False)
-            batch_x[augment_inds_hflip, :, :] = np.flip(batch_x[augment_inds_hflip, :, :], axis=2)
+            batch_x[augment_inds_hflip, :, :, 0] = np.flip(batch_x[augment_inds_hflip, :, :, 0], axis=2)
         if self.circshift:
             rand_shifts = np.random.choice(self.image_res, size=(self.batch_size, 2))
             for i, rand_shift in enumerate(rand_shifts):
