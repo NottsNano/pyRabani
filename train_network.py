@@ -99,12 +99,8 @@ class h5RabaniDataGenerator(Sequence):
             # Parse parameters from the h5 file
             file_entry = self._file_iterator.__next__().path
             h5_file = h5py.File(file_entry, "r")
-            # batch_x[i, :, :, 0] = resize(h5_file["sim_results"]["image"][()], (self.image_res, self.image_res),
-                                         # anti_aliasing=False) * 255 // 2
             batch_x[i, :, :, 0] = h5_file["sim_results"]["image"][()]
-            batch_x[i, 0, 0, 0] = 0
-            batch_x[i, 1, 0, 0] = 1
-            batch_x[i, 2, 0, 0] = 2
+
 
             idx_find = self.original_categories_list.index(h5_file.attrs["category"])
             batch_y[i, idx_find] = 1
@@ -259,7 +255,7 @@ def plot_confusion_matrix(cm,
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-11/16-19"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    training_data_dir = "/media/mltest1/Dat Storage/Alex Data"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
