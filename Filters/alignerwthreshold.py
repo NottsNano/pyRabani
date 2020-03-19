@@ -4,7 +4,7 @@ import pycroscopy as scope
 import matplotlib.pyplot as plt
 import h5py
 import pyUSID
-from scipy import ndimage
+from scipy import ndimage, signal
 import numpy as np
 
 # Create an object capable of translating .ibw files
@@ -132,16 +132,17 @@ plt.imshow(aligned_med_data_Trace_Array, extent=(0, row_num, 0, row_num), origin
 
 flattened_data_Trace_Array = aligned_med_data_Trace_Array - test_plane
 
+# -------Next step is to calculate an optimal threshold for image binarising------
 
-
-
+# Normalise the array such that all values lie between 0 and 1
 norm_data_Trace_Array = (flattened_data_Trace_Array-np.min(flattened_data_Trace_Array))\
-                        /(np.max(flattened_data_Trace_Array)-np.min(flattened_data_Trace_Array))
+                        / (np.max(flattened_data_Trace_Array)-np.min(flattened_data_Trace_Array))
 
 plt.subplot(2, 2, 2)
 plt.imshow(norm_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
 
+# Consider all possible threshold values
 n = 1000
 thres = np.linspace(0, 1, n)
 pix = np.zeros((n,))
@@ -152,10 +153,24 @@ plt.subplot(2,2,3)
 threshold_plot = plt.plot(thres, pix)
 plt.grid(True)
 
+pix_gauss_grad = ndimage.gaussian_gradient_magnitude(pix,10)
+peaks = signal.find_peaks(pix_gauss_grad, prominence=1)
+
+# peaks, properties = findpeaks()
+# findpeaks(-signal, opts) to find minima
+
 plt.subplot(2,2,4)
-dif_threshold_plot = plt.plot(thres, ndimage.gaussian_gradient_magnitude(pix,10))
+dif_threshold_plot = plt.plot(thres, pix_gauss_grad)
+dif_threshold_scatter = plt.scatter(thres[peaks[0]], pix_gauss_grad[peaks[0]])
 plt.grid(True)
 
+
+
+t = thres[peaks[0][1]] # This is at maxima not minima, fix it find peaks (-signal)
+t = 0.2 # :^)
+
+plt.figure()
+plt.imshow(norm_data_Trace_Array < t, extent=(0, row_num, 0, row_num), origin='lower', cmap='RdGy')
 
 
 #plt.ion()
