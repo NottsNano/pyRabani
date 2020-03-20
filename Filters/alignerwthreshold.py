@@ -154,28 +154,20 @@ threshold_plot = plt.plot(thres, pix)
 plt.grid(True)
 
 pix_gauss_grad = ndimage.gaussian_gradient_magnitude(pix,10)
-peaks = signal.find_peaks(pix_gauss_grad, prominence=1)
-
-# peaks, properties = findpeaks()
-# findpeaks(-signal, opts) to find minima
+peaks, properties = signal.find_peaks(pix_gauss_grad, prominence=1)
+troughs, properties = signal.find_peaks(-pix_gauss_grad, prominence=1)
 
 plt.subplot(2,2,4)
 dif_threshold_plot = plt.plot(thres, pix_gauss_grad)
-dif_threshold_scatter = plt.scatter(thres[peaks[0]], pix_gauss_grad[peaks[0]])
+dif_threshold_scatter = plt.scatter(thres[peaks], pix_gauss_grad[peaks])
+dif_threshold_scatter = plt.scatter(thres[troughs], pix_gauss_grad[troughs], marker='x')
 plt.grid(True)
 
 
-
-t = thres[peaks[0][1]] # This is at maxima not minima, fix it find peaks (-signal)
-t = 0.2 # :^)
-
+# Print the image
+opt_thres = thres[troughs[1]]
 plt.figure()
-plt.imshow(norm_data_Trace_Array < t, extent=(0, row_num, 0, row_num), origin='lower', cmap='RdGy')
+plt.imshow(norm_data_Trace_Array < opt_thres, extent=(0, row_num, 0, row_num), origin='lower', cmap='RdGy')
 
-
+#Use this to force a plot
 #plt.ion()
-
-#n = 1000 #precision of threshold
-#thres = np.linspace(0,1,n)
-
-#n.pix = np.sum(norm_img > thres)
