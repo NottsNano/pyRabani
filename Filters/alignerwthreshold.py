@@ -163,7 +163,7 @@ plt.grid(True)
 
 
 # Print the image
-opt_thres = thres[troughs[1]]
+opt_thres = thres[troughs[0]]
 plt.figure()
 plt.imshow(norm_data_Trace_Array < opt_thres, extent=(0, row_num, 0, row_num), origin='lower', cmap='RdGy')
 
