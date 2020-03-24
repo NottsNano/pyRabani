@@ -12,7 +12,7 @@ from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropou
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
-
+from Rabani_Generator.plot_rabani import power_resize
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train, imsize=None,
@@ -100,7 +100,8 @@ class h5RabaniDataGenerator(Sequence):
             h5_file = h5py.File(file_entry, "r")
             # batch_x[i, :, :, 0] = resize(h5_file["sim_results"]["image"][()], (self.image_res, self.image_res),
             # anti_aliasing=False) * 255 // 2
-            batch_x[i, :, :, 0] = h5_file["sim_results"]["image"][()]
+
+            batch_x[i, :, :, 0] = power_resize(h5_file["sim_results"]["image"][()], self.image_res).astype(int)
             batch_x[i, 0, 0, 0] = 0
             batch_x[i, 1, 0, 0] = 1
             batch_x[i, 2, 0, 0] = 2
@@ -142,9 +143,9 @@ class h5RabaniDataGenerator(Sequence):
 
 def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=128,  # try 256!
+    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=256,  # try 256!
                                             output_parameters_list=y_params, output_categories_list=y_cats)
-    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=128,
+    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=256,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
@@ -170,7 +171,6 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
                         validation_steps=test_generator.__len__(),
-                        class_weight=train_generator.class_weights_dict,
                         epochs=epochs,
                         max_queue_size=100)
 
@@ -186,23 +186,23 @@ def save_model(model, root_dir):
 if __name__ == '__main__':
     from CNN.CNN_prediction import validation_pred_generator
     from CNN.stats_plotting import plot_confusion_matrix, plot_model_history
-    from Rabani_Generator.plot_rabani import show_random_selection_of_images
+    from Rabani_Generator.plot_rabani import show_random_selection_of_images, power_resize
 
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-11/16-19"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-24/19-58"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"
-    original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
+    original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"] 
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=15)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=100, epochs=50)
     save_model(trained_model, "Data/Trained_Networks")
     
     plot_model_history(trained_model)
 
     preds, truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-                                   y_params=original_parameters, y_cats=original_categories, batch_size=512)
+                                   y_params=original_parameters, y_cats=original_categories, batch_size=100)
 
     # y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
     # y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)

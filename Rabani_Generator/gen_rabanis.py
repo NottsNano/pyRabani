@@ -61,15 +61,15 @@ class RabaniSweeper:
             if type(L_param) is list:
                 if type(axis_res) is dict:
                     if "L" in axis_res.keys():
-                        min_pwr = int(np.sqrt(L_param[0]))
-                        max_pwr = int(np.sqrt(L_param[1]))
-                        sqrspace = np.arange(min_pwr, max_pwr)**2
+                        min_pwr = int(np.log(L_param[0]) / np.log(2))
+                        max_pwr = int(np.log(L_param[1]) / np.log(2))
+                        sqrspace = np.power(2, np.arange(min_pwr, max_pwr))
                     else:
                         sqrspace = [L_param]
                 else:
-                    min_pwr = int(np.sqrt(L_param[0]))
-                    max_pwr = int(np.sqrt(L_param[1]))
-                    sqrspace = np.arange(min_pwr, max_pwr) ** 2
+                    min_pwr = int(np.log(L_param[0]) / np.log(2))
+                    max_pwr = int(np.log(L_param[1]) / np.log(2))
+                    sqrspace = np.power(2, np.arange(min_pwr, max_pwr))
             else:
                 sqrspace = [L_param]
 
@@ -184,7 +184,7 @@ class RabaniSweeper:
 
 
 if __name__ == '__main__':
-    root_dir = "../Images"
+    root_dir = "Images"
     total_image_reps = 20
 
     parameters = {"kT": [0.01, 0.35],

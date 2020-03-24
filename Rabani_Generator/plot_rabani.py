@@ -12,9 +12,12 @@ from tensorflow.python.keras.models import load_model
 
 def power_resize(image, newsize):
     """Enlarge image by a factor of ^2"""
-    num_tiles = (newsize / image.shape[0]) ** 0.5 % 2
-    assert num_tiles == 0, "New image must be ^2 larger than original image"
-    new_image = np.tile(image, int(num_tiles))
+    if image.shape[0] != newsize:
+        num_tiles = newsize / image.shape[0]
+        assert num_tiles % 1 == 0, "New image must be ^2 larger than original image"
+        new_image = np.repeat(np.repeat(image, int(num_tiles), axis=0), int(num_tiles), axis=1)
+    else:
+        new_image = image
 
     return new_image
 
@@ -230,3 +233,5 @@ if __name__ == '__main__':
     cats = ["hole", "liquid", "cellular", "labyrinth", "island"]
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
+
+    show_random_selection_of_images("/home/mltest1/tmp/pycharm_project_883/Images/2020-03-24/19-58", 25, ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 256)
