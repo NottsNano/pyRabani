@@ -10,7 +10,7 @@ import paramiko
 from scipy.stats import mode
 from skimage import measure
 
-from rabani import _run_rabani_sweep
+from Rabani_Generator.rabani import _run_rabani_sweep
 
 
 class RabaniSweeper:
@@ -184,7 +184,7 @@ class RabaniSweeper:
 
 
 if __name__ == '__main__':
-    root_dir = "Images"
+    root_dir = "../Images"
     total_image_reps = 20
 
     parameters = {"kT": [0.01, 0.35],

@@ -3,13 +3,16 @@ import os
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import colors
+from matplotlib import colors, pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.ticker import MultipleLocator
 from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 import cv2
+
+from CNN.CNN_training import h5RabaniDataGenerator
+
 
 def power_resize(image, newsize):
     """Enlarge image by a factor of ^2"""
@@ -199,3 +202,20 @@ if __name__ == '__main__':
     cats = ["hole", "liquid", "cellular", "labyrinth", "island"]
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
+
+
+def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128):
+    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize)
+
+    x, y = img_generator.__getitem__(None)
+    axis_res = int(np.sqrt(num_imgs))
+
+    cmap = colors.ListedColormap(["black", "white", "orange"])
+    boundaries = [0, 0.5, 1]
+    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+    plt.figure()
+    for i in range(axis_res ** 2):
+        plt.subplot(axis_res, axis_res, i+1)
+        plt.imshow(x[i, :, :, 0], cmap=cmap)
+        plt.axis("off")
+        plt.title(y_cats[np.argmax(y[i, :])])
