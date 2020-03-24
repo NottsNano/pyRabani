@@ -196,7 +196,7 @@ if __name__ == '__main__':
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=5)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=15)
     save_model(trained_model, "Data/Trained_Networks")
     
     plot_model_history(trained_model)

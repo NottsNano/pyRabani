@@ -52,3 +52,13 @@ def plot_confusion_matrix(cm,
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
+
+
+def all_preds_histogram(preds, cats):
+    plt.figure()
+
+    for i, cat in enumerate(cats):
+        plt.hist(preds[:, i], bins=100, alpha=0.8, range=[0, 1], density=True)
+    plt.legend(cats)
+    plt.xlabel("Network Confidence")
+    plt.ylabel("Normalized Frequency")

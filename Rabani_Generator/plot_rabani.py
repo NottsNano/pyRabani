@@ -196,7 +196,7 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
 def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128):
     from CNN.CNN_training import h5RabaniDataGenerator
 
-    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize)
+    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize, output_parameters_list=y_params, output_categories_list=y_cats)
 
     x, y = img_generator.__getitem__(None)
     axis_res = int(np.sqrt(num_imgs))
@@ -210,6 +210,18 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
         plt.imshow(x[i, :, :, 0], cmap=cmap)
         plt.axis("off")
         plt.title(y_cats[np.argmax(y[i, :])])
+
+
+def show_image(img):
+    img[0,0] = 0
+    img[0, 1] = 1
+    img[0, 2] =2
+    plt.figure()
+    cmap = colors.ListedColormap(["black", "white", "orange"])
+    boundaries = [0, 0.5, 1]
+    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+    plt.imshow(img, cmap=cmap)
+    plt.axis("off")
 
 
 if __name__ == '__main__':
