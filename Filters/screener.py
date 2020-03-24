@@ -19,7 +19,7 @@ files_ibw = [i for i in files if i.endswith('.ibw')]
 
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
-path2file = f'thres_img/tp/000TEST.ibw'
+# path2file = f'thres_img/tp/000TEST.ibw'
 # path2file = f'thres_img/tp/C10_0000.ibw'
 path2file = f'thres_img/tn/SiO2_t12_ring5_1mgmL_0000.ibw' # Image for testing dud line finder
 
@@ -81,6 +81,7 @@ row_fit_data_Trace_Array[1, :] = norm_data_Trace_Array[1, :] - np.mean(norm_data
 
 aligned_med_data_Trace_Array = row_fit_data_Trace_Array
 aligned_med_phase_Trace_Array = norm_phase_Trace_Array
+
 dud_row = 0
 
 for i in range(1, row_num):
@@ -98,9 +99,10 @@ for i in range(1, row_num):
     # counter = np.count_nonzero(row_i == (stats.mode(row_i))[0])
     counter = np.count_nonzero((0.95*row_mode[0] < row_i) < 1.05*row_mode[0])
     flat = counter > 0.95 * row_num
-    slope = (row_i == np.sort(row_i))
-    slope_rev = (row_i == np.sort(row_i)[::-1])
-    dud_row = dud_row + flat + slope + slope_rev
+    slope = np.prod(row_i == np.sort(row_i))
+    slope_rev = np.prod(row_i == np.sort(row_i)[::-1])
+    dud_row = dud_row + counter > 0.95 * row_num + np.prod(row_i == np.sort(row_i)) + np.prod(row_i == np.sort(row_i)[::-1])
+    #Still not great, maybe has the line fit to a polynomial and use the fit to determine if the line is just noise
 
 
 if dud_row/row_num > 0.05:
