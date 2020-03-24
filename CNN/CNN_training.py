@@ -1,16 +1,16 @@
+import datetime
 import os
 import subprocess
 
 import h5py
 import numpy as np
+from sklearn import metrics
 from sklearn.utils import class_weight
 from tensorflow.keras.layers import Dense, MaxPooling2D, Flatten
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras.layers import Convolution2D
-
-from CNN.stats_plotting import plot_model_history
 
 
 class h5RabaniDataGenerator(Sequence):
@@ -30,11 +30,11 @@ class h5RabaniDataGenerator(Sequence):
 
         self._get_image_res()
 
-        #self._get_class_weights()
+        # self._get_class_weights()
 
         self._batches_counter = 0
 
-        #self.y_true = np.zeros((self.__len__()*self.batch_size, len(self.original_categories_list)))
+        # self.y_true = np.zeros((self.__len__()*self.batch_size, len(self.original_categories_list)))
 
     def _get_class_weights(self):
         """Open all the files once to compute the class weights"""
@@ -61,7 +61,7 @@ class h5RabaniDataGenerator(Sequence):
     def _get_image_res(self):
         """Open one file to check the image resolution"""
         self.image_res = len(np.loadtxt(self._file_iterator.__next__().path, delimiter=","))
-        self.num_cats = len(self._file_iterator.__next__().path.split("-"))-2
+        self.num_cats = len(self._file_iterator.__next__().path.split("-")) - 2
         self.__reset_file_iterator__()
 
     def on_epoch_end(self):
@@ -102,11 +102,12 @@ class h5RabaniDataGenerator(Sequence):
             file_entry = file.path
             file_name = file.name
 
-            batch_x[i, :, :, 0] = np.loadtxt(file_entry, delimiter=",")//9
+            batch_x[i, :, :, 0] = np.loadtxt(file_entry, delimiter=",") // 9
             batch_y[i, :] = self.parse_name(file_name)
 
         if self.is_validation_set:
-            self.y_true[self._batches_counter*self.batch_size:(self._batches_counter+1)*self.batch_size, :] = batch_y
+            self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
+            :] = batch_y
 
         if self.is_training_set:
             batch_x = self.augment(batch_x)
@@ -157,45 +158,46 @@ def train_model(train_datadir, test_datadir, batch_size, epochs):
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
-                        validation_steps=test_generator.__len__()//10,
+                        validation_steps=test_generator.__len__() // 10,
                         epochs=epochs,
                         max_queue_size=100)
 
     return model
 
 
-def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size):
-    validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
-                                                 is_train=False, imsize=128)
-    validation_generator.is_validation_set = True
-
-    validation_preds = model.predict_generator(validation_generator, steps=validation_generator.__len__())
-    validation_truth = validation_generator.y_true
-
-    return validation_preds, validation_truth
+def save_model(model, root_dir):
+    current_date = datetime.datetime.now().strftime("%Y/%m/%d--%H-%M")
+    os.mkdir(f"{root_dir}/{current_date}")
+    model.save(f"{root_dir}/{current_date}/model.h5")
 
 
 if __name__ == '__main__':
-    # Train
+    from CNN.CNN_prediction import validation_pred_generator
+    from CNN.stats_plotting import plot_model_history, plot_confusion_matrix
+    from Rabani_Generator.plot_rabani import show_random_selection_of_images
+
     training_data_dir = "/media/mltest1/Dat Storage/Alex Data/Training"
     testing_data_dir = "/media/mltest1/Dat Storage/Alex Data/Testing"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"
+    original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
+    original_parameters = ["kT", "mu"]
 
-    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir, batch_size=1024, epochs=5)
+    # Train
+    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir, batch_size=1024,
+                                epochs=5)
+    save_model(trained_model, "Data/Trained_Networks")
+
     plot_model_history(trained_model)
 
-    # preds, truth = validation_pred(trained_model, validation_datadir=validation_data_dir,
-    #                                y_params=original_parameters, y_cats=original_categories, batch_size=512)
-    #
-    # # y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
-    # # y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)
-    #
-    # y_pred = np.argmax(preds, axis=1)
-    # y_truth = np.argmax(truth, axis=1)
-    #
-    # show_random_selection_of_images(testing_data_dir, num_imgs=25, y_params=original_parameters,
-    #                                 y_cats=original_categories)
-    #
-    # conf_mat = metrics.confusion_matrix(y_truth, y_pred)
-    # plot_confusion_matrix(conf_mat, original_categories)
-    # print(metrics.classification_report(y_truth, y_pred, target_names=original_categories))
+    preds, truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
+                                             y_params=original_parameters, y_cats=original_categories, batch_size=512)
+
+    y_pred = np.argmax(preds, axis=1)
+    y_truth = np.argmax(truth, axis=1)
+
+    show_random_selection_of_images(testing_data_dir, num_imgs=25, y_params=original_parameters,
+                                    y_cats=original_categories)
+
+    conf_mat = metrics.confusion_matrix(y_truth, y_pred)
+    plot_confusion_matrix(conf_mat, original_categories)
+    print(metrics.classification_report(y_truth, y_pred, target_names=original_categories))

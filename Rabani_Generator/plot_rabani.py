@@ -1,7 +1,6 @@
 import os
 
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors, pyplot as plt
 from matplotlib.cm import get_cmap
@@ -9,14 +8,11 @@ from matplotlib.ticker import MultipleLocator
 from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
-import cv2
-
-from CNN.CNN_training import h5RabaniDataGenerator
 
 
 def power_resize(image, newsize):
     """Enlarge image by a factor of ^2"""
-    num_tiles = (newsize/image.shape[0]) ** 0.5 % 2
+    num_tiles = (newsize / image.shape[0]) ** 0.5 % 2
     assert num_tiles == 0, "New image must be ^2 larger than original image"
     new_image = np.tile(image, int(num_tiles))
 
@@ -184,7 +180,8 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
                     break
 
                 # Plot
-                big_img[plot_j * img_res:(plot_j + 1) * img_res, plot_i * img_res:(plot_i + 1) * img_res] = power_resize(
+                big_img[plot_j * img_res:(plot_j + 1) * img_res,
+                plot_i * img_res:(plot_i + 1) * img_res] = power_resize(
                     img_file["sim_results"]["image"][()], img_res) * 255 // 2
 
         axs[plot_num].imshow(big_img, cmap=cmap)
@@ -205,6 +202,8 @@ if __name__ == '__main__':
 
 
 def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128):
+    from CNN.CNN_training import h5RabaniDataGenerator
+
     img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize)
 
     x, y = img_generator.__getitem__(None)
@@ -215,7 +214,7 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
     norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
     plt.figure()
     for i in range(axis_res ** 2):
-        plt.subplot(axis_res, axis_res, i+1)
+        plt.subplot(axis_res, axis_res, i + 1)
         plt.imshow(x[i, :, :, 0], cmap=cmap)
         plt.axis("off")
         plt.title(y_cats[np.argmax(y[i, :])])
