@@ -6,7 +6,7 @@ import h5py
 import pyUSID
 from scipy import ndimage, signal, stats
 import numpy as np
-from os import listdir
+import os
 from sys import exit
 
 # Toggles showing progress statements
@@ -20,7 +20,8 @@ files_ibw = [i for i in files if i.endswith('.ibw')]
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
 path2file = f'thres_img/tp/000TEST.ibw'
-# path2file = f'thres_img/tn/SiO2_t12_ring5_1mgmL_0000.ibw' # Image for testing dud line finder
+# path2file = f'thres_img/tp/C10_0000.ibw'
+path2file = f'thres_img/tn/SiO2_t12_ring5_1mgmL_0000.ibw' # Image for testing dud line finder
 
 # Translate the requisite file
 Output = TranslateObj.translate(
@@ -48,8 +49,14 @@ else:
     print('Rejected! ibw file is non-standard size.')
     # continue
 
+# Shape and normalise the arrays between 0 and 1
 shaped_data_Trace_Array = np.reshape(data_Trace_Array, (row_num, row_num))
+norm_data_Trace_Array = (shaped_data_Trace_Array-np.min(shaped_data_Trace_Array))\
+                         / (np.max(shaped_data_Trace_Array)-np.min(shaped_data_Trace_Array))
+
 shaped_phase_Trace_Array = np.reshape(phase_Trace_Array, (row_num, row_num))
+norm_phase_Trace_Array = (shaped_phase_Trace_Array-np.min(shaped_phase_Trace_Array))\
+                         / (np.max(shaped_phase_Trace_Array)-np.min(shaped_phase_Trace_Array))
 
 print(p_s*'Closing file...')
 
@@ -58,10 +65,6 @@ h5_File.close()
 # ---------------Next step is to apply median difference to rows--------------
 # Create a function to take two adjacent rows and return the alignment required to
 # move the second row in line with the first
-
-
-norm_data_Trace_Array = (flattened_data_Trace_Array-np.min(flattened_data_Trace_Array))\
-                        / (np.max(flattened_data_Trace_Array)-np.min(flattened_data_Trace_Array))
 
 print(p_s*'Applying median aligner...')
 
@@ -73,11 +76,11 @@ def line_align(row1, row2):
     median_index = np.median(binned_indices)
     return bins[int(median_index)]
 
-row_fit_data_Trace_Array = shaped_data_Trace_Array
-row_fit_data_Trace_Array[1, :] = shaped_data_Trace_Array[1, :] - np.mean(shaped_data_Trace_Array[1, :])
+row_fit_data_Trace_Array = norm_data_Trace_Array
+row_fit_data_Trace_Array[1, :] = norm_data_Trace_Array[1, :] - np.mean(norm_data_Trace_Array[1, :])
 
 aligned_med_data_Trace_Array = row_fit_data_Trace_Array
-aligned_med_phase_Trace_Array = shaped_phase_Trace_Array
+aligned_med_phase_Trace_Array = norm_phase_Trace_Array
 dud_row = 0
 
 for i in range(1, row_num):
@@ -93,8 +96,12 @@ for i in range(1, row_num):
     # Extra line that tells the code to count rows where the mode is the same as 95% of the values in the row or ie a dead scan line
     row_mode = stats.mode(row_i)
     # counter = np.count_nonzero(row_i == (stats.mode(row_i))[0])
-    counter = np.count_nonzero(0.95*(stats.mode(row_i))[0] < row_i < 1.05(stats.mode(row_i))[0])  # Change line so its 0.95*mode<val<1.05*mode
-    dud_row = dud_row + (counter > 0.95*row_num)
+    counter = np.count_nonzero((0.95*row_mode[0] < row_i) < 1.05*row_mode[0])
+    flat = counter > 0.95 * row_num
+    slope = (row_i == np.sort(row_i))
+    slope_rev = (row_i == np.sort(row_i)[::-1])
+    dud_row = dud_row + flat + slope + slope_rev
+
 
 if dud_row/row_num > 0.05:
     print('Rejected!', "%.1f" % (100*dud_row/row_num), '% of the rows were corrupted.')
