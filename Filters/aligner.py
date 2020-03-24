@@ -310,7 +310,7 @@ plt.imshow(data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
 
 #normalise image so (all values-min value)/(max value-min value) so all pixels are 0 to 1
 
-#norm_img = (img-min(img))/(max(img)-min(img))
+#norm_img = (thres_img-min(thres_img))/(max(thres_img)-min(thres_img))
 
 #n = 1000 #precision of threshold
 #thres = np.linspace(0,1,n)

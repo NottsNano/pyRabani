@@ -6,25 +6,28 @@ import h5py
 import pyUSID
 from scipy import ndimage, signal
 import numpy as np
+import os
 from sys import exit
 
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
+path2file = f'thres_img/tp/000TEST.ibw'
 
 # Translate the requisite file
 Output = TranslateObj.translate(
-    file_path=r'ibw_test.ibw', verbose=False)
+    file_path=path2file, verbose=False)
 
-print(Output)
+print('Found', Output, 'made at', os.path.getctime(f'thres_img/tp/000TEST.ibw'))
 
 # Opening this file to read in sections as a numpy array
 Read_Path = Output
 h5_File = h5py.File(Output, mode='r')
 
 # Various commands for accessing information of the file
-pyUSID.hdf_utils.print_tree(h5_File)
+# pyUSID.hdf_utils.print_tree(h5_File)
 # for key, val in pyUSID.hdf_utils.get_attributes(h5_File).items():
-#    print('{} : {}'.format(key, val))
+#     print('{} : {}'.format(key, val))
+
 
 data_Trace = h5_File['Measurement_000/Channel_000/Raw_Data']
 phase_Trace = h5_File['Measurement_000/Channel_002/Raw_Data']
@@ -163,7 +166,7 @@ plt.grid(True)
 
 
 # Print the image
-opt_thres = thres[troughs[1]]
+opt_thres = thres[troughs[0]]
 plt.figure()
 plt.imshow(norm_data_Trace_Array < opt_thres, extent=(0, row_num, 0, row_num), origin='lower', cmap='RdGy')
 
