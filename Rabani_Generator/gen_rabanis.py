@@ -14,7 +14,7 @@ from Rabani_Generator.rabani import _run_rabani_sweep
 
 
 class RabaniSweeper:
-    def __init__(self, root_dir, sftp_when_done=False, generate_mode='visualise'):
+    def __init__(self, root_dir, generate_mode, sftp_when_done=False):
         self.system_name = platform.node()
         self.root_dir = root_dir
 
@@ -31,6 +31,8 @@ class RabaniSweeper:
 
         self.sweep_cnt = 1
 
+        assert generate_mode in ["make_dataset", "visualise"]
+
     def setup_ssh(self):
         with open("details.json", 'r') as f:
             details = json.load(f)
@@ -43,6 +45,7 @@ class RabaniSweeper:
 
     def call_rabani_sweep(self, params, axis_steps, image_reps):
         """Run an optimised set of rabani simulations, sweeping along desired axis/axes"""
+
         def get_linspace_ranges(param, param_key, axis_res):
             if type(param[param_key]) is list:
                 if type(axis_res) is dict:
@@ -110,7 +113,7 @@ class RabaniSweeper:
 
     def save_rabanis(self, imgs, m_all):
         self.make_storage_folder(f"{self.root_dir}/{self.start_date}/{self.start_time}")
-        for rep, img in enumerate(imgs): # Does rep not match up with params?
+        for rep, img in enumerate(imgs):  # Does rep not match up with params?
             master_file = h5py.File(
                 f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
                 "a")
@@ -199,7 +202,7 @@ if __name__ == '__main__':
                 "mu": 25,
                 "L": 3}
 
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="generate_dataset")
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)

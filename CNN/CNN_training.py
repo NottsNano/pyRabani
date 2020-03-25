@@ -1,20 +1,16 @@
 import datetime
-import itertools
 import os
 import subprocess
 
 import h5py
 import numpy as np
-from matplotlib import pyplot as plt, colors
-from sklearn import metrics
 from sklearn.utils import class_weight
-from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout
-from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
 
-from CNN.get_model import get_model
 from Rabani_Generator.plot_rabani import power_resize
+from CNN.get_model import get_model
+
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train, imsize=None,
@@ -143,11 +139,11 @@ class h5RabaniDataGenerator(Sequence):
         return batch_x
 
 
-def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs):
+def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=256,  # try 256!
+    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=imsize,  # try 256!
                                             output_parameters_list=y_params, output_categories_list=y_cats)
-    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=256,
+    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
@@ -173,35 +169,14 @@ def save_model(model, root_dir):
 
 
 if __name__ == '__main__':
-    from CNN.CNN_prediction import validation_pred_generator
-    from CNN.stats_plotting import plot_confusion_matrix, plot_model_history
-    from Rabani_Generator.plot_rabani import show_random_selection_of_images, power_resize
-
     # Train
     training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/21-58"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
-    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"
-    original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"] 
+    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-25/13-59"
+
+    original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=100, epochs=10)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=100, imsize=256, epochs=25)
     save_model(trained_model, "Data/Trained_Networks")
-
-    plot_model_history(trained_model)
-
-    preds, truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-                                   y_params=original_parameters, y_cats=original_categories, batch_size=100, imsize=256)
-
-    # y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
-    # y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)
-
-    y_pred = np.argmax(preds, axis=1)
-    y_truth = np.argmax(truth, axis=1)
-
-    show_random_selection_of_images(testing_data_dir, num_imgs=25, y_params=original_parameters,
-                                    y_cats=original_categories, imsize=256)
-
-    conf_mat = metrics.confusion_matrix(y_truth, y_pred)
-    plot_confusion_matrix(conf_mat, original_categories)
-    print(metrics.classification_report(y_truth, y_pred, target_names=original_categories))
