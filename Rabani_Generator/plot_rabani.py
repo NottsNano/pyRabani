@@ -196,7 +196,7 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
         axs[plot_num].title.set_text(f"{category}")
 
 
-def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128):
+def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128, model=None):
     from CNN.CNN_training import h5RabaniDataGenerator
 
     img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize, output_parameters_list=y_params, output_categories_list=y_cats)
@@ -212,13 +212,20 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
         plt.subplot(axis_res, axis_res, i + 1)
         plt.imshow(x[i, :, :, 0], cmap=cmap)
         plt.axis("off")
-        plt.title(y_cats[np.argmax(y[i, :])])
+
+        if model:
+            pred = model.predict(np.expand_dims(np.expand_dims(power_resize(x[i, :, :, 0], imsize), 0), 3))
+            cat = y_cats[np.argmax(pred[0, :])]
+        else:
+            cat = (y_cats[np.argmax(y[i, :])])
+
+        plt.title(cat)
 
 
 def show_image(img):
     img[0,0] = 0
     img[0, 1] = 1
-    img[0, 2] =2
+    img[0, 2] = 2
     plt.figure()
     cmap = colors.ListedColormap(["black", "white", "orange"])
     boundaries = [0, 0.5, 1]
@@ -228,10 +235,10 @@ def show_image(img):
 
 
 if __name__ == '__main__':
-    dir = "Images/2020-03-10/15-35"
-    model = load_model("new_model.h5")
-    cats = ["hole", "liquid", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128)
+    dir = "Data/Simulated_Images/2020-03-25/13-30"
+    model = load_model("Data/Trained_Networks/2020-03-25--13-09/model.h5")
+    cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=256, categories=cats, trained_model=model)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
-    show_random_selection_of_images("/home/mltest1/tmp/pycharm_project_883/Images/2020-03-24/19-58", 25, ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 256)
+    show_random_selection_of_images("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/19-58", 25, ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 256, model=model)

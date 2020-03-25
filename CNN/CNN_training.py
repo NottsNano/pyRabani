@@ -145,9 +145,9 @@ class h5RabaniDataGenerator(Sequence):
 
 def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=128,  # try 256!
+    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=256,  # try 256!
                                             output_parameters_list=y_params, output_categories_list=y_cats)
-    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=128,
+    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=256,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
@@ -178,20 +178,20 @@ if __name__ == '__main__':
     from Rabani_Generator.plot_rabani import show_random_selection_of_images, power_resize
 
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-24/22-39"  # "/media/mltest1/Dat Storage/pyRabani_Images"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
-    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/21-58"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
+    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"] 
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=50)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=100, epochs=10)
     save_model(trained_model, "Data/Trained_Networks")
-    
+
     plot_model_history(trained_model)
 
     preds, truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-                                   y_params=original_parameters, y_cats=original_categories, batch_size=512)
+                                   y_params=original_parameters, y_cats=original_categories, batch_size=100, imsize=256)
 
     # y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
     # y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     y_truth = np.argmax(truth, axis=1)
 
     show_random_selection_of_images(testing_data_dir, num_imgs=25, y_params=original_parameters,
-                                    y_cats=original_categories)
+                                    y_cats=original_categories, imsize=256)
 
     conf_mat = metrics.confusion_matrix(y_truth, y_pred)
     plot_confusion_matrix(conf_mat, original_categories)

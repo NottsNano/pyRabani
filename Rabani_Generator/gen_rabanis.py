@@ -178,14 +178,14 @@ class RabaniSweeper:
             self.setup_ssh()
         self.sftp.put(
             f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5",
-            f"/home/mltest1/tmp/pycharm_project_883/Images/ImageDump/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5")
+            f"/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/ImageDump/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5")
         os.remove(
             f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5")
 
 
 if __name__ == '__main__':
-    root_dir = "Images"
-    total_image_reps = 20
+    root_dir = "Data/Simulated_Images"
+    total_image_reps = 5
 
     parameters = {"kT": [0.01, 0.35],
                   "mu": [2.35, 3.47],
@@ -199,7 +199,7 @@ if __name__ == '__main__':
                 "mu": 25,
                 "L": 3}
 
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="generate_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)
