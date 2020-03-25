@@ -12,6 +12,8 @@ from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropou
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
+
+from CNN.get_model import get_model
 from Rabani_Generator.plot_rabani import power_resize
 
 class h5RabaniDataGenerator(Sequence):
@@ -143,34 +145,21 @@ class h5RabaniDataGenerator(Sequence):
 
 def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=256,  # try 256!
+    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=128,  # try 256!
                                             output_parameters_list=y_params, output_categories_list=y_cats)
-    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=256,
+    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=128,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
-    model = Sequential()
-    model.add(Conv2D(32, kernel_size=(3, 3),
-                     activation='relu',
-                     input_shape=input_shape))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(len(y_cats), activation='softmax'))
-
-    model.compile(loss='categorical_crossentropy',
-                  optimizer=Adam(),
-                  metrics=['accuracy'])
+    model = get_model("VGG", input_shape, len(y_cats), Adam())
 
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
                         validation_steps=test_generator.__len__(),
+                        class_weight=train_generator.class_weights_dict,
                         epochs=epochs,
                         max_queue_size=100)
 
@@ -189,20 +178,20 @@ if __name__ == '__main__':
     from Rabani_Generator.plot_rabani import show_random_selection_of_images, power_resize
 
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-24/19-58"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-24/22-39"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"] 
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=100, epochs=50)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=512, epochs=50)
     save_model(trained_model, "Data/Trained_Networks")
     
     plot_model_history(trained_model)
 
     preds, truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-                                   y_params=original_parameters, y_cats=original_categories, batch_size=100)
+                                   y_params=original_parameters, y_cats=original_categories, batch_size=512)
 
     # y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
     # y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)

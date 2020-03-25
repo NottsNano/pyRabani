@@ -9,9 +9,9 @@ from Filters.alignerwthreshold import tmp_img_loader
 from Rabani_Generator.plot_rabani import show_image
 
 
-def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size):
+def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size, imsize=128):
     validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
-                                                 is_train=False, imsize=128, output_parameters_list=y_params,
+                                                 is_train=False, imsize=imsize, output_parameters_list=y_params,
                                                  output_categories_list=y_cats)
     validation_generator.is_validation_set = True
 
@@ -51,7 +51,13 @@ class ImageClassifier:
 
 
 if __name__ == '__main__':
-    img = tmp_img_loader("Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw")
+    imgold = tmp_img_loader("Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10_ring5_1mgmL_0002.ibw").astype(int)
+
+    img = imgold.copy()
+    img[imgold==1] = 0
+    img[imgold==0] = 2
+
+
     trained_model = load_model("Data/Trained_Networks/2020-03-24--16-58/model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
