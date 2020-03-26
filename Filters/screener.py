@@ -14,14 +14,17 @@ p_s = 1
 
 print(p_s*'Locating file...')
 
-files = os.listdir('thres_img/tp')
-files_ibw = [i for i in files if i.endswith('.ibw')]
+# files = os.listdir('thres_img/tp')
+# files_ibw = [i for i in files if i.endswith('.ibw')]
+#
+# for k in files_ibw:
+#     print('Introducing', k, '...')
 
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
-# path2file = f'thres_img/tp/000TEST.ibw'
-# path2file = f'thres_img/tp/C10_0000.ibw'
-path2file = f'thres_img/tn/SiO2_t12_ring5_1mgmL_0000.ibw' # Image for testing dud line finder
+path2file = f'thres_img/tp/000TEST.ibw'
+# path2file = f'thres_img/tp/C10_0000.ibw' # No clue whats wrong with this one
+# path2file = f'thres_img/tn/SiO2_t12_ring5_1mgmL_0000.ibw' # Image for testing dud line finder
 
 # Translate the requisite file
 Output = TranslateObj.translate(
@@ -102,7 +105,7 @@ for i in range(1, row_num):
     slope = np.prod(row_i == np.sort(row_i))
     slope_rev = np.prod(row_i == np.sort(row_i)[::-1])
     dud_row = dud_row + counter > 0.95 * row_num + np.prod(row_i == np.sort(row_i)) + np.prod(row_i == np.sort(row_i)[::-1])
-    #Still not great, maybe has the line fit to a polynomial and use the fit to determine if the line is just noise
+    #Still not great, maybe has the line fit to a polynomial and use a chi fit to determine if the line is just noise
 
 
 if dud_row/row_num > 0.05:
@@ -165,6 +168,7 @@ test_plane = hor_array + ver_array + centroid_mass
 plt.subplot(2, 2, 1)
 plt.imshow(aligned_med_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
+plt.title('Median aligned')
 
 flattened_data_Trace_Array = aligned_med_data_Trace_Array - test_plane
 
@@ -177,6 +181,7 @@ norm_data_Trace_Array = (flattened_data_Trace_Array-np.min(flattened_data_Trace_
 plt.subplot(2, 2, 2)
 plt.imshow(norm_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
+plt.title('Planar aligned')
 
 # Consider all possible threshold values
 n = 1000
@@ -188,8 +193,12 @@ for i, t in enumerate(thres):
 plt.subplot(2,2,3)
 threshold_plot = plt.plot(thres, pix)
 plt.grid(True)
+plt.title('Threshold height sweep')
+plt.xlabel('Threshold')
+plt.ylabel('Pixels')
 
-pix_gauss_grad = ndimage.gaussian_gradient_magnitude(pix,10)
+gauss_sigma = 10
+pix_gauss_grad = ndimage.gaussian_gradient_magnitude(pix,gauss_sigma)
 peaks, properties = signal.find_peaks(pix_gauss_grad, prominence=1)
 troughs, properties = signal.find_peaks(-pix_gauss_grad, prominence=1)
 
@@ -198,12 +207,22 @@ dif_threshold_plot = plt.plot(thres, pix_gauss_grad)
 dif_threshold_scatter = plt.scatter(thres[peaks], pix_gauss_grad[peaks])
 dif_threshold_scatter = plt.scatter(thres[troughs], pix_gauss_grad[troughs], marker='x')
 plt.grid(True)
+plt.title('Gaussian gradient (\u03C3='+str(gauss_sigma)+')')
+plt.xlabel('Threshold')
+plt.ylabel('\u0394Pixels')
 
+# plt.savefig('')
 
-# Print the image
-opt_thres = thres[troughs[0]]
-plt.figure()
-plt.imshow(norm_data_Trace_Array < opt_thres, extent=(0, row_num, 0, row_num), origin='lower', cmap='RdGy')
+if len(troughs) == 1:
+    # Print the image
+    opt_thres = thres[troughs[0]]
+    plt.figure()
+    plt.imshow(norm_data_Trace_Array > opt_thres, extent=(0, row_num, 0, row_num), origin='lower', cmap='gray')
+    plt.title('Threshold = %.2f' % opt_thres)
+    plt.ion()
+else:
+    print('Rejected! No clear optimisation.')
 
+print('Done!')
 #Use this to force a plot
 #plt.ion()
