@@ -213,7 +213,7 @@ for k in files_ibw:
     plt.subplot(2, 2, 1)
     plt.imshow(aligned_med_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
                cmap='RdGy')
-    plt.title('Median aligned')
+    plt.title('Median aligned', fontsize=10)
 
     flattened_data_Trace_Array = aligned_med_data_Trace_Array - test_plane
 
@@ -226,7 +226,7 @@ for k in files_ibw:
     plt.subplot(2, 2, 2)
     plt.imshow(norm_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
                cmap='RdGy')
-    plt.title('Planar flattened')
+    plt.title('Planar flattened', fontsize=10)
 
 
     # Consider all possible threshold values
@@ -240,9 +240,9 @@ for k in files_ibw:
     plt.subplot(2, 2, 3)
     threshold_plot = plt.plot(thres, pix)
     plt.grid(True)
-    plt.title('Threshold height sweep')
-    plt.xlabel('Threshold')
-    plt.ylabel('Pixels')
+    plt.title('Threshold height sweep', fontsize=10)
+    plt.xlabel('Threshold', fontsize=8)
+    plt.ylabel('Pixels', fontsize=8)
 
     gauss_sigma = 10
     pix_gauss_grad = ndimage.gaussian_gradient_magnitude(pix, gauss_sigma)
@@ -254,9 +254,9 @@ for k in files_ibw:
     dif_threshold_scatter = plt.scatter(thres[peaks], pix_gauss_grad[peaks])
     dif_threshold_scatter2 = plt.scatter(thres[troughs], pix_gauss_grad[troughs], marker='x')
     plt.grid(True)
-    plt.title('Gaussian gradient (\u03C3=' + str(gauss_sigma) + ')')
-    plt.xlabel('Threshold')
-    plt.ylabel('\u0394Pixels')
+    plt.title('Gaussian gradient (\u03C3=' + str(gauss_sigma) + ')', fontsize=10)
+    plt.xlabel('Threshold', fontsize=8)
+    plt.ylabel('\u0394Pixels', fontsize=8)
     fig_loc = dir+k.replace('.ibw', 'FIG.png')
     plt.savefig(fig_loc)
     # , bbox = 'tight'
