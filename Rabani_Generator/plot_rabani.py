@@ -9,6 +9,7 @@ from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 
+
 # from CNN.CNN_prediction import ImageClassifier
 # from CNN.stats_plotting import all_preds_histogram
 
@@ -237,13 +238,10 @@ def show_image(img, axis=None):
     boundaries = [0, 0.5, 1]
     norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
-    if axis:
-        axis.imshow(img, cmap=cmap)
-        axis.axis("off")
-    else:
-        plt.imshow(img, cmap=cmap)
-        plt.axis("off")
-
+    if not axis:
+        fig, axis = plt.subplots(1, 1)
+    axis.imshow(img, cmap=cmap)
+    axis.axis("off")
 
 
 if __name__ == '__main__':

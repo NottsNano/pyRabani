@@ -52,19 +52,13 @@ def plot_confusion_matrix(cm, target_names, title='Confusion matrix', cmap=None,
 
 def all_preds_histogram(preds, cats, axis=None):
     if not axis:
-        plt.figure()
-        for i, cat in enumerate(cats):
-            plt.hist(preds[:, i], bins=100, alpha=0.8, range=[0, 1], density=True)
+        fig, axis = plt.subplots(1, 1)
 
-        plt.xlabel("Network Confidence")
-        plt.ylabel("Normalized Frequency")
-        plt.legend(cats)
+    for i, cat in enumerate(cats):
+        axis.hist(preds[:, i], bins=100, alpha=0.8, range=[0, 1], density=True)
 
-    else:
-        for i, cat in enumerate(cats):
-            axis.hist(preds[:, i], bins=100, alpha=0.8, range=[0, 1], density=True)
-
-        if not axis.get_legend():
-            axis.legend(cats)
-            axis.set_xlabel("Network Confidence")
-            axis.set_ylabel("Normalized Frequency")
+    if not axis.get_legend():
+        axis.legend(cats)
+        axis.set_xlabel("Network Confidence")
+        axis.set_ylabel("Normalized Frequency")
+        axis.set_ylim([0, 100])

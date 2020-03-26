@@ -43,6 +43,7 @@ def predict_with_noise(img, model, noise_nums, noise_steps, num_noise_pixels, sa
     """Progressively add noise to an image and classifying it"""
 
     fig, axes = plt.subplots(1, 2)
+    fig.tight_layout(pad=3)
 
     for i in range(noise_steps):
         axes[0].clear()
@@ -106,5 +107,5 @@ if __name__ == '__main__':
     img[imgold == 0] = 0
 
     # Add noise
-    predict_with_noise(img=img, model=trained_model, noise_nums=[0, 2], num_noise_pixels=(512 ** 2) // 200,
-                       noise_steps=100, savedir="Data/Plots/Si_benzene_0000+noise")
+    predict_with_noise(img=img, model=trained_model, noise_nums=[0, 1, 2], num_noise_pixels=(512 ** 2) // 200,
+                       noise_steps=2)
