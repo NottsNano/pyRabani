@@ -3,6 +3,7 @@ import itertools
 import numpy as np
 from matplotlib import pyplot as plt
 from tensorflow.python.keras.models import load_model
+from CNN.CNN_training import h5RabaniDataGenerator
 
 
 class ImageClassifier:
@@ -75,7 +76,6 @@ def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch
 
 
 if __name__ == '__main__':
-    from CNN.CNN_training import h5RabaniDataGenerator
     from CNN.get_stats import all_preds_histogram
     from Filters.alignerwthreshold import tmp_img_loader
     from Rabani_Generator.plot_rabani import show_image
