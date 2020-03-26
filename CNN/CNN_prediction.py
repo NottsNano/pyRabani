@@ -2,12 +2,13 @@ import itertools
 
 import numpy as np
 from matplotlib import pyplot as plt
+from sklearn import metrics
 from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_training import h5RabaniDataGenerator
-from CNN.stats_plotting import all_preds_histogram
+from CNN.stats_plotting import all_preds_histogram, plot_confusion_matrix
 from Filters.alignerwthreshold import tmp_img_loader
-from Rabani_Generator.plot_rabani import show_image
+from Rabani_Generator.plot_rabani import show_image, show_random_selection_of_images
 
 
 class ImageClassifier:
@@ -86,19 +87,19 @@ if __name__ == '__main__':
     params = ["kT", "mu"]
 
     # Calculate stats for simulated validation set
-    # validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"
-    # preds, truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-    #                                y_params=params, y_cats=cats, batch_size=100, imsize=256)
-    #
-    # y_pred = np.argmax(preds, axis=1)
-    # y_truth = np.argmax(truth, axis=1)
-    #
-    # show_random_selection_of_images(validation_data_dir, num_imgs=25, y_params=params,
-    #                                 y_cats=cats, imsize=256, model=trained_model)
-    #
-    # conf_mat = metrics.confusion_matrix(y_truth, y_pred)
-    # plot_confusion_matrix(conf_mat, cats)
-    # print(metrics.classification_report(y_truth, y_pred, target_names=cats))
+    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"
+    preds, truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
+                                   y_params=params, y_cats=cats, batch_size=100, imsize=256)
+
+    y_pred = np.argmax(preds, axis=1)
+    y_truth = np.argmax(truth, axis=1)
+
+    show_random_selection_of_images(validation_data_dir, num_imgs=25, y_params=params,
+                                    y_cats=cats, imsize=256, model=trained_model)
+
+    conf_mat = metrics.confusion_matrix(y_truth, y_pred)
+    plot_confusion_matrix(conf_mat, cats)
+    print(metrics.classification_report(y_truth, y_pred, target_names=cats))
 
     # Classify a real image
     imgold = tmp_img_loader("Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_benzene_0000.ibw").astype(int)
@@ -106,6 +107,6 @@ if __name__ == '__main__':
     img[imgold == 1] = 2
     img[imgold == 0] = 0
 
-    # Add noise
+    # See effect of adding noise to image
     predict_with_noise(img=img, model=trained_model, noise_nums=[0, 1, 2], num_noise_pixels=(512 ** 2) // 200,
-                       noise_steps=2)
+                       noise_steps=1)
