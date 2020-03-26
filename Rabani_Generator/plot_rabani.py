@@ -9,6 +9,9 @@ from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 
+# from CNN.CNN_prediction import ImageClassifier
+# from CNN.stats_plotting import all_preds_histogram
+
 
 def power_resize(image, newsize):
     """Enlarge image by a factor of ^2"""
@@ -23,7 +26,7 @@ def power_resize(image, newsize):
 
 
 def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
-    """Plot two variables against another"""
+    """Plot two variables against another, and optionally the CNN predictions"""
     files = os.listdir(root_dir)
 
     # Find axis details to allow for preallocation
@@ -197,9 +200,11 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
 
 
 def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128, model=None):
+    """Show a random selection of simulated images, with categories chosen by simulation/CNN prediction"""
     from CNN.CNN_training import h5RabaniDataGenerator
 
-    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize, output_parameters_list=y_params, output_categories_list=y_cats)
+    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize,
+                                          output_parameters_list=y_params, output_categories_list=y_cats)
 
     x, y = img_generator.__getitem__(None)
     axis_res = int(np.sqrt(num_imgs))
@@ -222,23 +227,33 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
         plt.title(cat)
 
 
-def show_image(img):
-    img[0,0] = 0
+def show_image(img, axis=None):
+    """Show a binarized image"""
+    img[0, 0] = 0
     img[0, 1] = 1
     img[0, 2] = 2
-    plt.figure()
+
     cmap = colors.ListedColormap(["black", "white", "orange"])
     boundaries = [0, 0.5, 1]
     norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-    plt.imshow(img, cmap=cmap)
-    plt.axis("off")
+
+    if axis:
+        axis.imshow(img, cmap=cmap)
+        axis.axis("off")
+    else:
+        plt.imshow(img, cmap=cmap)
+        plt.axis("off")
+
 
 
 if __name__ == '__main__':
     dir = "Data/Simulated_Images/2020-03-25/13-30"
     model = load_model("Data/Trained_Networks/2020-03-25--13-09/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=256, categories=cats, trained_model=model)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=256, categories=cats,
+                                  trained_model=model)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
-    show_random_selection_of_images("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/19-58", 25, ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 256, model=model)
+    show_random_selection_of_images("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/19-58", 25,
+                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 256,
+                                    model=model)

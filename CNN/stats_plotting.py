@@ -14,11 +14,7 @@ def plot_model_history(model):
         plt.ylabel(plot_metric)
 
 
-def plot_confusion_matrix(cm,
-                          target_names,
-                          title='Confusion matrix',
-                          cmap=None,
-                          normalize=True):
+def plot_confusion_matrix(cm, target_names, title='Confusion matrix', cmap=None, normalize=True):
     accuracy = np.trace(cm) / float(np.sum(cm))
     misclass = 1 - accuracy
 
@@ -54,11 +50,21 @@ def plot_confusion_matrix(cm,
     plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
 
 
-def all_preds_histogram(preds, cats):
-    plt.figure()
+def all_preds_histogram(preds, cats, axis=None):
+    if not axis:
+        plt.figure()
+        for i, cat in enumerate(cats):
+            plt.hist(preds[:, i], bins=100, alpha=0.8, range=[0, 1], density=True)
 
-    for i, cat in enumerate(cats):
-        plt.hist(preds[:, i], bins=100, alpha=0.8, range=[0, 1], density=True)
-    plt.legend(cats)
-    plt.xlabel("Network Confidence")
-    plt.ylabel("Normalized Frequency")
+        plt.xlabel("Network Confidence")
+        plt.ylabel("Normalized Frequency")
+        plt.legend(cats)
+
+    else:
+        for i, cat in enumerate(cats):
+            axis.hist(preds[:, i], bins=100, alpha=0.8, range=[0, 1], density=True)
+
+        if not axis.get_legend():
+            axis.legend(cats)
+            axis.set_xlabel("Network Confidence")
+            axis.set_ylabel("Normalized Frequency")
