@@ -10,10 +10,6 @@ from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 
 
-# from CNN.CNN_prediction import ImageClassifier
-# from CNN.stats_plotting import all_preds_histogram
-
-
 def power_resize(image, newsize):
     """Enlarge image by a factor of ^2"""
     if image.shape[0] != newsize:
