@@ -128,7 +128,7 @@ class h5RabaniDataGenerator(Sequence):
         if self.circshift:
             batch_x = self.circ_shift(batch_x)
         if self.xnoise:
-            batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise, perc_std=0.01)
+            batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise, perc_std=0.005)
 
         return batch_x
 
@@ -147,10 +147,13 @@ class h5RabaniDataGenerator(Sequence):
 
     @staticmethod
     def speckle_noise(batch_x, perc_noise, perc_std):
-        rand_mask = bernoulli.rvs(p=np.abs(np.random.normal(loc=perc_noise, scale=perc_std)),
-                                  size=batch_x.shape).astype(bool)
-        rand_arr = 2 * np.random.randint(0, 1, size=batch_x.shape)
-        batch_x[rand_mask] = rand_arr[rand_mask]
+        p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
+        rand_mask = np.zeros(batch_x.shape)
+        for i, p in enumerate(p_all):
+            rand_mask[i, :, :, 0] = bernoulli.rvs(p=p, size=batch_x[0, :, :, 0].shape)
+
+        rand_arr = 2 * np.random.randint(0, 2, size=batch_x.shape)
+        batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
 
         return batch_x
 
@@ -158,7 +161,6 @@ class h5RabaniDataGenerator(Sequence):
 def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
     # Set up generators
     train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=imsize,
-                                            # try 256!
                                             output_parameters_list=y_params, output_categories_list=y_cats)
     test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
