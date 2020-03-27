@@ -106,9 +106,9 @@ class RabaniSweeper:
 
                 now = datetime.now().strftime("%H:%M:%S")
 
-                self.block_cnt += 1
                 print(
-                    f"{now} - Successfully completed block {self.block_cnt}|{tot_len * image_reps / block_size} ({block_size} rabanis)")
+                    f"{now} - Successfully completed block {self.block_cnt}|{tot_len * image_reps // block_size} ({block_size} rabanis)")
+                self.block_cnt += 1
 
         self.end_datetime = datetime.now()
 
