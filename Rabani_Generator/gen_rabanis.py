@@ -20,6 +20,8 @@ class RabaniSweeper:
         self.root_dir = root_dir
 
         self.generate_mode = generate_mode
+        assert generate_mode in ["make_dataset", "visualise"]
+
         self.sftp_when_done = sftp_when_done
         self.ssh = None
         self.sftp = None
@@ -28,11 +30,13 @@ class RabaniSweeper:
         self.start_date = self.start_datetime.strftime("%Y-%m-%d")
         self.start_time = self.start_datetime.strftime("%H-%M")
         self.end_datetime = None
-        self.params = None
 
+        self.params = None
         self.sweep_cnt = 1
 
-        assert generate_mode in ["make_dataset", "visualise"]
+        self._time = f"{self.root_dir}/{self.start_date}/{self.start_time}"
+        self._file_base = f"{self._time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}"
+        self.make_storage_folder(self._time)
 
     def setup_ssh(self):
         with open("details.json", 'r') as f:
@@ -113,10 +117,9 @@ class RabaniSweeper:
             os.makedirs(dir)
 
     def save_rabanis(self, imgs, m_all):
-        self.make_storage_folder(f"{self.root_dir}/{self.start_date}/{self.start_time}")
         for rep, img in enumerate(imgs):  # Does rep not match up with params?
             master_file = h5py.File(
-                f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5",
+                f"{self._file_base}--{self.sweep_cnt}.h5",
                 "a")
 
             region, cat = self.calculate_stats(img)
@@ -147,7 +150,7 @@ class RabaniSweeper:
                     self.network_rabanis()
             elif self.generate_mode is "make_dataset":
                 os.remove(
-                    f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5")
+                    f"{self._file_base}--{self.sweep_cnt}.h5")
 
             self.sweep_cnt += 1
 
@@ -181,10 +184,10 @@ class RabaniSweeper:
         if not self.ssh:
             self.setup_ssh()
         self.sftp.put(
-            f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5",
-            f"/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/ImageDump/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5")
+            f"{self._file_base}--{self.sweep_cnt - 1}.h5",
+            f"/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/date/time/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5")
         os.remove(
-            f"{self.root_dir}/{self.start_date}/{self.start_time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt}.h5")
+            f"{self._file_base}--{self.sweep_cnt}.h5")
 
 
 if __name__ == '__main__':
