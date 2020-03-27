@@ -7,6 +7,7 @@ from CNN.CNN_training import h5RabaniDataGenerator
 
 
 class ImageClassifier:
+    """Majority classify an image with window rolling"""
     def __init__(self, img_arr, model, window_jump=4):
         self.img_arr = img_arr
 
@@ -35,7 +36,7 @@ class ImageClassifier:
         self.majority_preds = np.mean(self.preds, axis=0)
 
 
-def predict_with_noise(img, model, cats, noise_nums, noise_steps, num_noise_pixels, savedir=None):
+def predict_with_noise(img, model, cats, noise_steps, perc_noise, savedir=None):
     """Progressively add noise to an image and classifying it"""
 
     fig, axes = plt.subplots(1, 2)
@@ -55,15 +56,14 @@ def predict_with_noise(img, model, cats, noise_nums, noise_steps, num_noise_pixe
         show_image(img, axis=axes[0])
         all_preds_histogram(img_classifier.preds, cats, axis=axes[1])
 
-        for noise_num in noise_nums:
-            img[np.random.randint(low=0, high=len(img), size=num_noise_pixels),
-                np.random.randint(low=0, high=len(img), size=num_noise_pixels)] = noise_num
+        img = h5RabaniDataGenerator.speckle_noise(img, perc_noise)
 
         if savedir:
             plt.savefig(f"{savedir}_{i}.png")
 
 
 def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size, imsize=128):
+    """Prediction generator for simulated validation data"""
     validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
                                                  is_train=False, imsize=imsize, output_parameters_list=y_params,
                                                  output_categories_list=y_cats)
@@ -84,12 +84,10 @@ if __name__ == '__main__':
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image
-    imgold = tmp_img_loader("Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_benzene_0000.ibw").astype(int)
+    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_benzene_0000.ibw").astype(int)
     img = imgold.copy()
     img[imgold == 1] = 2
     img[imgold == 0] = 0
 
     # See effect of adding noise to image
-    predict_with_noise(img=img, cats=cats, model=trained_model, noise_nums=[0, 1, 2],
-                       num_noise_pixels=(512 ** 2) // 200,
-                       noise_steps=1)
+    predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.02, noise_steps=5, savedir="../Data/test")

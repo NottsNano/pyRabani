@@ -8,13 +8,15 @@ from sklearn.utils import class_weight
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
 
-from Rabani_Generator.plot_rabani import power_resize
 from CNN.get_model import get_model
+from CNN.get_stats import plot_model_history
+from Rabani_Generator.plot_rabani import power_resize
+from scipy.stats import bernoulli
 
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train, imsize=None,
-                 horizontal_flip=True, vertical_flip=True, x_noise=False, circshift=True):
+                 horizontal_flip=True, vertical_flip=True, x_noise=0.02, circshift=True):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
@@ -39,7 +41,6 @@ class h5RabaniDataGenerator(Sequence):
         self._get_class_weights()
 
         self._batches_counter = 0
-
         self.y_true = np.zeros((self.__len__() * self.batch_size, len(self.original_categories_list)))
 
     def _get_class_weights(self):
@@ -96,10 +97,8 @@ class h5RabaniDataGenerator(Sequence):
             # Parse parameters from the h5 file
             file_entry = self._file_iterator.__next__().path
             h5_file = h5py.File(file_entry, "r")
-            # batch_x[i, :, :, 0] = resize(h5_file["sim_results"]["image"][()], (self.image_res, self.image_res),
-            # anti_aliasing=False) * 255 // 2
 
-            batch_x[i, :, :, 0] = power_resize(h5_file["sim_results"]["image"][()], self.image_res).astype(int)
+            batch_x[i, :, :, 0] = power_resize(h5_file["sim_results"]["image"][()], self.image_res).astype(np.uint8)
             batch_x[i, 0, 0, 0] = 0
             batch_x[i, 1, 0, 0] = 1
             batch_x[i, 2, 0, 0] = 2
@@ -112,7 +111,7 @@ class h5RabaniDataGenerator(Sequence):
             :] = batch_y
 
         if self.is_training_set:
-            batch_x = self.augment(batch_x)
+            batch_x = self._augment(batch_x)
 
         self._batches_counter += 1
         if self._batches_counter >= self.__len__() and self.is_training_set is False:
@@ -120,31 +119,47 @@ class h5RabaniDataGenerator(Sequence):
 
         return batch_x, batch_y
 
-    def augment(self, batch_x):
+    def _augment(self, batch_x):
         if self.vflip:
-            augment_inds_vflip = np.random.choice(self.batch_size, size=(self.batch_size,), replace=False)
-            batch_x[augment_inds_vflip, :, :, 0] = np.flip(batch_x[augment_inds_vflip, :, :, 0], axis=1)
+            batch_x = self.flip(batch_x, axis=1)
         if self.hflip:
-            augment_inds_hflip = np.random.choice(self.batch_size, size=(self.batch_size,), replace=False)
-            batch_x[augment_inds_hflip, :, :, 0] = np.flip(batch_x[augment_inds_hflip, :, :, 0], axis=2)
+            batch_x = self.flip(batch_x, axis=2)
         if self.circshift:
-            rand_shifts = np.random.choice(self.image_res, size=(self.batch_size, 2))
-            for i, rand_shift in enumerate(rand_shifts):
-                batch_x[i, :, :, 0] = np.roll(batch_x[i, :, :, 0], shift=rand_shift, axis=[0, 1])
+            batch_x = self.circ_shift(batch_x)
         if self.xnoise:
-            batch_x[np.random.choice([0, 1], size=batch_x.shape, p=[0.99, 0.01]) == 1] = 0
-            batch_x[np.random.choice([0, 1], size=batch_x.shape, p=[0.99, 0.01]) == 1] = 1
-            batch_x[np.random.choice([0, 1], size=batch_x.shape, p=[0.99, 0.01]) == 1] = 2
+            batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise)
+
+        return batch_x
+
+    def flip(self, batch_x, axis):
+        augment_inds_vflip = np.random.choice(self.batch_size, size=(self.batch_size,), replace=False)
+        batch_x[augment_inds_vflip, :, :, 0] = np.flip(batch_x[augment_inds_vflip, :, :, 0], axis=axis)
+
+        return batch_x
+
+    def circ_shift(self, batch_x):
+        rand_shifts = np.random.choice(self.image_res, size=(self.batch_size, 2))
+        for i, rand_shift in enumerate(rand_shifts):
+            batch_x[i, :, :, 0] = np.roll(batch_x[i, :, :, 0], shift=rand_shift, axis=[0, 1])
+
+        return batch_x
+
+    @staticmethod
+    def speckle_noise(batch_x, perc_noise):
+        rand_mask = bernoulli.rvs(p=perc_noise, size=batch_x.shape).astype(bool)
+        rand_arr = np.random.randint(0, 2, size=batch_x.shape, dtype=np.uint8)
+        batch_x[rand_mask] = rand_arr[rand_mask]
 
         return batch_x
 
 
 def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=imsize,  # try 256!
-                                            output_parameters_list=y_params, output_categories_list=y_cats)
+    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=imsize,
+                                            # try 256!
+                                            output_parameters_list=y_params, output_categories_list=y_cats, x_noise=0.001)
     test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=imsize,
-                                           output_parameters_list=y_params, output_categories_list=y_cats)
+                                           output_parameters_list=y_params, output_categories_list=y_cats, x_noise=0.001)
 
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
@@ -178,5 +193,8 @@ if __name__ == '__main__':
     original_parameters = ["kT", "mu"]
 
     trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=100, imsize=256, epochs=25)
+                                y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=256,
+                                epochs=25)
+
+    plot_model_history(trained_model)
     save_model(trained_model, "Data/Trained_Networks")
