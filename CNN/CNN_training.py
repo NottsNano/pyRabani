@@ -147,7 +147,7 @@ class h5RabaniDataGenerator(Sequence):
     @staticmethod
     def speckle_noise(batch_x, perc_noise):
         rand_mask = bernoulli.rvs(p=perc_noise, size=batch_x.shape).astype(bool)
-        rand_arr = np.random.randint(0, 2, size=batch_x.shape, dtype=np.uint8)
+        rand_arr = np.random.randint(0, 2, size=batch_x.shape)
         batch_x[rand_mask] = rand_arr[rand_mask]
 
         return batch_x
@@ -157,9 +157,9 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
     # Set up generators
     train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=imsize,
                                             # try 256!
-                                            output_parameters_list=y_params, output_categories_list=y_cats, x_noise=0.001)
+                                            output_parameters_list=y_params, output_categories_list=y_cats)
     test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False, imsize=imsize,
-                                           output_parameters_list=y_params, output_categories_list=y_cats, x_noise=0.001)
+                                           output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
