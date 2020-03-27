@@ -9,6 +9,7 @@ import numpy as np
 import paramiko
 from scipy.stats import mode
 from skimage import measure
+from tqdm import tqdm
 
 from Rabani_Generator.rabani import _run_rabani_sweep
 
@@ -30,7 +31,6 @@ class RabaniSweeper:
         self.params = None
 
         self.sweep_cnt = 1
-        self.block_cnt = 1
 
         assert generate_mode in ["make_dataset", "visualise"]
 
@@ -93,22 +93,19 @@ class RabaniSweeper:
         current_time = self.start_datetime.strftime("%H:%M:%S")
         print(f"{current_time} - Beginning generation of {tot_len * image_reps} rabanis")
 
-        for L in L_all:
-            self.params = np.array(
-                list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, [L])))
-            block_size = len(self.params)
-            assert 0. not in self.params, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
+        with tqdm(total=tot_len * image_reps) as pbar:
+            for L in L_all:
+                self.params = np.array(
+                    list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, [L])))
+                block_size = len(self.params)
+                assert 0. not in self.params, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
 
-            for image_rep in range(image_reps):
-                imgs, m_all = _run_rabani_sweep(self.params)
-                imgs = np.swapaxes(imgs, 0, 2)
-                self.save_rabanis(imgs, m_all)
+                for image_rep in range(image_reps):
+                    imgs, m_all = _run_rabani_sweep(self.params)
+                    imgs = np.swapaxes(imgs, 0, 2)
+                    self.save_rabanis(imgs, m_all)
 
-                now = datetime.now().strftime("%H:%M:%S")
-
-                print(
-                    f"{now} - Successfully completed block {self.block_cnt}|{tot_len * image_reps // block_size} ({block_size} rabanis)")
-                self.block_cnt += 1
+                    pbar.update(block_size)
 
         self.end_datetime = datetime.now()
 
