@@ -8,7 +8,7 @@ from CNN.CNN_training import h5RabaniDataGenerator
 
 class ImageClassifier:
     """Majority classify an image with window rolling"""
-    def __init__(self, img_arr, model, window_jump=4):
+    def __init__(self, img_arr, model, window_jump=2):
         self.img_arr = img_arr
 
         self.model = model
@@ -36,13 +36,13 @@ class ImageClassifier:
         self.majority_preds = np.mean(self.preds, axis=0)
 
 
-def predict_with_noise(img, model, cats, noise_steps, perc_noise, savedir=None):
+def predict_with_noise(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
     """Progressively add noise to an image and classifying it"""
 
     fig, axes = plt.subplots(1, 2)
     fig.tight_layout(pad=3)
 
-    for i in range(noise_steps):
+    for i in range(noise_steps+1):
         axes[0].clear()
         axes[1].clear()
 
@@ -56,10 +56,10 @@ def predict_with_noise(img, model, cats, noise_steps, perc_noise, savedir=None):
         show_image(img, axis=axes[0])
         all_preds_histogram(img_classifier.preds, cats, axis=axes[1])
 
-        img = h5RabaniDataGenerator.speckle_noise(img, perc_noise)
+        img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std)[0, :, :, 0]
 
         if savedir:
-            plt.savefig(f"{savedir}_{i}.png")
+            plt.savefig(f"{savedir}/img_{i}.png")
 
 
 def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size, imsize=128):
@@ -80,14 +80,20 @@ if __name__ == '__main__':
     from Filters.alignerwthreshold import tmp_img_loader
     from Rabani_Generator.plot_rabani import show_image
 
-    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-27--14-16/model.h5")
+    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-27--17-35/model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image
-    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw").astype(int)
+    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw").astype(int)
     img = imgold.copy()
     img[imgold == 1] = 0
     img[imgold == 0] = 2
 
     # See effect of adding noise to image
-    predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.02, noise_steps=100, savedir="../Data/Plots/000TEST_rand1/img")
+    predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.005, perc_std=0.0001, noise_steps=0)
+    # img_classifier = ImageClassifier(img, trained_model)  # Do this because of immutability!
+    # img_classifier.wrap_image()
+    # img_classifier.validation_pred_image()
+    #
+    # show_image(img)
+    # all_preds_histogram(img_classifier.preds, cats)

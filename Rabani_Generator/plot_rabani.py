@@ -97,11 +97,11 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
     fig1, ax1 = plt.subplots()
     plt.imshow(big_img_arr, cmap=cmap, origin="lower")
     if trained_model:
-        cmap_pred = get_cmap("viridis", np.max(preds_arr) + 1)
+        cmap_pred = get_cmap("viridis", len(categories))
         cax1 = plt.imshow(preds_arr, cmap=cmap_pred, origin="lower", alpha=0.6)
         cbar1 = fig1.colorbar(cax1, ticks=np.arange(np.max(preds_arr) + 1))
         if categories:
-            cbar1.ax.set_yticklabels(["hole", "liquid", "cellular", "labyrinth", "island"])
+            cbar1.ax.set_yticklabels(categories)
 
     plt.xticks(np.arange(len(y_vals)) * img_res + img_res / 2, blank_labels_mu, rotation=90)
     plt.yticks(np.arange(len(x_vals)) * img_res + img_res / 2, blank_labels_y)
@@ -242,11 +242,11 @@ def show_image(img, axis=None):
 
 if __name__ == '__main__':
     dir = "Data/Simulated_Images/2020-03-25/13-30"
-    model = load_model("Data/Trained_Networks/2020-03-25--13-09/model.h5")
+    model = load_model("Data/Trained_Networks/2020-03-27--17-35/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=256, categories=cats,
                                   trained_model=model)
-    plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
+    plot_threshold_selection(root_dir=dir, categories=cats, img_res=256)
 
     show_random_selection_of_images("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/19-58", 25,
                                     ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 256,

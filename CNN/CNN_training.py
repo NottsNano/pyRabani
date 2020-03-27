@@ -17,7 +17,7 @@ from Rabani_Generator.plot_rabani import power_resize
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train, imsize=None,
-                 horizontal_flip=True, vertical_flip=True, x_noise=0.02, circshift=True):
+                 horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
@@ -128,7 +128,7 @@ class h5RabaniDataGenerator(Sequence):
         if self.circshift:
             batch_x = self.circ_shift(batch_x)
         if self.xnoise:
-            batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise, perc_std=0.005)
+            batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise, perc_std=0.002)
 
         return batch_x
 
@@ -147,6 +147,9 @@ class h5RabaniDataGenerator(Sequence):
 
     @staticmethod
     def speckle_noise(batch_x, perc_noise, perc_std):
+        if batch_x.ndim == 2:
+            batch_x = np.expand_dims(np.expand_dims(batch_x, 0), -1)
+
         p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
         rand_mask = np.zeros(batch_x.shape)
         for i, p in enumerate(p_all):

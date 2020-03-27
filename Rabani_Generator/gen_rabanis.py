@@ -30,6 +30,7 @@ class RabaniSweeper:
         self.params = None
 
         self.sweep_cnt = 1
+        self.block_cnt = 1
 
         assert generate_mode in ["make_dataset", "visualise"]
 
@@ -65,7 +66,7 @@ class RabaniSweeper:
                 if type(axis_res) is dict:
                     if "L" in axis_res.keys():
                         min_pwr = int(np.log(L_param[0]) / np.log(2))
-                        max_pwr = int(np.log(L_param[1]) / np.log(2))
+                        max_pwr = int(np.log(L_param[1]) / np.log(2)) + 1
                         sqrspace = np.power(2, np.arange(min_pwr, max_pwr))
                     else:
                         sqrspace = [L_param]
@@ -88,12 +89,14 @@ class RabaniSweeper:
 
         tot_len = len(np.array(
             list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, L_all))))
+
         current_time = self.start_datetime.strftime("%H:%M:%S")
         print(f"{current_time} - Beginning generation of {tot_len * image_reps} rabanis")
 
         for L in L_all:
             self.params = np.array(
                 list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, [L])))
+            block_size = len(self.params)
             assert 0. not in self.params, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
 
             for image_rep in range(image_reps):
@@ -102,8 +105,10 @@ class RabaniSweeper:
                 self.save_rabanis(imgs, m_all)
 
                 now = datetime.now().strftime("%H:%M:%S")
+
+                self.block_cnt += 1
                 print(
-                    f"{now} - Successfully completed a block ({len(self.params)} rabanis)")
+                    f"{now} - Successfully completed block {self.block_cnt}|{tot_len * image_reps / block_size} ({block_size} rabanis)")
 
         self.end_datetime = datetime.now()
 
@@ -162,13 +167,13 @@ class RabaniSweeper:
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        elif -0.01 <= region["euler_number"] / np.sum(img == 2) <= 0:
+        elif -0.015 <= region["euler_number"] / np.sum(img == 2) <= 0:
             # Cell/Worm if starting to form
             cat = "cellular"
-        elif -0.03 <= region["euler_number"] / np.sum(img == 2) < -0.02:
+        elif -0.035 <= region["euler_number"] / np.sum(img == 2) < -0.025:
             # Labyrinth
             cat = "labyrinth"
-        elif region["euler_number"] / np.sum(img == 2) <= -0.05:
+        elif region["euler_number"] / np.sum(img == 2) <= -0.055:
             # Island
             cat = "island"
         else:
@@ -188,7 +193,7 @@ class RabaniSweeper:
 
 if __name__ == '__main__':
     root_dir = "Data/Simulated_Images"
-    total_image_reps = 5
+    total_image_reps = 20
 
     parameters = {"kT": [0.01, 0.35],
                   "mu": [2.35, 3.47],
