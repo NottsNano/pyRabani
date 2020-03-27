@@ -128,7 +128,7 @@ class h5RabaniDataGenerator(Sequence):
         if self.circshift:
             batch_x = self.circ_shift(batch_x)
         if self.xnoise:
-            batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise)
+            batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise, perc_std=0.01)
 
         return batch_x
 
@@ -146,9 +146,10 @@ class h5RabaniDataGenerator(Sequence):
         return batch_x
 
     @staticmethod
-    def speckle_noise(batch_x, perc_noise):
-        rand_mask = bernoulli.rvs(p=perc_noise, size=batch_x.shape).astype(bool)
-        rand_arr = np.random.randint(0, 2, size=batch_x.shape)
+    def speckle_noise(batch_x, perc_noise, perc_std):
+        rand_mask = bernoulli.rvs(p=np.abs(np.random.normal(loc=perc_noise, scale=perc_std)),
+                                  size=batch_x.shape).astype(bool)
+        rand_arr = 2 * np.random.randint(0, 1, size=batch_x.shape)
         batch_x[rand_mask] = rand_arr[rand_mask]
 
         return batch_x
@@ -203,7 +204,8 @@ if __name__ == '__main__':
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
-    trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir, test_datadir=testing_data_dir,
+    trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
+                                test_datadir=testing_data_dir,
                                 y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=256,
                                 epochs=75)
 

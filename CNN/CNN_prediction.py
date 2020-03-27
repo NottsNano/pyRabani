@@ -80,14 +80,14 @@ if __name__ == '__main__':
     from Filters.alignerwthreshold import tmp_img_loader
     from Rabani_Generator.plot_rabani import show_image
 
-    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-25--15-54/model.h5")
+    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-27--14-16/model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image
-    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_benzene_0000.ibw").astype(int)
+    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw").astype(int)
     img = imgold.copy()
-    img[imgold == 1] = 2
-    img[imgold == 0] = 0
+    img[imgold == 1] = 0
+    img[imgold == 0] = 2
 
     # See effect of adding noise to image
-    predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.02, noise_steps=5, savedir="../Data/test")
+    predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.02, noise_steps=100, savedir="../Data/Plots/000TEST_rand1/img")
