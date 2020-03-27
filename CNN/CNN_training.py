@@ -4,6 +4,8 @@ import subprocess
 
 import h5py
 import numpy as np
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+from scipy.stats import bernoulli
 from sklearn.utils import class_weight
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
@@ -11,7 +13,6 @@ from tensorflow.keras.utils import Sequence
 from CNN.get_model import get_model
 from CNN.get_stats import plot_model_history
 from Rabani_Generator.plot_rabani import power_resize
-from scipy.stats import bernoulli
 
 
 class h5RabaniDataGenerator(Sequence):
@@ -153,7 +154,7 @@ class h5RabaniDataGenerator(Sequence):
         return batch_x
 
 
-def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
+def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
     # Set up generators
     train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True, imsize=imsize,
                                             # try 256!
@@ -164,6 +165,8 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
     model = get_model("VGG", input_shape, len(y_cats), Adam())
+    early_stopping = EarlyStopping(monitor="val_loss", patience=10)
+    model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
 
     # Train
     model.fit_generator(generator=train_generator,
@@ -172,15 +175,23 @@ def train_model(train_datadir, test_datadir, y_params, y_cats, batch_size, epoch
                         validation_steps=test_generator.__len__(),
                         class_weight=train_generator.class_weights_dict,
                         epochs=epochs,
-                        max_queue_size=100)
+                        max_queue_size=100,
+                        callbacks=[model_checkpoint, early_stopping])
 
     return model
 
 
-def save_model(model, root_dir):
+def get_model_storage_path(root_dir):
     current_date = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
     os.mkdir(f"{root_dir}/{current_date}")
-    model.save(f"{root_dir}/{current_date}/model.h5")
+    model_path = f"{root_dir}/{current_date}/model.h5"
+
+    return model_path
+
+
+def save_model(model, root_dir):
+    model_path = get_model_storage_path(root_dir)
+    model.save(model_path)
 
 
 if __name__ == '__main__':
@@ -192,9 +203,8 @@ if __name__ == '__main__':
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
-    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir,
+    trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir, test_datadir=testing_data_dir,
                                 y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=256,
-                                epochs=25)
+                                epochs=75)
 
     plot_model_history(trained_model)
-    save_model(trained_model, "Data/Trained_Networks")
