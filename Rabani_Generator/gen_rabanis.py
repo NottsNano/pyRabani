@@ -293,7 +293,7 @@ if __name__ == '__main__':
                 "L": 3}
     print("64-256 validate")
     print("")
-    rabani_sweeper5 = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
+    rabani_sweeper5 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper5.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)

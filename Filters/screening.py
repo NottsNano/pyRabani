@@ -1,9 +1,13 @@
 import h5py
 import numpy as np
 import pycroscopy as scope
+from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
+from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_prediction import predict_with_noise
+from CNN.get_stats import all_preds_histogram
+from Rabani_Generator.plot_rabani import show_image
 
 
 class FileFilter:
@@ -16,6 +20,7 @@ class FileFilter:
 
     def assess_file(self, filepath, model, plot=False):
         """Try and filter the file"""
+        data = phase = median_data = flattened_data = median_phase = binarized_data_for_plotting = binarized_data = img_classifier = None
 
         h5_file = self._load_ibw_file(filepath)
         if not self.fail_reason:
@@ -32,15 +37,53 @@ class FileFilter:
             self._is_image_noisy(median_phase)
 
         if not self.fail_reason:
-            flattened_data = self._plane_flatten(median_phase)
+            flattened_data = self._plane_flatten(median_data)
             flattened_data = self._normalize_data(flattened_data)
-            binarized_data = self._binarise(flattened_data)
+            binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
 
         if not self.fail_reason:
-            self._CNN_classify(binarized_data, model)
+            img_classifier = self._CNN_classify(binarized_data, model)
 
         if plot:
-            return NotImplementedError
+            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, img_classifier)
+
+    def _plot(self, data=None, median_data=None, flattened_data=None,
+              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None):
+
+        fig, axs = plt.subplots(2, 3)
+        fig.tight_layout(pad=3)
+
+        if data is not None:
+            axs[0, 0].imshow(median_data, cmap='RdGy')
+            axs[0, 0].set_title('Original Image')
+            axs[0, 0].axis("off")
+        if median_data is not None:
+            axs[0, 1].imshow(median_data, cmap='RdGy')
+            axs[0, 1].set_title('Median Aligned')
+            axs[0, 1].axis("off")
+        if flattened_data is not None:
+            axs[0, 2].imshow(flattened_data, extent=(0, self.image_res, 0, self.image_res), origin='lower', cmap='RdGy')
+            axs[0, 2].set_title('Planar Flattened')
+            axs[0, 2].axis("off")
+        if binarized_data_for_plotting is not None:
+            thres = binarized_data_for_plotting[0]
+            pix = binarized_data_for_plotting[1]
+            pix_gauss_grad = binarized_data_for_plotting[2]
+            peaks = binarized_data_for_plotting[3]
+            troughs = binarized_data_for_plotting[4]
+
+            axs[1, 0].plot(thres, pix_gauss_grad)
+            axs[1, 0].scatter(thres[peaks], pix_gauss_grad[peaks])
+            axs[1, 0].scatter(thres[troughs], pix_gauss_grad[troughs], marker='x')
+            axs[1, 0].set_xlabel('Threshold')
+            axs[1, 0].set_ylabel('Pixels')
+            axs[1, 0].set_title('Thresholding Levels')
+        if binarized_data is not None:
+            show_image(binarized_data, axis=axs[1, 1])
+            axs[1, 1].set_title('Binarized')
+        if img_classifier is not None:
+            all_preds_histogram(img_classifier.preds, self.cats, axis=axs[1, 2])
+            axs[1, 2].set_title('Network Predictions')
 
     def _load_ibw_file(self, filepath):
         try:
@@ -142,7 +185,7 @@ class FileFilter:
             self.fail_reason = "Failed to binarize"
         else:
             opt_thres = threshes[troughs[0]]
-            return arr > opt_thres
+            return arr > opt_thres, (threshes, pix, pix_gauss_grad, peaks, troughs)
 
     def _CNN_classify(self, arr, model):
         img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001)
@@ -157,7 +200,28 @@ class FileFilter:
         else:
             self.classification = self.cats[max_class]
 
+        return img_classifier
+
 
 if __name__ == '__main__':
+    model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
+
     test_filter = FileFilter()
-    test_filter.assess_file("/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw")
+    test_filter.assess_file(
+        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw",
+        model, plot=True)
+
+    test_filter = FileFilter()
+    test_filter.assess_file(
+        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
+        model, plot=True)
+
+    test_filter = FileFilter()
+    test_filter.assess_file(
+        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
+        model, plot=True)
+
+    test_filter = FileFilter()
+    test_filter.assess_file(
+        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
+        model, plot=True)

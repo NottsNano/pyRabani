@@ -22,7 +22,7 @@ print(p_s*'Locating file...')
 
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
-path2file = f'thres_img/tp/000TEST.ibw'
+path2file =  "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw"
 # path2file = f'thres_img/tp/C10_0000.ibw' # No clue whats wrong with this one
 # path2file = f'thres_img/tn/SiO2_t12_ring5_1mgmL_0000.ibw' # Image for testing dud line finder
 
