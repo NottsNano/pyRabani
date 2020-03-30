@@ -17,7 +17,7 @@ from Rabani_Generator.plot_rabani import power_resize
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, output_parameters_list, output_categories_list, is_train, imsize=None,
-                 horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True):
+                 horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True, randomise_levels=True):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
@@ -30,6 +30,7 @@ class h5RabaniDataGenerator(Sequence):
         self.vflip = vertical_flip
         self.xnoise = x_noise
         self.circshift = circshift
+        self.randomise_levels = randomise_levels
 
         self.class_weights_dict = None
         self.__reset_file_iterator__()
@@ -127,6 +128,8 @@ class h5RabaniDataGenerator(Sequence):
             batch_x = self.flip(batch_x, axis=2)
         if self.circshift:
             batch_x = self.circ_shift(batch_x)
+        if self.randomise_levels:
+            batch_x = self.randomise_level_index(batch_x)
         if self.xnoise:
             batch_x = self.speckle_noise(batch_x, perc_noise=self.xnoise, perc_std=0.002)
 
@@ -144,6 +147,14 @@ class h5RabaniDataGenerator(Sequence):
             batch_x[i, :, :, 0] = np.roll(batch_x[i, :, :, 0], shift=rand_shift, axis=[0, 1])
 
         return batch_x
+
+    @staticmethod
+    def randomise_level_index(batch_x):
+        tmp_x = batch_x.copy()
+        for i, idx in enumerate(np.random.choice(np.arange(3), 3, replace=False)):
+            tmp_x[batch_x == idx] = i
+
+        return tmp_x
 
     @staticmethod
     def speckle_noise(batch_x, perc_noise, perc_std):
