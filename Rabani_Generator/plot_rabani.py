@@ -243,7 +243,7 @@ def show_image(img, axis=None):
 
 if __name__ == '__main__':
     dir = "Data/Simulated_Images/2020-03-29/07-31"
-    model = load_model("Data/Trained_Networks/2020-03-30--13-03/model.h5")
+    model = load_model("Data/Trained_Networks/2020-03-30--18-10/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats,
                                   trained_model=model)

@@ -121,15 +121,15 @@ if __name__ == '__main__':
     from CNN.CNN_prediction import validation_pred_generator
     from Rabani_Generator.plot_rabani import show_random_selection_of_images
 
-    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-25--15-54/model.h5")
+    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
 
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
     params = ["kT", "mu"]
 
     # Predict simulated validation set
-    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"
+    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"
     y_preds, y_truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-                                             y_params=params, y_cats=cats, batch_size=100, imsize=256)
+                                             y_params=params, y_cats=cats, batch_size=100, imsize=128)
 
     # Calculate classification stats
     ROC_one_vs_all(y_preds, y_truth, cats)
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     y_truth_arg = np.argmax(y_truth, axis=1)
 
     show_random_selection_of_images(validation_data_dir, num_imgs=25, y_params=params,
-                                    y_cats=cats, imsize=256, model=trained_model)
+                                    y_cats=cats, imsize=256)
 
     plot_confusion_matrix(y_truth_arg, y_preds_arg, cats)
     print(metrics.classification_report(y_truth_arg, y_preds_arg, target_names=cats))

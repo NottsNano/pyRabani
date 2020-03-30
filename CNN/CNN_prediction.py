@@ -3,11 +3,13 @@ import itertools
 import numpy as np
 from matplotlib import pyplot as plt
 from tensorflow.python.keras.models import load_model
+
 from CNN.CNN_training import h5RabaniDataGenerator
 
 
 class ImageClassifier:
     """Majority classify an image with window rolling"""
+
     def __init__(self, img_arr, model, window_jump=4):
         self.img_arr = img_arr
 
@@ -36,30 +38,32 @@ class ImageClassifier:
         self.majority_preds = np.mean(self.preds, axis=0)
 
 
-def predict_with_noise(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
+def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
     """Progressively add noise to an image and classifying it"""
 
     fig, axes = plt.subplots(1, 2)
     fig.tight_layout(pad=3)
 
-    for i in range(noise_steps+1):
+    for i in range(noise_steps + 1):
         axes[0].clear()
         axes[1].clear()
 
-        img_classifier = ImageClassifier(img, model)
-        del img_classifier
-
-        img_classifier = ImageClassifier(img, model)  # Do this because of immutability!
-        img_classifier.wrap_image()
-        img_classifier.validation_pred_image()
+        img_classifier = predict_with_noise(img, model, perc_noise, perc_std)
 
         show_image(img, axis=axes[0])
         all_preds_histogram(img_classifier.preds, cats, axis=axes[1])
 
-        img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std)[0, :, :, 0]
-
         if savedir:
             plt.savefig(f"{savedir}/img_{i}.png")
+
+
+def predict_with_noise(img, model, perc_noise, perc_std):
+    img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std)[0, :, :, 0]
+    img_classifier = ImageClassifier(img, model)  # Do this because of immutability!
+    img_classifier.wrap_image()
+    img_classifier.validation_pred_image()
+
+    return img_classifier
 
 
 def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size, imsize=128):
@@ -80,17 +84,19 @@ if __name__ == '__main__':
     from Filters.alignerwthreshold import tmp_img_loader
     from Rabani_Generator.plot_rabani import show_image
 
-    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-27--17-35/model.h5")
+    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    # # Classify a real image
-    # imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/C10_0000.ibw").astype(int)
-    # img = imgold.copy()
-    # img[imgold == 1] = 0
-    # img[imgold == 0] = 2
+    # Classify a real image
+    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw").astype(
+        int)
+    img = imgold.copy()
+    img[imgold == 1] = 0
+    img[imgold == 0] = 2
 
     # See effect of adding noise to image
-    # predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.005, perc_std=0.0001, noise_steps=0)
+    plot_noisy_predictions(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=0)
+    plot_noisy_predictions(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=1)
     # img_classifier = ImageClassifier(img, trained_model)  # Do this because of immutability!
     # img_classifier.wrap_image()
     # img_classifier.validation_pred_image()

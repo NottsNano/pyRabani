@@ -3,7 +3,7 @@ import numpy as np
 import pycroscopy as scope
 from scipy import stats, ndimage, signal
 
-from CNN.CNN_prediction import ImageClassifier
+from CNN.CNN_prediction import plot_noisy_predictions, predict_with_noise
 
 
 class FileFilter:
@@ -34,9 +34,13 @@ class FileFilter:
         if not self.fail_reason:
             flattened_data = self._plane_flatten(median_phase)
             flattened_data = self._normalize_data(flattened_data)
+            binarized_data = self._binarise(flattened_data)
+
+        if not self.fail_reason:
+            self._CNN_classify(binarized_data, model)
 
         if plot:
-            pass
+            return NotImplementedError
 
     def _load_ibw_file(self, filepath):
         try:
@@ -140,17 +144,18 @@ class FileFilter:
             opt_thres = threshes[troughs[0]]
             return arr > opt_thres
 
-    def CNN_classify(self, arr, model):
-        img_classifier = ImageClassifier(arr, model)
-        img_classifier.wrap_image()
-        img_classifier.validation_pred_image()
+    def _CNN_classify(self, arr, model):
+        img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001)
 
-        return img_classifier.preds
+        # For each class find the mean classification
+        max_class = int(np.argmax(img_classifier.majority_preds))
 
-    def CNN_parse(self, preds):
-        out = {}
-
-        out[cat]
+        if np.max(img_classifier.majority_preds) < 0.8:
+            self.fail_reason = "CNN not confident enough"
+        elif np.all(np.std(img_classifier.preds, axis=0)) > 0.1:
+            self.fail_reason = "CNN distributions too broad"
+        else:
+            self.classification = self.cats[max_class]
 
 
 if __name__ == '__main__':

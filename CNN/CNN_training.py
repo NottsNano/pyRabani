@@ -53,17 +53,19 @@ class h5RabaniDataGenerator(Sequence):
             length = min(int(self.__len__()) * self.batch_size, 50000)
         else:
             length = int(self.__len__()) * self.batch_size
-        class_inds = np.zeros((length,))
 
-        for i in range(length):
-            file_entry = self._file_iterator.__next__().path
-            h5_file = h5py.File(file_entry, "r")
-            idx_find = self.original_categories_list.index(h5_file.attrs["category"])
-            class_inds[i] = idx_find
+        if not self.is_validation_set:
+            class_inds = np.zeros((length,))
 
-        self.class_weights_dict = class_weight.compute_class_weight('balanced',
-                                                                    np.arange(len(self.original_categories_list)),
-                                                                    class_inds)
+            for i in range(length):
+                file_entry = self._file_iterator.__next__().path
+                h5_file = h5py.File(file_entry, "r")
+                idx_find = self.original_categories_list.index(h5_file.attrs["category"])
+                class_inds[i] = idx_find
+
+            self.class_weights_dict = class_weight.compute_class_weight('balanced',
+                                                                        np.arange(len(self.original_categories_list)),
+                                                                        class_inds)
 
         self.__reset_file_iterator__()
 
@@ -213,8 +215,8 @@ def save_model(model, root_dir):
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/21-58"  # "/media/mltest1/Dat Storage/pyRabani_Images"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-12/14-33"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-01"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-25/13-59"
 
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
@@ -222,7 +224,7 @@ if __name__ == '__main__':
 
     trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
                                 test_datadir=testing_data_dir,
-                                y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=256,
+                                y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
                                 epochs=75)
 
     plot_model_history(trained_model)
