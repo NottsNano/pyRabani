@@ -166,13 +166,13 @@ class RabaniSweeper:
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        elif -0.015 <= region["euler_number"] / np.sum(img == 2) <= 0:
+        elif -0.005 <= region["euler_number"] / np.sum(img == 2) <= 0:
             # Cell/Worm if starting to form
             cat = "cellular"
-        elif -0.035 <= region["euler_number"] / np.sum(img == 2) < -0.025:
+        elif -0.030 <= region["euler_number"] / np.sum(img == 2) < -0.020:
             # Labyrinth
             cat = "labyrinth"
-        elif region["euler_number"] / np.sum(img == 2) <= -0.055:
+        elif region["euler_number"] / np.sum(img == 2) <= -0.045:
             # Island
             cat = "island"
         else:
@@ -192,7 +192,73 @@ class RabaniSweeper:
 
 if __name__ == '__main__':
     root_dir = "Data/Simulated_Images"
-    total_image_reps = 20
+
+#########################
+
+    total_image_reps = 2
+
+    parameters = {"kT": [0.01, 0.35],
+                  "mu": [2.35, 3.47],
+                  "MR": 1,
+                  "C": 0.3,
+                  "e_nl": 1.5,
+                  "e_nn": 2,
+                  "L": [64, 128]}
+
+    axis_res = {"kT": 25,
+                "mu": 25,
+                "L": 2}
+    print("64-128 test")
+    print("")
+    rabani_sweeper1 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper1.call_rabani_sweep(params=parameters,
+                                     axis_steps=axis_res,
+                                     image_reps=total_image_reps)
+#########################
+    total_image_reps = 1
+
+    parameters = {"kT": [0.01, 0.35],
+                  "mu": [2.35, 3.47],
+                  "MR": 1,
+                  "C": 0.3,
+                  "e_nl": 1.5,
+                  "e_nn": 2,
+                  "L": [64, 128]}
+
+    axis_res = {"kT": 25,
+                "mu": 25,
+                "L": 2}
+    print("64-128 validate")
+    print("")
+    rabani_sweeper2 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper2.call_rabani_sweep(params=parameters,
+                                     axis_steps=axis_res,
+                                     image_reps=total_image_reps)
+
+#############################    total_image_reps = 10
+    total_image_reps = 10
+
+    parameters = {"kT": [0.01, 0.35],
+                  "mu": [2.35, 3.47],
+                  "MR": 1,
+                  "C": 0.3,
+                  "e_nl": 1.5,
+                  "e_nn": 3,
+                  "L": [64, 256]}
+
+    axis_res = {"kT": 25,
+                "mu": 25,
+                "L": 3}
+    print("64-256 train")
+    print("")
+    rabani_sweeper3 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper3.call_rabani_sweep(params=parameters,
+                                     axis_steps=axis_res,
+                                     image_reps=total_image_reps)
+
+#########################
+
+    total_image_reps = 2
 
     parameters = {"kT": [0.01, 0.35],
                   "mu": [2.35, 3.47],
@@ -205,8 +271,31 @@ if __name__ == '__main__':
     axis_res = {"kT": 25,
                 "mu": 25,
                 "L": 3}
-
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
-    rabani_sweeper.call_rabani_sweep(params=parameters,
+    print("64-256 test")
+    print("")
+    rabani_sweeper4 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper4.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)
+#########################
+    total_image_reps = 1
+
+    parameters = {"kT": [0.01, 0.35],
+                  "mu": [2.35, 3.47],
+                  "MR": 1,
+                  "C": 0.3,
+                  "e_nl": 1.5,
+                  "e_nn": 2,
+                  "L": [64, 256]}
+
+    axis_res = {"kT": 25,
+                "mu": 25,
+                "L": 3}
+    print("64-256 validate")
+    print("")
+    rabani_sweeper5 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper5.call_rabani_sweep(params=parameters,
+                                     axis_steps=axis_res,
+                                     image_reps=total_image_reps)
+
+#

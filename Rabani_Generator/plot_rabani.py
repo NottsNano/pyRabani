@@ -14,7 +14,7 @@ def power_resize(image, newsize):
     """Enlarge image by a factor of ^2"""
     if image.shape[0] != newsize:
         num_tiles = newsize / image.shape[0]
-        assert num_tiles % 1 == 0, "New image must be ^2 larger than original image"
+        assert num_tiles % 1 == 0, f"New image must be ^2 larger than original image (Requested {image.shape[0]} -> {newsize})"
         new_image = np.repeat(np.repeat(image, int(num_tiles), axis=0), int(num_tiles), axis=1)
     else:
         new_image = image
@@ -200,8 +200,9 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
     """Show a random selection of simulated images, with categories chosen by simulation/CNN prediction"""
     from CNN.CNN_training import h5RabaniDataGenerator
 
-    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize,
+    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=False, imsize=imsize,
                                           output_parameters_list=y_params, output_categories_list=y_cats)
+    img_generator.is_validation_set = True
 
     x, y = img_generator.__getitem__(None)
     axis_res = int(np.sqrt(num_imgs))
@@ -241,13 +242,13 @@ def show_image(img, axis=None):
 
 
 if __name__ == '__main__':
-    dir = "Data/Simulated_Images/2020-03-25/13-30"
-    model = load_model("Data/Trained_Networks/2020-03-27--17-35/model.h5")
+    dir = "Data/Simulated_Images/2020-03-29/07-31"
+    model = load_model("Data/Trained_Networks/2020-03-30--13-03/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=256, categories=cats,
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats,
                                   trained_model=model)
-    plot_threshold_selection(root_dir=dir, categories=cats, img_res=256)
+    plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
-    show_random_selection_of_images("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-24/19-58", 25,
-                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 256,
+    show_random_selection_of_images(dir, 25,
+                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 128,
                                     model=model)

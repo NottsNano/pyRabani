@@ -8,7 +8,7 @@ from CNN.CNN_training import h5RabaniDataGenerator
 
 class ImageClassifier:
     """Majority classify an image with window rolling"""
-    def __init__(self, img_arr, model, window_jump=2):
+    def __init__(self, img_arr, model, window_jump=4):
         self.img_arr = img_arr
 
         self.model = model
@@ -28,7 +28,7 @@ class ImageClassifier:
         # Copy each window out
         self.cnn_arr = np.zeros((num_jumps ** 2, self.network_img_size, self.network_img_size, 1))
         for i, (jump_i, jump_j) in enumerate(jump_idx):
-            self.cnn_arr[i, :, :, 0] = img[(jump_i * self.jump): (jump_i * self.jump) + self.network_img_size,
+            self.cnn_arr[i, :, :, 0] = self.img_arr[(jump_i * self.jump): (jump_i * self.jump) + self.network_img_size,
                                        (jump_j * self.jump): (jump_j * self.jump) + self.network_img_size]
 
     def validation_pred_image(self):
@@ -83,14 +83,14 @@ if __name__ == '__main__':
     trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-27--17-35/model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    # Classify a real image
-    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw").astype(int)
-    img = imgold.copy()
-    img[imgold == 1] = 0
-    img[imgold == 0] = 2
+    # # Classify a real image
+    # imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/C10_0000.ibw").astype(int)
+    # img = imgold.copy()
+    # img[imgold == 1] = 0
+    # img[imgold == 0] = 2
 
     # See effect of adding noise to image
-    predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.005, perc_std=0.0001, noise_steps=0)
+    # predict_with_noise(img=img, cats=cats, model=trained_model, perc_noise=0.005, perc_std=0.0001, noise_steps=0)
     # img_classifier = ImageClassifier(img, trained_model)  # Do this because of immutability!
     # img_classifier.wrap_image()
     # img_classifier.validation_pred_image()
