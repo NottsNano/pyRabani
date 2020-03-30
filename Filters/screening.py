@@ -3,7 +3,7 @@ import numpy as np
 import pycroscopy as scope
 from scipy import stats, ndimage, signal
 
-from CNN.CNN_prediction import plot_noisy_predictions, predict_with_noise
+from CNN.CNN_prediction import predict_with_noise
 
 
 class FileFilter:
