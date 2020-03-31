@@ -54,7 +54,7 @@ class FileFilter:
         fig.tight_layout(pad=3)
 
         if data is not None:
-            axs[0, 0].imshow(median_data, cmap='RdGy')
+            axs[0, 0].imshow(data, cmap='RdGy')
             axs[0, 0].set_title('Original Image')
             axs[0, 0].axis("off")
         if median_data is not None:
@@ -184,8 +184,7 @@ class FileFilter:
         if len(troughs) not in [1, 2]:
             self.fail_reason = "Failed to binarize"
         else:
-            opt_thres = threshes[troughs[0]]
-            return arr > opt_thres, (threshes, pix, pix_gauss_grad, peaks, troughs)
+            return arr > threshes[troughs[0]], (threshes, pix, pix_gauss_grad, peaks, troughs)
 
     def _CNN_classify(self, arr, model):
         img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001)
@@ -195,7 +194,7 @@ class FileFilter:
 
         if np.max(img_classifier.majority_preds) < 0.8:
             self.fail_reason = "CNN not confident enough"
-        elif np.all(np.std(img_classifier.preds, axis=0)) > 0.1:
+        elif np.all(np.std(img_classifier.preds, axis=0) > 0.1):
             self.fail_reason = "CNN distributions too broad"
         else:
             self.classification = self.cats[max_class]
@@ -210,18 +209,34 @@ if __name__ == '__main__':
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw",
         model, plot=True)
+    print(test_filter.fail_reason)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
         model, plot=True)
+    print(test_filter.fail_reason)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
         model, plot=True)
+    print(test_filter.fail_reason)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
         model, plot=True)
+    print(test_filter.fail_reason)
+
+    test_filter = FileFilter()
+    test_filter.assess_file(
+        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
+        model, plot=True)
+    print(test_filter.fail_reason)
+
+    test_filter = FileFilter()
+    test_filter.assess_file(
+        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
+        model, plot=True)
+    print(test_filter.fail_reason)

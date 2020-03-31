@@ -43,7 +43,7 @@ def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, 
 
     fig, axes = plt.subplots(1, 2)
     fig.tight_layout(pad=3)
-
+    img = img.copy()
     for i in range(noise_steps + 1):
         axes[0].clear()
         axes[1].clear()
@@ -58,8 +58,9 @@ def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, 
 
 
 def predict_with_noise(img, model, perc_noise, perc_std):
+    img = img.copy()  # Do this because of immutability!
     img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std)[0, :, :, 0]
-    img_classifier = ImageClassifier(img, model)  # Do this because of immutability!
+    img_classifier = ImageClassifier(img, model)
     img_classifier.wrap_image()
     img_classifier.validation_pred_image()
 
@@ -88,7 +89,7 @@ if __name__ == '__main__':
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image
-    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw").astype(
+    imgold = tmp_img_loader("../Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw").astype(
         int)
     img = imgold.copy()
     img[imgold == 1] = 0
@@ -96,7 +97,6 @@ if __name__ == '__main__':
 
     # See effect of adding noise to image
     plot_noisy_predictions(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=0)
-    plot_noisy_predictions(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=1)
     # img_classifier = ImageClassifier(img, trained_model)  # Do this because of immutability!
     # img_classifier.wrap_image()
     # img_classifier.validation_pred_image()
