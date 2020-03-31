@@ -20,7 +20,7 @@ class FileFilter:
 
     def assess_file(self, filepath, model, plot=False):
         """Try and filter the file"""
-        data = phase = median_data = flattened_data = median_phase = binarized_data_for_plotting = binarized_data = img_classifier = None
+        data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = None
 
         h5_file = self._load_ibw_file(filepath)
         if not self.fail_reason:
@@ -91,7 +91,7 @@ class FileFilter:
             h5_file = h5py.File(translated_file, mode='r')
             return h5_file
         except:
-            self.fail_reason = "Corrupt file"
+            self.fail_reason = "Corrupt file or wrong file extension"
 
     def _parse_ibw_file(self, h5_file):
         arr_data = np.array(h5_file['Measurement_000/Channel_000/Raw_Data'])
@@ -183,6 +183,7 @@ class FileFilter:
 
         if len(troughs) not in [1, 2]:
             self.fail_reason = "Failed to binarize"
+            return None, None
         else:
             return arr > threshes[troughs[0]], (threshes, pix, pix_gauss_grad, peaks, troughs)
 
