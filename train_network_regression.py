@@ -15,7 +15,7 @@ from tensorflow.python.keras.utils.vis_utils import plot_model
 from utils import plot_history
 
 
-class h5RabaniDataGenerator(Sequence):
+class txtRegressionAlexDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, is_train,
                  horizontal_flip=True, vertical_flip=True):
         self.root_dir = root_dir
@@ -140,8 +140,8 @@ class h5RabaniDataGenerator(Sequence):
 
 def train_regression_model(train_datadir, test_datadir, batch_size, epochs):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True)
-    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False)
+    train_generator = txtRegressionAlexDataGenerator(train_datadir, batch_size=batch_size, is_train=True)
+    test_generator = txtRegressionAlexDataGenerator(test_datadir, batch_size=batch_size, is_train=False)
 
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
@@ -179,8 +179,8 @@ def train_regression_model(train_datadir, test_datadir, batch_size, epochs):
 
 
 def validation_pred(model, validation_datadir, batch_size):
-    validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
-                                                 is_train=False)
+    validation_generator = txtRegressionAlexDataGenerator(validation_datadir, batch_size=batch_size,
+                                                          is_train=False)
     validation_generator.is_validation_set = True
 
     validation_preds = model.predict_generator(generator=validation_generator, steps=validation_generator.__len__())

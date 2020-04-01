@@ -4,19 +4,24 @@ import subprocess
 
 import h5py
 import numpy as np
-from matplotlib import pyplot as plt, colors
+import pandas as pd
 from sklearn.utils import class_weight
-from tensorflow.keras.layers import Dense, MaxPooling2D, Flatten
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
-from tensorflow.python.keras.layers import Convolution2D
+from tensorflow.python.keras import Sequential
+from tensorflow.python.keras.callbacks import CSVLogger, EarlyStopping, ModelCheckpoint
+from tensorflow.python.keras.layers import Convolution2D, MaxPooling2D, Flatten, Dense, Conv2D, Dropout
+from tensorflow.python.keras.optimizers import Adam
+from tensorflow.python.keras.utils.vis_utils import plot_model
+from matplotlib import pyplot as plt
+
+from utils import plot_history
 
 
-class h5RabaniDataGenerator(Sequence):
-    def __init__(self, root_dir, batch_size, is_train,
+class txtCNNAlexDataGenerator(Sequence):
+    def __init__(self, root_dir, cat_dir, batch_size, is_train,
                  horizontal_flip=True, vertical_flip=True):
         self.root_dir = root_dir
+        self.cat_dir = cat_dir
         self.batch_size = batch_size
 
         self.is_training_set = is_train
@@ -30,12 +35,12 @@ class h5RabaniDataGenerator(Sequence):
 
         self._get_image_res()
 
-        # self._get_class_weights()
+        self._get_class_weights()
 
         self._batches_counter = 0
 
-        self.filenames = np.zeros((self.__len__() * self.batch_size,))
-        self.y_true = np.zeros((self.__len__() * self.batch_size, len(self.original_categories_list)))
+        self.filenames = np.empty((self.__len__() * self.batch_size,), dtype=object)
+        self.y_true = np.zeros((self.__len__() * self.batch_size, self.num_cats))
 
     def _get_class_weights(self):
         """Open all the files once to compute the class weights"""
@@ -48,10 +53,9 @@ class h5RabaniDataGenerator(Sequence):
         class_inds = np.zeros((length,))
 
         for i in range(length):
-            file_entry = self._file_iterator.__next__().path
-            h5_file = h5py.File(file_entry, "r")
-            idx_find = self.original_categories_list.index(h5_file.attrs["category"])
-            class_inds[i] = idx_find
+            file_entry = f"{self.cat_dir}/{self._file_iterator.__next__().name}"
+            idx = np.loadtxt(file_entry, delimiter=",")
+            class_inds[i] = idx
 
         self.class_weights_dict = class_weight.compute_class_weight('balanced',
                                                                     np.arange(len(self.original_categories_list)),
@@ -62,7 +66,7 @@ class h5RabaniDataGenerator(Sequence):
     def _get_image_res(self):
         """Open one file to check the image resolution"""
         self.image_res = len(np.loadtxt(self._file_iterator.__next__().path, delimiter=","))
-        self.num_cats = len(self._file_iterator.__next__().path.split("-")) - 2
+        self.num_cats = 3
         self.__reset_file_iterator__()
 
     def on_epoch_end(self):
@@ -81,11 +85,11 @@ class h5RabaniDataGenerator(Sequence):
         return int(np.floor(n_files // self.batch_size))
 
     def parse_name(self, fname):
-        chunks = fname.split("-")
+        file_entry = f"{self.cat_dir}/{fname}"
+        idx = np.loadtxt(file_entry, delimiter=",")
 
         out = np.zeros((self.num_cats,))
-        for i, chunk in enumerate(chunks[:self.num_cats]):
-            out[i] = float(chunk.split("=")[1])
+        out[idx] = 1
 
         return out
 
@@ -95,7 +99,7 @@ class h5RabaniDataGenerator(Sequence):
         # Preallocate output
         batch_x = np.empty((self.batch_size, self.image_res, self.image_res, 1))
         batch_y = np.zeros((self.batch_size, self.num_cats))
-        filenames = np.zeros((self.batch_size,))
+        filenames = np.empty((self.batch_size,), dtype=object)
 
         # For each file in the batch
         for i in range(self.batch_size):
@@ -113,8 +117,8 @@ class h5RabaniDataGenerator(Sequence):
         if self.is_validation_set:
             self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
             :] = batch_y
-            self.filenames = filenames[self._batches_counter * self.batch_size:(
-                                                                                       self._batches_counter + 1) * self.batch_size] = filenames
+            self.filenames[
+            self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size] = filenames
 
         if self.is_training_set:
             batch_x = self.augment(batch_x)
@@ -136,27 +140,37 @@ class h5RabaniDataGenerator(Sequence):
         return batch_x
 
 
-def train_model(train_datadir, test_datadir, batch_size, epochs):
+def train_classifier_model(train_datadir, test_datadir, train_cat_datadir, test_cat_datadir, batch_size, epochs):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, batch_size=batch_size, is_train=True)
-    test_generator = h5RabaniDataGenerator(test_datadir, batch_size=batch_size, is_train=False)
+    train_generator = txtCNNAlexDataGenerator(train_datadir, train_cat_datadir, batch_size=batch_size, is_train=True)
+    test_generator = txtCNNAlexDataGenerator(test_datadir, test_cat_datadir, batch_size=batch_size, is_train=False)
 
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
     model = Sequential()
-    model.add(Convolution2D(16, kernel_size=(3, 3), input_shape=input_shape, activation='relu'))
+
+    model.add(Conv2D(32, (3, 3), activation='relu', input_shape=input_shape))
+    model.add(Conv2D(32, (3, 3), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Convolution2D(32, kernel_size=(3, 3), activation='relu'))
+    model.add(Dropout(0.25))
+    model.add(Conv2D(64, (3, 3), activation='relu'))
+    model.add(Conv2D(64, (3, 3), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Convolution2D(64, kernel_size=(3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
     model.add(Flatten())
-    model.add(Dense(500, activation='relu'))
-    model.add(Dense(100, activation='relu'))
-    model.add(Dense(20, activation='relu'))
+    model.add(Dense(256, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(3, activation='softmax'))
+
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=Adam(),
+                  metrics=['accuracy'])
 
     model.add(Dense(train_generator.num_cats))
 
+    csv_logger = CSVLogger('Data/Logs/classification_log.csv', append=True, separator=';')
+    early_stopping = EarlyStopping(monitor="val_loss", patience=10)
+    model_checkpoint = ModelCheckpoint("Data/Models/classification_model.h5", monitor="val_acc", save_best_only=True)
     model.compile(loss='mse',
                   optimizer=Adam(),
                   metrics=['accuracy'])
@@ -165,28 +179,25 @@ def train_model(train_datadir, test_datadir, batch_size, epochs):
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
-                        validation_steps=test_generator.__len__() // 10,
+                        validation_steps=test_generator.__len__(),
                         epochs=epochs,
+                        class_weight=train_generator.class_weights_dict,
+                        callbacks=[csv_logger, early_stopping, model_checkpoint],
                         max_queue_size=100)
 
     return model
 
 
-def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128):
-    img_generator = h5RabaniDataGenerator(datadir, batch_size=num_imgs, is_train=True, imsize=imsize)
+def validation_pred(model, validation_datadir, validation_cat_datadir, batch_size):
+    validation_generator = txtCNNAlexDataGenerator(validation_datadir, validation_cat_datadir, batch_size=batch_size,
+                                                   is_train=False)
+    validation_generator.is_validation_set = True
 
-    x, y = img_generator.__getitem__(None)
-    axis_res = int(np.sqrt(num_imgs))
+    validation_preds = model.predict_generator(generator=validation_generator, steps=validation_generator.__len__())
+    validation_truth = validation_generator.y_true
+    filenames = validation_generator.filenames
 
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-    plt.figure()
-    for i in range(axis_res ** 2):
-        plt.subplot(axis_res, axis_res, i + 1)
-        plt.imshow(x[i, :, :, 0], cmap=cmap)
-        plt.axis("off")
-        plt.title(y_cats[np.argmax(y[i, :])])
+    return validation_preds, validation_truth, filenames
 
 
 def plot_confusion_matrix(cm,
@@ -232,22 +243,24 @@ def plot_confusion_matrix(cm,
 if __name__ == '__main__':
     # Train
     training_data_dir = "/media/mltest1/Dat Storage/Alex Data/Training"
+    training_cat_dir = "/media/mltest1/Dat Storage/Alex Data/Training_Cat"
     testing_data_dir = "/media/mltest1/Dat Storage/Alex Data/Testing"
+    testing_cat_dir = "/media/mltest1/Dat Storage/Alex Data/Testing_Cat"
 
-    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir, batch_size=1024,
-                                epochs=20)
+    trained_model = train_classifier_model(train_datadir=training_data_dir, train_cat_datadir=training_cat_dir,
+                                           test_datadir=testing_data_dir, test_cat_datadir=testing_cat_dir,
+                                           batch_size=2048,
+                                           epochs=1000)
     plot_history(trained_model)
 
-    preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, batch_size=512)
+    # trained_model = load_model("Data/Models/classification_model.h5")
+    plot_model(trained_model, to_file="Data/Models/classification_model.png")
+    preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, batch_size=2048)
 
-    y_pred = np.argmax(preds, axis=1)
-    y_truth = np.argmax(truth, axis=1)
-    # conf_mat = metrics.confusion_matrix(y_truth, y_pred)
-    # plot_confusion_matrix(conf_mat, original_categories)
-    # print(metrics.classification_report(y_truth, y_pred, target_names=original_categories))
-
-    # TODO: Save regression task as CSV
-    # TODO: Save CNN task as CSV
-    # TODO: Save training for both tasks as CSV
-
-    # model_preds = pd.DataFrame()
+    pred_dframe = pd.DataFrame({"Filename": files,
+                                "Real Category": (np.argmax(truth, axis=1)+1),
+                                "CNN Overall Prediction": (np.argmax(preds, axis=1)+1),
+                                "CNN Confidence Cat 1": preds[:, 0],
+                                "CNN Confidence Cat 2": preds[:, 1],
+                                "CNN Confidence Cat 3": preds[:, 2]})
+    pred_dframe.to_csv("Data/Logs/classification_preds.csv")
