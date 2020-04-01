@@ -5,10 +5,8 @@ import subprocess
 import h5py
 import numpy as np
 from matplotlib import pyplot as plt, colors
-from sklearn import metrics
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils import class_weight
-from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout
+from tensorflow.keras.layers import Dense, MaxPooling2D, Flatten
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
@@ -32,11 +30,12 @@ class h5RabaniDataGenerator(Sequence):
 
         self._get_image_res()
 
-        #self._get_class_weights()
+        # self._get_class_weights()
 
         self._batches_counter = 0
 
-        #self.y_true = np.zeros((self.__len__()*self.batch_size, len(self.original_categories_list)))
+        self.filenames = np.zeros((self.__len__() * self.batch_size,))
+        self.y_true = np.zeros((self.__len__() * self.batch_size, len(self.original_categories_list)))
 
     def _get_class_weights(self):
         """Open all the files once to compute the class weights"""
@@ -63,7 +62,7 @@ class h5RabaniDataGenerator(Sequence):
     def _get_image_res(self):
         """Open one file to check the image resolution"""
         self.image_res = len(np.loadtxt(self._file_iterator.__next__().path, delimiter=","))
-        self.num_cats = len(self._file_iterator.__next__().path.split("-"))-2
+        self.num_cats = len(self._file_iterator.__next__().path.split("-")) - 2
         self.__reset_file_iterator__()
 
     def on_epoch_end(self):
@@ -96,6 +95,7 @@ class h5RabaniDataGenerator(Sequence):
         # Preallocate output
         batch_x = np.empty((self.batch_size, self.image_res, self.image_res, 1))
         batch_y = np.zeros((self.batch_size, self.num_cats))
+        filenames = np.zeros((self.batch_size,))
 
         # For each file in the batch
         for i in range(self.batch_size):
@@ -104,11 +104,17 @@ class h5RabaniDataGenerator(Sequence):
             file_entry = file.path
             file_name = file.name
 
-            batch_x[i, :, :, 0] = np.loadtxt(file_entry, delimiter=",")//9
+            batch_x[i, :, :, 0] = np.loadtxt(file_entry, delimiter=",") // 9
             batch_y[i, :] = self.parse_name(file_name)
 
+            if self.is_validation_set:
+                filenames[i] = file.name
+
         if self.is_validation_set:
-            self.y_true[self._batches_counter*self.batch_size:(self._batches_counter+1)*self.batch_size, :] = batch_y
+            self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
+            :] = batch_y
+            self.filenames = filenames[self._batches_counter * self.batch_size:(
+                                                                                       self._batches_counter + 1) * self.batch_size] = filenames
 
         if self.is_training_set:
             batch_x = self.augment(batch_x)
@@ -159,7 +165,7 @@ def train_model(train_datadir, test_datadir, batch_size, epochs):
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
-                        validation_steps=test_generator.__len__()//10,
+                        validation_steps=test_generator.__len__() // 10,
                         epochs=epochs,
                         max_queue_size=100)
 
@@ -177,31 +183,10 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
     norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
     plt.figure()
     for i in range(axis_res ** 2):
-        plt.subplot(axis_res, axis_res, i+1)
+        plt.subplot(axis_res, axis_res, i + 1)
         plt.imshow(x[i, :, :, 0], cmap=cmap)
         plt.axis("off")
         plt.title(y_cats[np.argmax(y[i, :])])
-
-
-def validation_pred(model, validation_datadir, y_params, y_cats, batch_size):
-    validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
-                                                 is_train=False, imsize=128)
-    validation_generator.is_validation_set = True
-
-    validation_preds = model.predict_generator(validation_generator, steps=validation_generator.__len__())
-    validation_truth = validation_generator.y_true
-
-    return validation_preds, validation_truth
-
-
-def plot_history(model):
-    for plot_metric in model.metrics_names:
-        plt.figure()
-        plt.plot(model.history.history[plot_metric])
-        plt.plot(model.history.history[f'val_{plot_metric}'])
-        plt.legend([plot_metric, f'val_{plot_metric}'])
-        plt.xlabel("Epoch")
-        plt.ylabel(plot_metric)
 
 
 def plot_confusion_matrix(cm,
@@ -248,23 +233,21 @@ if __name__ == '__main__':
     # Train
     training_data_dir = "/media/mltest1/Dat Storage/Alex Data/Training"
     testing_data_dir = "/media/mltest1/Dat Storage/Alex Data/Testing"
-    validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-12/14-33"
 
-    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir, batch_size=1024, epochs=20)
+    trained_model = train_model(train_datadir=training_data_dir, test_datadir=testing_data_dir, batch_size=1024,
+                                epochs=20)
     plot_history(trained_model)
 
-    # preds, truth = validation_pred(trained_model, validation_datadir=validation_data_dir,
-    #                                y_params=original_parameters, y_cats=original_categories, batch_size=512)
-    #
-    # # y_pred_srted = np.argmax(preds[np.max(preds, axis=1) >= 0.6, :], axis=1)
-    # # y_truth_srted = np.argmax(truth[np.max(preds, axis=1) >= 0.6, :], axis=1)
-    #
-    # y_pred = np.argmax(preds, axis=1)
-    # y_truth = np.argmax(truth, axis=1)
-    #
-    # show_random_selection_of_images(testing_data_dir, num_imgs=25, y_params=original_parameters,
-    #                                 y_cats=original_categories)
-    #
+    preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, batch_size=512)
+
+    y_pred = np.argmax(preds, axis=1)
+    y_truth = np.argmax(truth, axis=1)
     # conf_mat = metrics.confusion_matrix(y_truth, y_pred)
     # plot_confusion_matrix(conf_mat, original_categories)
     # print(metrics.classification_report(y_truth, y_pred, target_names=original_categories))
+
+    # TODO: Save regression task as CSV
+    # TODO: Save CNN task as CSV
+    # TODO: Save training for both tasks as CSV
+
+    # model_preds = pd.DataFrame()
