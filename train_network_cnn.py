@@ -161,7 +161,7 @@ def train_classifier_model(train_datadir, test_datadir, cat_datadir, batch_size,
     model.add(Flatten())
     model.add(Dense(256, activation='relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(train_generator.num_cats))
+    model.add(Dense(train_generator.num_cats, activation="softmax"))
     model.compile(loss='categorical_crossentropy',
                   optimizer=Adam(),
                   metrics=['accuracy'])
