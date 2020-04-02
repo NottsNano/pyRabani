@@ -5,13 +5,14 @@ import subprocess
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix
 from sklearn.utils import class_weight
 from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras import Sequential
 from tensorflow.python.keras.callbacks import CSVLogger, EarlyStopping, ModelCheckpoint
 from tensorflow.python.keras.layers import MaxPooling2D, Flatten, Dense, Conv2D, Dropout
 from tensorflow.python.keras.optimizers import Adam
-from tensorflow.python.keras.utils.vis_utils import plot_model
+from keras.utils.vis_utils import plot_model
 
 from utils import plot_history
 
@@ -171,7 +172,7 @@ def train_classifier_model(train_datadir, test_datadir, cat_datadir, batch_size,
     csv_logger = CSVLogger('Data/Logs/classification_log.csv', append=True, separator=';')
     early_stopping = EarlyStopping(monitor="val_loss", patience=10)
     model_checkpoint = ModelCheckpoint("Data/Models/classification_model.h5", monitor="val_acc", save_best_only=True)
-    model.compile(loss='mse',
+    model.compile(loss='categorical_crossentropy',
                   optimizer=Adam(),
                   metrics=['accuracy'])
 
@@ -257,10 +258,14 @@ if __name__ == '__main__':
     preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, cat_datadir=cat_dir,
                                           batch_size=1024)
 
+    cm = confusion_matrix(np.argmax(truth, 1), np.argmax(preds, 1))
+    plot_confusion_matrix(cm, np.arange(4))
+
     pred_dframe = pd.DataFrame({"Filename": files,
                                 "Real Category": (np.argmax(truth, axis=1) + 1),
                                 "CNN Overall Prediction": (np.argmax(preds, axis=1) + 1),
-                                "CNN Confidence Cat 1": preds[:, 0],
-                                "CNN Confidence Cat 2": preds[:, 1],
-                                "CNN Confidence Cat 3": preds[:, 2]})
+                                "CNN Confidence Cat 0": preds[:, 0],
+                                "CNN Confidence Cat 1": preds[:, 1],
+                                "CNN Confidence Cat 2": preds[:, 2],
+                                "CNN Confidence Cat 3": preds[:, 3]})
     pred_dframe.to_csv("Data/Logs/classification_preds.csv")
