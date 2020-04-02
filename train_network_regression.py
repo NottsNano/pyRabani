@@ -201,7 +201,7 @@ if __name__ == '__main__':
     plot_history(trained_model)
 
     # trained_model = load_model("Data/Models/regression_model.h5")
-    plot_model(trained_model, to_file="Data/Models/regression_model.png")
+    plot_model(trained_model, to_file="Data/Models/regression_model.png", show_shapes=True, show_layer_names=True)
     preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, batch_size=2048)
 
     pred_dframe = pd.DataFrame({"Filename": files,

@@ -12,7 +12,7 @@ from tensorflow.python.keras import Sequential
 from tensorflow.python.keras.callbacks import CSVLogger, EarlyStopping, ModelCheckpoint
 from tensorflow.python.keras.layers import MaxPooling2D, Flatten, Dense, Conv2D, Dropout
 from tensorflow.python.keras.optimizers import Adam
-from keras.utils.vis_utils import plot_model
+from tensorflow.python.keras.utils.vis_utils import plot_model
 
 from utils import plot_history
 
@@ -174,8 +174,8 @@ def train_classifier_model(train_datadir, test_datadir, cat_datadir, batch_size,
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__() // 10,
-                        validation_steps=test_generator.__len__() // 10,
+                        steps_per_epoch=train_generator.__len__(),
+                        validation_steps=test_generator.__len__(),
                         epochs=epochs,
                         class_weight=train_generator.class_weights_dict,
                         callbacks=[csv_logger, early_stopping, model_checkpoint],
@@ -244,20 +244,20 @@ if __name__ == '__main__':
 
     trained_model = train_classifier_model(train_datadir=training_data_dir,
                                            test_datadir=testing_data_dir, cat_datadir=cat_dir,
-                                           batch_size=1024,
-                                           epochs=50)
+                                           batch_size=2048,
+                                           epochs=2000)
     plot_history(trained_model)
 
     # trained_model = load_model("Data/Models/classification_model.h5")
-    plot_model(trained_model, to_file="Data/Models/classification_model.png")
+    plot_model(trained_model, to_file="Data/Models/classification_model.png", show_shapes=True, show_layer_names=True)
     preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, cat_datadir=cat_dir,
                                           batch_size=1024)
 
     cm = confusion_matrix(np.argmax(truth, 1), np.argmax(preds, 1))
-    plot_confusion_matrix(cm, np.arange(4))
+    plot_confusion_matrix(cm, ["Class 0", "Class 1", "Class 2", "Class 3"])
 
     pred_dframe = pd.DataFrame({"Filename": files,
-                                "Real Category": (np.argmax(truth, axis=1) + 1),
+                                "Real Category": np.argmax(truth, axis=1),
                                 "CNN Overall Prediction": (np.argmax(preds, axis=1) + 1),
                                 "CNN Confidence Cat 0": preds[:, 0],
                                 "CNN Confidence Cat 1": preds[:, 1],
