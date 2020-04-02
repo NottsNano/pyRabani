@@ -161,20 +161,15 @@ def train_classifier_model(train_datadir, test_datadir, cat_datadir, batch_size,
     model.add(Flatten())
     model.add(Dense(256, activation='relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(4, activation='softmax'))
-
+    model.add(Dense(train_generator.num_cats))
     model.compile(loss='categorical_crossentropy',
                   optimizer=Adam(),
                   metrics=['accuracy'])
 
-    model.add(Dense(train_generator.num_cats))
 
     csv_logger = CSVLogger('Data/Logs/classification_log.csv', append=True, separator=';')
-    early_stopping = EarlyStopping(monitor="val_loss", patience=10)
+    early_stopping = EarlyStopping(monitor="val_acc", patience=10)
     model_checkpoint = ModelCheckpoint("Data/Models/classification_model.h5", monitor="val_acc", save_best_only=True)
-    model.compile(loss='categorical_crossentropy',
-                  optimizer=Adam(),
-                  metrics=['accuracy'])
 
     # Train
     model.fit_generator(generator=train_generator,
@@ -250,7 +245,7 @@ if __name__ == '__main__':
     trained_model = train_classifier_model(train_datadir=training_data_dir,
                                            test_datadir=testing_data_dir, cat_datadir=cat_dir,
                                            batch_size=1024,
-                                           epochs=10)
+                                           epochs=50)
     plot_history(trained_model)
 
     # trained_model = load_model("Data/Models/classification_model.h5")
