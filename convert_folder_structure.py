@@ -18,10 +18,17 @@ import numpy as np
 
 root_dir = "/media/mltest1/Dat Storage/Alex Data"
 x_data_dir = "/media/mltest1/Dat Storage/Alex Data/Training"
+x1_data_dir = "/media/mltest1/Dat Storage/Alex Data/Testing"
 y_data_dir = "/media/mltest1/Dat Storage/Alex Data/Categories"
+missing_files = []
+all_x_files = os.listdir(x_data_dir)
+all_x1_files = os.listdir(x1_data_dir)
+all_x_files += all_x1_files
 
-all_x_files = os.scandir(x_data_dir)
-all_y_files = os.scandir(y_data_dir)
+all_y_files = os.listdir(y_data_dir)
+
 for y_file in all_y_files:
-    if y_file in all_x_files:
-        shutil.copyfile(f"{y_data_dir}/{y_file}", f"{root_dir}/Training_Cat/{y_file}")
+    y_file_str = y_file[11:]
+    if y_file_str not in all_x_files:
+        missing_files.append(y_file_str)
+        # shutil.copyfile(f"{y_data_dir}/{y_file.name}", f"{root_dir}/Training_Cat/{y_file_str}")

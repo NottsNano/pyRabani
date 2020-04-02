@@ -2,26 +2,25 @@ import itertools
 import os
 import subprocess
 
-import h5py
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from sklearn.utils import class_weight
 from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras import Sequential
 from tensorflow.python.keras.callbacks import CSVLogger, EarlyStopping, ModelCheckpoint
-from tensorflow.python.keras.layers import Convolution2D, MaxPooling2D, Flatten, Dense, Conv2D, Dropout
+from tensorflow.python.keras.layers import MaxPooling2D, Flatten, Dense, Conv2D, Dropout
 from tensorflow.python.keras.optimizers import Adam
 from tensorflow.python.keras.utils.vis_utils import plot_model
-from matplotlib import pyplot as plt
 
 from utils import plot_history
 
 
 class txtCNNAlexDataGenerator(Sequence):
-    def __init__(self, root_dir, cat_dir, batch_size, is_train,
+    def __init__(self, root_dir, category_dir, batch_size, is_train,
                  horizontal_flip=True, vertical_flip=True):
         self.root_dir = root_dir
-        self.cat_dir = cat_dir
+        self.cat_dir = category_dir
         self.batch_size = batch_size
 
         self.is_training_set = is_train
@@ -32,6 +31,8 @@ class txtCNNAlexDataGenerator(Sequence):
 
         self.class_weights_dict = None
         self.__reset_file_iterator__()
+
+        self.num_cats = 4
 
         self._get_image_res()
 
@@ -53,12 +54,12 @@ class txtCNNAlexDataGenerator(Sequence):
         class_inds = np.zeros((length,))
 
         for i in range(length):
-            file_entry = f"{self.cat_dir}/{self._file_iterator.__next__().name}"
-            idx = np.loadtxt(file_entry, delimiter=",")
+            file_entry = f"{self.cat_dir}/category---{self._file_iterator.__next__().name}"
+            idx = int(np.loadtxt(file_entry, delimiter=","))
             class_inds[i] = idx
 
         self.class_weights_dict = class_weight.compute_class_weight('balanced',
-                                                                    np.arange(len(self.original_categories_list)),
+                                                                    np.arange(self.num_cats),
                                                                     class_inds)
 
         self.__reset_file_iterator__()
@@ -66,7 +67,6 @@ class txtCNNAlexDataGenerator(Sequence):
     def _get_image_res(self):
         """Open one file to check the image resolution"""
         self.image_res = len(np.loadtxt(self._file_iterator.__next__().path, delimiter=","))
-        self.num_cats = 3
         self.__reset_file_iterator__()
 
     def on_epoch_end(self):
@@ -85,8 +85,8 @@ class txtCNNAlexDataGenerator(Sequence):
         return int(np.floor(n_files // self.batch_size))
 
     def parse_name(self, fname):
-        file_entry = f"{self.cat_dir}/{fname}"
-        idx = np.loadtxt(file_entry, delimiter=",")
+        file_entry = f"{self.cat_dir}/category---{fname}"
+        idx = int(np.loadtxt(file_entry, delimiter=","))
 
         out = np.zeros((self.num_cats,))
         out[idx] = 1
@@ -140,10 +140,10 @@ class txtCNNAlexDataGenerator(Sequence):
         return batch_x
 
 
-def train_classifier_model(train_datadir, test_datadir, train_cat_datadir, test_cat_datadir, batch_size, epochs):
+def train_classifier_model(train_datadir, test_datadir, cat_datadir, batch_size, epochs):
     # Set up generators
-    train_generator = txtCNNAlexDataGenerator(train_datadir, train_cat_datadir, batch_size=batch_size, is_train=True)
-    test_generator = txtCNNAlexDataGenerator(test_datadir, test_cat_datadir, batch_size=batch_size, is_train=False)
+    train_generator = txtCNNAlexDataGenerator(train_datadir, cat_datadir, batch_size=batch_size, is_train=True)
+    test_generator = txtCNNAlexDataGenerator(test_datadir, cat_datadir, batch_size=batch_size, is_train=False)
 
     # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
@@ -160,7 +160,7 @@ def train_classifier_model(train_datadir, test_datadir, train_cat_datadir, test_
     model.add(Flatten())
     model.add(Dense(256, activation='relu'))
     model.add(Dropout(0.5))
-    model.add(Dense(3, activation='softmax'))
+    model.add(Dense(4, activation='softmax'))
 
     model.compile(loss='categorical_crossentropy',
                   optimizer=Adam(),
@@ -178,8 +178,8 @@ def train_classifier_model(train_datadir, test_datadir, train_cat_datadir, test_
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__(),
-                        validation_steps=test_generator.__len__(),
+                        steps_per_epoch=train_generator.__len__() // 10,
+                        validation_steps=test_generator.__len__() // 10,
                         epochs=epochs,
                         class_weight=train_generator.class_weights_dict,
                         callbacks=[csv_logger, early_stopping, model_checkpoint],
@@ -188,8 +188,8 @@ def train_classifier_model(train_datadir, test_datadir, train_cat_datadir, test_
     return model
 
 
-def validation_pred(model, validation_datadir, validation_cat_datadir, batch_size):
-    validation_generator = txtCNNAlexDataGenerator(validation_datadir, validation_cat_datadir, batch_size=batch_size,
+def validation_pred(model, validation_datadir, cat_datadir, batch_size):
+    validation_generator = txtCNNAlexDataGenerator(validation_datadir, cat_datadir, batch_size=batch_size,
                                                    is_train=False)
     validation_generator.is_validation_set = True
 
@@ -243,23 +243,23 @@ def plot_confusion_matrix(cm,
 if __name__ == '__main__':
     # Train
     training_data_dir = "/media/mltest1/Dat Storage/Alex Data/Training"
-    training_cat_dir = "/media/mltest1/Dat Storage/Alex Data/Training_Cat"
+    cat_dir = "/media/mltest1/Dat Storage/Alex Data/Categories"
     testing_data_dir = "/media/mltest1/Dat Storage/Alex Data/Testing"
-    testing_cat_dir = "/media/mltest1/Dat Storage/Alex Data/Testing_Cat"
 
-    trained_model = train_classifier_model(train_datadir=training_data_dir, train_cat_datadir=training_cat_dir,
-                                           test_datadir=testing_data_dir, test_cat_datadir=testing_cat_dir,
-                                           batch_size=2048,
-                                           epochs=1000)
+    trained_model = train_classifier_model(train_datadir=training_data_dir,
+                                           test_datadir=testing_data_dir, cat_datadir=cat_dir,
+                                           batch_size=1024,
+                                           epochs=10)
     plot_history(trained_model)
 
     # trained_model = load_model("Data/Models/classification_model.h5")
     plot_model(trained_model, to_file="Data/Models/classification_model.png")
-    preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, batch_size=2048)
+    preds, truth, files = validation_pred(trained_model, validation_datadir=testing_data_dir, cat_datadir=cat_dir,
+                                          batch_size=1024)
 
     pred_dframe = pd.DataFrame({"Filename": files,
-                                "Real Category": (np.argmax(truth, axis=1)+1),
-                                "CNN Overall Prediction": (np.argmax(preds, axis=1)+1),
+                                "Real Category": (np.argmax(truth, axis=1) + 1),
+                                "CNN Overall Prediction": (np.argmax(preds, axis=1) + 1),
                                 "CNN Confidence Cat 1": preds[:, 0],
                                 "CNN Confidence Cat 2": preds[:, 1],
                                 "CNN Confidence Cat 3": preds[:, 2]})
