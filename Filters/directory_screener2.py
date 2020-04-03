@@ -24,7 +24,7 @@ p_s = 1
 # 1 is yes to choose manually, 0 uses default (tp)
 f_p = 0
 
-if f_p == 1: # Directory chooser dialogue
+if f_p == 1:  # Directory chooser dialogue
     fol = input('Which folder?')
     if fol not in os.listdir('thres_img'):
         print('Defaulting to /tp/')
@@ -45,12 +45,12 @@ opt_peak = np.zeros(files_ibw.__len__())
 successes = 0
 
 for k in files_ibw:
-    print('\n Processing ibw file '+str(files_ibw.index(k)+1)+' of '+str(files_ibw.__len__())+': '+k)
+    print('\n Processing ibw file ' + str(files_ibw.index(k) + 1) + ' of ' + str(files_ibw.__len__()) + ': ' + k)
 
     if p_s == 0:
         sys.stdout = open(os.devnull, 'w')
 
-    print('* Translating h5 file of '+k+'...')
+    print('* Translating h5 file of ' + k + '...')
 
     # Create an object capable of translating .ibw files
     TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
@@ -98,8 +98,6 @@ for k in files_ibw:
     norm_phase_Trace_Array = (shaped_phase_Trace_Array - np.min(shaped_phase_Trace_Array)) \
                              / (np.max(shaped_phase_Trace_Array) - np.min(shaped_phase_Trace_Array))
 
-
-
     h5_File.close()
     print('Done. Closed hd5 file.')
 
@@ -108,6 +106,7 @@ for k in files_ibw:
     # move the second row in line with the first
 
     print('* Applying median aligner', end='... ')
+
 
     def line_align(row1, row2):
         diff = row1 - row2
@@ -141,17 +140,17 @@ for k in files_ibw:
         # counter = np.count_nonzero(row_i == (stats.mode(row_i))[0])
         counter = np.count_nonzero((0.95 * row_mode[0] < row_i) < 1.05 * row_mode[0])
         flat = counter > 0.95 * row_num
-        slope = np.prod(row_i == np.sort(row_i))
-        slope_rev = np.prod(row_i == np.sort(row_i)[::-1])
-        dud_row = dud_row + counter > 0.95 * row_num + np.prod(row_i == np.sort(row_i)) + np.prod(
-            row_i == np.sort(row_i)[::-1])
-        # Still not great, maybe has the line fit to a polynomial and use a chi fit to determine if the line is just noise
+        slope = row_i == np.sort(row_i)
+        slope_rev = row_i == np.sort(row_i)[::-1]
+        dud_row += (counter > (0.95 * row_num))\
+                  + sum(slope) > (0.95 * row_num) + sum(slope_rev) > (0.95 * row_num)
+        # Still not great, maybe has the line fit to a polynomial and use a chi fit
 
     dud_perc = 100 * dud_row / row_num
     row_pure[files_ibw.index(k)] = "%.1f" % dud_perc
 
     if dud_perc >= 5:
-        print('Rejected! '+str("%.1f" % dud_perc)+'% of the rows were corrupt.')
+        print('Rejected! ' + str("%.1f" % dud_perc) + '% of the rows were corrupt.')
     else:
         print('Done.')
 
@@ -228,7 +227,6 @@ for k in files_ibw:
                cmap='RdGy')
     plt.title('Planar flattened', fontsize=10)
 
-
     # Consider all possible threshold values
     print('* Finding optimal threshold value', end='... ')
     n = 1000
@@ -240,7 +238,7 @@ for k in files_ibw:
     plt.subplot(2, 2, 3)
     threshold_plot = plt.plot(thres, pix)
     plt.grid(True)
-    plt.title('Threshold height sweep', fontsize=10)
+    # plt.title('Threshold height sweep', fontsize=10)
     plt.xlabel('Threshold', fontsize=8)
     plt.ylabel('Pixels', fontsize=8)
 
@@ -254,49 +252,45 @@ for k in files_ibw:
     dif_threshold_scatter = plt.scatter(thres[peaks], pix_gauss_grad[peaks])
     dif_threshold_scatter2 = plt.scatter(thres[troughs], pix_gauss_grad[troughs], marker='x')
     plt.grid(True)
-    plt.title('Gaussian gradient (\u03C3=' + str(gauss_sigma) + ')', fontsize=10)
+    # plt.title('Gaussian gradient (\u03C3=' + str(gauss_sigma) + ')', fontsize=10)
     plt.xlabel('Threshold', fontsize=8)
     plt.ylabel('\u0394Pixels', fontsize=8)
-    fig_loc = dir+k.replace('.ibw', 'FIG.png')
+    fig_loc = dir + 'tempr/' + k.replace('.ibw', 'FIG.png')
     plt.savefig(fig_loc)
     # , bbox = 'tight'
 
-    if len(troughs) != 1:
+    if len(troughs) < 1:
         print('Rejected! No clear optimisation.')
+        opt_thres = 0
         opt_peak[files_ibw.index(k)] = np.nan
 
     else:
-        opt_thres = thres[troughs[0]]
+        opt_thres = thres[troughs[len(troughs)-1]]
         print('Threshold found to be %.2f' % opt_thres + '.')
         opt_peak[files_ibw.index(k)] = opt_thres
 
-
-    if (len(troughs) == 1) * (dud_perc < 5):
+    if opt_thres != 0 and dud_perc < 5:
         # Print the image
         plt.figure()
         plt.imshow(norm_data_Trace_Array > opt_thres, extent=(0, row_num, 0, row_num), origin='lower', cmap='gray')
-        plt.title(k.replace('.ibw', '')+' - Threshold = %.2f' % opt_thres)
-        # plt.ion()
-        thres_loc = dir + k.replace('.ibw', 'THRES.png')
+        plt.title(k.replace('.ibw', '') + ' - Threshold = %.2f' % opt_thres)
+        # plt.ion() # comment out to suppress output of a bunch of images
+        thres_loc = dir + 'tempr/' + k.replace('.ibw', 'THRES.png')
         print('* ' + k.replace('.ibw', '') + ' passed all checks. Saving image.')
-        plt.imsave(thres_loc, norm_data_Trace_Array > opt_thres, cmap='gray') # The image is flipped vertically, sorry
+        plt.imsave(thres_loc, norm_data_Trace_Array > opt_thres, cmap='gray')  # The image is flipped vertically, sorry
         successes = successes + 1
 
     else:
         print('* ' + (k.replace('.ibw', '') + ' did not pass all checks.'))
 
-    plt.close('all')
+    plt.close('all') # comment out when plt.ion() not commented out
 
     if p_s == 0:
         sys.stdout = sys.__stdout__
 
 print('\nDone! ' + str(successes) + ' of ' + str(files_ibw.__len__()) + ' files passed.  Saving results to table...')
 
-
 # Save all values to a table with pandas
 
-    # Use this to force a plot
-    # plt.ion()
-
-
-
+# Use this to force a plot
+# plt.ion()
