@@ -13,7 +13,10 @@ search_recursive = True
 df_summary = pd.DataFrame(columns=["File Path", "Resolution", "Fail Reasons", "CNN Classification", "Euler Classification"])
 
 all_files = [f for f in glob.glob(f"{root_dir}/*.ibw", recursive=search_recursive)]
-for i, file in enumerate(tqdm(all_files)):
+t = tqdm(total=len(all_files))
+for i, file in enumerate(all_files):
+    t.update(1)
+    t.set_description(file[len(root_dir):])
 
     filter = FileFilter()
     filter.assess_file(filepath=file, model=model, plot=False)
@@ -23,5 +26,6 @@ for i, file in enumerate(tqdm(all_files)):
     df_summary.loc[i, ["Fail Reasons"]] = [filter.fail_reasons]
     df_summary.loc[i, ["CNN Classification"]] = [filter.CNN_classification]
     df_summary.loc[i, ["Euler Classification"]] = [filter.euler_classification]
+
 
 
