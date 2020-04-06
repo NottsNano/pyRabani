@@ -155,13 +155,13 @@ class RabaniSweeper:
             self.sweep_cnt += 1
 
     @staticmethod
-    def calculate_stats(img, image_res, nano_num=2):
+    def calculate_stats(img, image_res, substrate_num=0, liquid_num=1, nano_num=2):
         # Region Properties
         region = (measure.regionprops((img != 0) + 1)[0])
 
         # Broadly estimate category
-        if int(mode(img, axis=None).mode) == 1:
-            if np.sum(img == 0) / image_res ** 2 >= 0.02:
+        if int(mode(img, axis=None).mode) == liquid_num:
+            if np.sum(img == substrate_num) / image_res ** 2 >= 0.02:
                 # Hole if dominant category is water and also has an amount of substrate
                 cat = "hole"
             else:
