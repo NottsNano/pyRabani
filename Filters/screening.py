@@ -56,7 +56,7 @@ class FileFilter:
     def _plot(self, data=None, median_data=None, flattened_data=None,
               binarized_data=None, binarized_data_for_plotting=None, img_classifier=None, img_classifier_euler=None):
 
-        fig, axs = plt.subplots(2, 3)
+        fig, axs = plt.subplots(2, 4)
         fig.tight_layout(pad=3)
 
         if data is not None:
@@ -85,13 +85,16 @@ class FileFilter:
             axs[1, 0].set_ylabel('Pixels')
             axs[1, 0].set_title('Thresholding Levels')
         if binarized_data is not None:
-            show_image(binarized_data, axis=axs[1, 1])
-            axs[1, 1].set_title('Binarized')
+            show_image(binarized_data, axis=axs[0, 3])
+            axs[0, 3].set_title('Binarized')
         if img_classifier is not None:
-            all_preds_histogram(img_classifier.cnn_preds, self.cats, axis=axs[1, 2])
-            axs[1, 2].set_title('Network Predictions')
+            all_preds_histogram(img_classifier.cnn_preds, self.cats, axis=axs[1, 1])
+            axs[1, 1].set_title('Network Predictions')
         if img_classifier_euler is not None:
-            all_preds_percentage(img_classifier_euler.euler_preds, self.cats + ["none"])
+            all_preds_percentage(img_classifier.cnn_preds, self.cats, axis=axs[1, 2])
+            all_preds_percentage(img_classifier_euler.euler_preds, self.cats + ["none"], axis=axs[1, 3])
+            axs[1, 2].set_title('Network Predictions')
+            axs[1, 3].set_title('Euler Predictions')
 
     def _load_ibw_file(self, filepath):
         try:
