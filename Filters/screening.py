@@ -3,6 +3,7 @@ import numpy as np
 import pycroscopy as scope
 from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
+from skimage import measure
 from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_prediction import predict_with_noise
@@ -14,6 +15,7 @@ class FileFilter:
     def __init__(self):
         self._igor_translator = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
         self.image_res = None
+        self.normalised_euler = None
         self.fail_reason = None
         self.classification = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
@@ -40,6 +42,7 @@ class FileFilter:
             flattened_data = self._plane_flatten(median_data)
             flattened_data = self._normalize_data(flattened_data)
             binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+            # self._get_normalised_euler(binarized_data)
 
         if not self.fail_reason:
             img_classifier = self._CNN_classify(binarized_data, model)
@@ -132,6 +135,9 @@ class FileFilter:
             dud_rows = dud_rows + counter > 0.95 * self.image_res + np.prod(arr[i, :] == np.sort(arr[i, :])) + np.prod(
                 arr[i, :] == np.sort(arr[i, :])[::-1])
 
+            dud_rows += (counter > (0.95 * self.image_res)) + sum(arr[i, :] == np.sort(arr[i, :])) > (
+                        0.95 * self.image_res) + sum(arr[i, :] == np.sort(arr[i, :])[::-1]) > (0.95 * self.image_res)
+
         is_noisy = dud_rows / self.image_res > 0.05
         if is_noisy:
             self.fail_reason = "Noisy image"
@@ -181,11 +187,15 @@ class FileFilter:
         peaks, properties = signal.find_peaks(pix_gauss_grad, prominence=1)
         troughs, properties = signal.find_peaks(-pix_gauss_grad, prominence=1)
 
-        if len(troughs) not in [1, 2]:
+        if len(troughs) < 1:
             self.fail_reason = "Failed to binarize"
             return None, None
         else:
-            return arr > threshes[troughs[0]], (threshes, pix, pix_gauss_grad, peaks, troughs)
+            return arr > threshes[troughs[len(troughs)-1]], (threshes, pix, pix_gauss_grad, peaks, troughs)
+
+    def _get_normalised_euler(self, arr):
+        region = (measure.regionprops((arr != 0) + 1)[0])
+        self.normalised_euler = region["euler_number"] / np.sum(arr != 0)
 
     def _CNN_classify(self, arr, model):
         img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001)

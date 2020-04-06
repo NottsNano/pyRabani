@@ -195,47 +195,6 @@ if __name__ == '__main__':
 
 #########################
 
-    total_image_reps = 2
-
-    parameters = {"kT": [0.01, 0.35],
-                  "mu": [2.35, 3.47],
-                  "MR": 1,
-                  "C": 0.3,
-                  "e_nl": 1.5,
-                  "e_nn": 2,
-                  "L": [64, 128]}
-
-    axis_res = {"kT": 25,
-                "mu": 25,
-                "L": 2}
-    print("64-128 test")
-    print("")
-    rabani_sweeper1 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
-    rabani_sweeper1.call_rabani_sweep(params=parameters,
-                                     axis_steps=axis_res,
-                                     image_reps=total_image_reps)
-#########################
-    total_image_reps = 1
-
-    parameters = {"kT": [0.01, 0.35],
-                  "mu": [2.35, 3.47],
-                  "MR": 1,
-                  "C": 0.3,
-                  "e_nl": 1.5,
-                  "e_nn": 2,
-                  "L": [64, 128]}
-
-    axis_res = {"kT": 25,
-                "mu": 25,
-                "L": 2}
-    print("64-128 validate")
-    print("")
-    rabani_sweeper2 = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
-    rabani_sweeper2.call_rabani_sweep(params=parameters,
-                                     axis_steps=axis_res,
-                                     image_reps=total_image_reps)
-
-#############################    total_image_reps = 10
     total_image_reps = 10
 
     parameters = {"kT": [0.01, 0.35],
