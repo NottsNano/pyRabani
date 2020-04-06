@@ -228,6 +228,8 @@ class FileFilter:
         img_classifier.euler_classify()
 
         max_class = int(np.argmax(img_classifier.euler_majority_preds))
+        if np.argmax(np.sum(img_classifier.euler_preds, axis=0) == len(self.cats)):
+            self.fail_reasons += ["Euler category not clear enough"]
         if np.sum(img_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(img_classifier.euler_preds):
             self.fail_reasons += ["Euler distributions too broad"]
         else:

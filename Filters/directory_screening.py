@@ -5,15 +5,15 @@ from Filters.screening import FileFilter
 import glob
 from tqdm import tqdm
 
-root_dir = "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/tp"
+root_dir = "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/"
 model_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5"
 model = load_model(model_dir)
 search_recursive = True
 
 df_summary = pd.DataFrame(columns=["File Path", "Resolution", "Fail Reasons", "CNN Classification", "Euler Classification"])
 
-all_files = [f for f in glob.glob(f"{root_dir}/*.ibw", recursive=search_recursive)]
-t = tqdm(total=len(all_files))
+all_files = [f for f in glob.glob(f"{root_dir}/**/*.ibw", recursive=search_recursive)]
+t = tqdm(total=len(all_files), smoothing=True)
 for i, file in enumerate(all_files):
     t.update(1)
     t.set_description(file[len(root_dir):])
