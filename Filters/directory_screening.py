@@ -10,7 +10,7 @@ model_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03
 model = load_model(model_dir)
 search_recursive = True
 
-df_summary = pd.DataFrame(columns=["File Path", "Resolution", "Fail Reason", "Classification"])
+df_summary = pd.DataFrame(columns=["File Path", "Resolution", "Fail Reason", "CNN Classification", "Euler Classification"])
 
 all_files = [f for f in glob.glob(f"{root_dir}/*.ibw", recursive=search_recursive)]
 for i, file in enumerate(tqdm(all_files)):
@@ -21,6 +21,7 @@ for i, file in enumerate(tqdm(all_files)):
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filter.image_res]
     df_summary.loc[i, ["Fail Reason"]] = [filter.fail_reason]
-    df_summary.loc[i, ["Classification"]] = [filter.classification]
+    df_summary.loc[i, ["CNN Classification"]] = [filter.CNN_classification]
+    df_summary.loc[i, ["Euler Classification"]] = [filter.euler_classification]
 
 

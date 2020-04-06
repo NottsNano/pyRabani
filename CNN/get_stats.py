@@ -52,6 +52,12 @@ def plot_confusion_matrix(y_truth, y_pred, cats, cmap=None, normalize=True):
     plt.ylabel('True label')
     plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
 
+def all_preds_percentage(preds, cats, axis=None):
+    if not axis:
+        fig, axis = plt.subplots(1, 1)
+
+    axis.pie(np.sum(preds, axis=0), labels=cats)
+    axis.axis("equal")
 
 def all_preds_histogram(preds, cats, axis=None):
     if not axis:
@@ -131,7 +137,7 @@ if __name__ == '__main__':
     y_preds, y_truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
                                              y_params=params, y_cats=cats, batch_size=100, imsize=128)
 
-    # Calculate classification stats
+    # Calculate CNN_classification stats
     ROC_one_vs_all(y_preds, y_truth, cats)
     test = PR_one_vs_all(y_preds, y_truth, cats)
 

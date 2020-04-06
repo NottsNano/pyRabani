@@ -122,7 +122,7 @@ class RabaniSweeper:
                 f"{self._file_base}--{self.sweep_cnt}.h5",
                 "a")
 
-            region, cat = self.calculate_stats(img)
+            region, cat = self.calculate_stats(img, self.params[rep, 6])
 
             master_file.attrs["kT"] = self.params[rep, 0]
             master_file.attrs["mu"] = self.params[rep, 1]
@@ -154,25 +154,26 @@ class RabaniSweeper:
 
             self.sweep_cnt += 1
 
-    def calculate_stats(self, img):
+    @staticmethod
+    def calculate_stats(img, image_res, nano_num=2):
         # Region Properties
         region = (measure.regionprops((img != 0) + 1)[0])
 
         # Broadly estimate category
         if int(mode(img, axis=None).mode) == 1:
-            if np.sum(img == 0) / self.params[0, 6] ** 2 >= 0.02:
+            if np.sum(img == 0) / image_res ** 2 >= 0.02:
                 # Hole if dominant category is water and also has an amount of substrate
                 cat = "hole"
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        elif -0.005 <= region["euler_number"] / np.sum(img == 2) <= 0:
+        elif -0.005 <= region["euler_number"] / np.sum(img == nano_num) <= 0:
             # Cell/Worm if starting to form
             cat = "cellular"
-        elif -0.030 <= region["euler_number"] / np.sum(img == 2) < -0.020:
+        elif -0.030 <= region["euler_number"] / np.sum(img == nano_num) < -0.020:
             # Labyrinth
             cat = "labyrinth"
-        elif region["euler_number"] / np.sum(img == 2) <= -0.045:
+        elif region["euler_number"] / np.sum(img == nano_num) <= -0.045:
             # Island
             cat = "island"
         else:

@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_training import h5RabaniDataGenerator
+from Rabani_Generator.gen_rabanis import RabaniSweeper
 
 
 class ImageClassifier:
@@ -14,13 +15,17 @@ class ImageClassifier:
         self.img_arr = img_arr
 
         self.model = model
-        self.network_img_size = self.model.input_shape[1]
+        if self.model:
+            self.network_img_size = self.model.input_shape[1]
 
         self.jump = window_jump
         self.cnn_arr = None
 
-        self.preds = None
-        self.majority_preds = None
+        self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
+        self.cnn_preds = None
+        self.cnn_majority_preds = None
+        self.euler_preds = None
+        self.euler_majority_preds = None
 
     def wrap_image(self):
         # Figure out how many "windows" to make
@@ -34,11 +39,17 @@ class ImageClassifier:
                                        (jump_j * self.jump): (jump_j * self.jump) + self.network_img_size]
 
     def cnn_classify(self):
-        self.preds = self.model.predict(self.cnn_arr)
-        self.majority_preds = np.mean(self.preds, axis=0)
+        self.cnn_preds = self.model.predict(self.cnn_arr)
+        self.cnn_majority_preds = np.mean(self.cnn_preds, axis=0)
 
     def euler_classify(self):
-        pass
+        cats = self.cats + ["none"]
+        self.euler_preds = np.zeros((len(self.cnn_arr), len(cats)))
+
+        for i, img in enumerate(self.cnn_arr):
+            _, pred = RabaniSweeper.calculate_stats(img=img[:, :, 0], image_res=self.network_img_size, nano_num=1)
+            self.euler_preds[i, cats.index(pred)] = 1
+        self.euler_majority_preds = np.mean(self.euler_preds, axis=0)
 
 
 def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
@@ -54,7 +65,7 @@ def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, 
         img_classifier = predict_with_noise(img, model, perc_noise, perc_std)
 
         show_image(img, axis=axes[0])
-        all_preds_histogram(img_classifier.preds, cats, axis=axes[1])
+        all_preds_histogram(img_classifier.cnn_preds, cats, axis=axes[1])
 
         if savedir:
             plt.savefig(f"{savedir}/img_{i}.png")
@@ -92,7 +103,8 @@ if __name__ == '__main__':
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image
-    imgold = tmp_img_loader("/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/RAW/DATA 3/Si_d8th_ring5_05mgmL_0002.ibw").astype(
+    imgold = tmp_img_loader(
+        "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/RAW/DATA 3/Si_d8th_ring5_05mgmL_0002.ibw").astype(
         int)
     img = imgold.copy()
     img[imgold == 1] = 0
@@ -105,4 +117,4 @@ if __name__ == '__main__':
     # img_classifier.validation_pred_image()
     #
     # show_image(img)
-    # all_preds_histogram(img_classifier.preds, cats)
+    # all_preds_histogram(img_classifier.cnn_preds, cats)

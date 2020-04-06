@@ -6,8 +6,8 @@ from scipy import stats, ndimage, signal
 from skimage import measure
 from tensorflow.python.keras.models import load_model
 
-from CNN.CNN_prediction import predict_with_noise
-from CNN.get_stats import all_preds_histogram
+from CNN.CNN_prediction import predict_with_noise, ImageClassifier
+from CNN.get_stats import all_preds_histogram, all_preds_percentage
 from Rabani_Generator.plot_rabani import show_image
 
 
@@ -17,23 +17,24 @@ class FileFilter:
         self.image_res = None
         self.normalised_euler = None
         self.fail_reason = None
-        self.classification = None
+        self.CNN_classification = None
+        self.euler_classification = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     def assess_file(self, filepath, model, plot=False):
         """Try and filter the file"""
-        data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = None
+        data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = None
 
         h5_file = self._load_ibw_file(filepath)
         if not self.fail_reason:
             data, phase = self._parse_ibw_file(h5_file)
 
         if not self.fail_reason:
-            data = self._normalize_data(data)
+            norm_data = self._normalize_data(data)
             phase = self._normalize_data(phase)
 
         if not self.fail_reason:
-            median_data = self._median_align(data)
+            median_data = self._median_align(norm_data)
             median_phase = self._median_align(phase)
             self._is_image_noisy(median_data)
             self._is_image_noisy(median_phase)
@@ -46,12 +47,14 @@ class FileFilter:
 
         if not self.fail_reason:
             img_classifier = self._CNN_classify(binarized_data, model)
+            img_classifier_euler = self._euler_classify(binarized_data)
 
         if plot:
-            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, img_classifier)
+            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, img_classifier,
+                       img_classifier_euler)
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
-              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None):
+              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None, img_classifier_euler=None):
 
         fig, axs = plt.subplots(2, 3)
         fig.tight_layout(pad=3)
@@ -85,8 +88,10 @@ class FileFilter:
             show_image(binarized_data, axis=axs[1, 1])
             axs[1, 1].set_title('Binarized')
         if img_classifier is not None:
-            all_preds_histogram(img_classifier.preds, self.cats, axis=axs[1, 2])
+            all_preds_histogram(img_classifier.cnn_preds, self.cats, axis=axs[1, 2])
             axs[1, 2].set_title('Network Predictions')
+        if img_classifier_euler is not None:
+            all_preds_percentage(img_classifier_euler.euler_preds, self.cats + ["none"])
 
     def _load_ibw_file(self, filepath):
         try:
@@ -136,7 +141,7 @@ class FileFilter:
                 arr[i, :] == np.sort(arr[i, :])[::-1])
 
             dud_rows += (counter > (0.95 * self.image_res)) + sum(arr[i, :] == np.sort(arr[i, :])) > (
-                        0.95 * self.image_res) + sum(arr[i, :] == np.sort(arr[i, :])[::-1]) > (0.95 * self.image_res)
+                    0.95 * self.image_res) + sum(arr[i, :] == np.sort(arr[i, :])[::-1]) > (0.95 * self.image_res)
 
         is_noisy = dud_rows / self.image_res > 0.05
         if is_noisy:
@@ -191,7 +196,7 @@ class FileFilter:
             self.fail_reason = "Failed to binarize"
             return None, None
         else:
-            return arr > threshes[troughs[len(troughs)-1]], (threshes, pix, pix_gauss_grad, peaks, troughs)
+            return arr > threshes[troughs[len(troughs) - 1]], (threshes, pix, pix_gauss_grad, peaks, troughs)
 
     def _get_normalised_euler(self, arr):
         region = (measure.regionprops((arr != 0) + 1)[0])
@@ -200,15 +205,29 @@ class FileFilter:
     def _CNN_classify(self, arr, model):
         img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001)
 
-        # For each class find the mean classification
-        max_class = int(np.argmax(img_classifier.majority_preds))
-
-        if np.max(img_classifier.majority_preds) < 0.8:
+        # For each class find the mean CNN_classification
+        max_class = int(np.argmax(img_classifier.cnn_majority_preds))
+        if np.max(img_classifier.cnn_majority_preds) < 0.8:
             self.fail_reason = "CNN not confident enough"
-        elif np.all(np.std(img_classifier.preds, axis=0) > 0.1):
+        elif np.all(np.std(img_classifier.cnn_preds, axis=0) > 0.1):
             self.fail_reason = "CNN distributions too broad"
         else:
-            self.classification = self.cats[max_class]
+            self.CNN_classification = self.cats[max_class]
+
+        return img_classifier
+
+    def _euler_classify(self, arr):
+        img_classifier = ImageClassifier(arr, model=None)
+        img_classifier.network_img_size = 128
+        img_classifier.wrap_image()
+        img_classifier.euler_classify()
+
+        max_class = int(np.argmax(img_classifier.euler_majority_preds))
+        if np.sum(img_classifier.euler_preds, axis=0)[max_class] <= 0.9*len(img_classifier.euler_preds):
+            self.fail_reason = "Euler distributions too broad"
+        else:
+            cats = self.cats + ["none"]
+            self.euler_classification = cats[max_class]
 
         return img_classifier
 
@@ -222,32 +241,32 @@ if __name__ == '__main__':
         model, plot=True)
     print(test_filter.fail_reason)
 
-    test_filter = FileFilter()
-    test_filter.assess_file(
-        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-        model, plot=True)
-    print(test_filter.fail_reason)
-
-    test_filter = FileFilter()
-    test_filter.assess_file(
-        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-        model, plot=True)
-    print(test_filter.fail_reason)
-
-    test_filter = FileFilter()
-    test_filter.assess_file(
-        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
-        model, plot=True)
-    print(test_filter.fail_reason)
-
-    test_filter = FileFilter()
-    test_filter.assess_file(
-        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
-        model, plot=True)
-    print(test_filter.fail_reason)
-
-    test_filter = FileFilter()
-    test_filter.assess_file(
-        "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
-        model, plot=True)
-    print(test_filter.fail_reason)
+    # test_filter = FileFilter()
+    # test_filter.assess_file(
+    #     "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
+    #     model, plot=True)
+    # print(test_filter.fail_reason)
+    #
+    # test_filter = FileFilter()
+    # test_filter.assess_file(
+    #     "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
+    #     model, plot=True)
+    # print(test_filter.fail_reason)
+    #
+    # test_filter = FileFilter()
+    # test_filter.assess_file(
+    #     "Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
+    #     model, plot=True)
+    # print(test_filter.fail_reason)
+    #
+    # test_filter = FileFilter()
+    # test_filter.assess_file(
+    #     "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
+    #     model, plot=True)
+    # print(test_filter.fail_reason)
+    #
+    # test_filter = FileFilter()
+    # test_filter.assess_file(
+    #     "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
+    #     model, plot=True)
+    # print(test_filter.fail_reason)
