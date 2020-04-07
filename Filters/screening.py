@@ -42,9 +42,10 @@ class FileFilter:
 
         if not self.fail_reasons:
             flattened_data = self._plane_flatten(median_data)
+
+        if not self.fail_reasons:
             flattened_data = self._normalize_data(flattened_data)
             binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
-            # self._get_normalised_euler(binarized_data)
 
         if not self.fail_reasons:
             img_classifier = self._CNN_classify(binarized_data, model)
@@ -165,27 +166,31 @@ class FileFilter:
 
         square_differences = np.zeros((10, 10))
         centroid = ndimage.measurements.center_of_mass(arr)
-        centroid_mass = arr[int(centroid[0]), int(centroid[1])]
-        test_line_x = np.ones([self.image_res, self.image_res]) * range(-int(centroid[0]),
-                                                                        self.image_res - int(centroid[0]))
-        test_line_y = np.ones([self.image_res, self.image_res]) * range(-int(centroid[1]),
-                                                                        self.image_res - int(centroid[1]))
-        # Flatten pixel-by-pixel
-        for i in range(10):
-            for j in range(10):
-                hor_array = test_line_x * - hor_grad_array[i]
-                ver_array = np.transpose(test_line_y * - ver_grad_array[j])
-                square_differences[i, j] = np.sum(np.square(arr - (hor_array + ver_array + centroid_mass)))
+        if not (0 <= int(centroid[0]) <= self.image_res):
+            self.fail_reasons += ["Failed to plane flatten"]
+            return None
+        else:
+            centroid_mass = arr[int(centroid[0]), int(centroid[1])]
+            test_line_x = np.ones([self.image_res, self.image_res]) * range(-int(centroid[0]),
+                                                                            self.image_res - int(centroid[0]))
+            test_line_y = np.ones([self.image_res, self.image_res]) * range(-int(centroid[1]),
+                                                                            self.image_res - int(centroid[1]))
+            # Flatten pixel-by-pixel
+            for i in range(10):
+                for j in range(10):
+                    hor_array = test_line_x * - hor_grad_array[i]
+                    ver_array = np.transpose(test_line_y * - ver_grad_array[j])
+                    square_differences[i, j] = np.sum(np.square(arr - (hor_array + ver_array + centroid_mass)))
 
-        best_indices = np.unravel_index(np.argmin(square_differences, axis=None), square_differences.shape)
-        hor_gradient = hor_grad_array[best_indices[0]]
-        ver_gradient = ver_grad_array[best_indices[1]]
+            best_indices = np.unravel_index(np.argmin(square_differences, axis=None), square_differences.shape)
+            hor_gradient = hor_grad_array[best_indices[0]]
+            ver_gradient = ver_grad_array[best_indices[1]]
 
-        hor_array = test_line_x * - hor_gradient
-        ver_array = np.transpose(test_line_y * - ver_gradient)
-        background_plane = hor_array + ver_array + centroid_mass
+            hor_array = test_line_x * - hor_gradient
+            ver_array = np.transpose(test_line_y * - ver_gradient)
+            background_plane = hor_array + ver_array + centroid_mass
 
-        return arr - background_plane
+            return arr - background_plane
 
     def _binarise(self, arr, nbins=1000, gauss_sigma=10):
         threshes = np.linspace(0, 1, nbins)
@@ -216,8 +221,8 @@ class FileFilter:
             self.fail_reasons += ["CNN not confident enough"]
         if np.all(np.std(img_classifier.cnn_preds, axis=0) > 0.1):
             self.fail_reasons += ["CNN distributions too broad"]
-        if not self.fail_reasons:
-            self.CNN_classification = self.cats[max_class]
+        # if not self.fail_reasons:
+        self.CNN_classification = self.cats[max_class]
 
         return img_classifier
 
@@ -232,9 +237,9 @@ class FileFilter:
             self.fail_reasons += ["Euler category not clear enough"]
         if np.sum(img_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(img_classifier.euler_preds):
             self.fail_reasons += ["Euler distributions too broad"]
-        else:
-            cats = self.cats + ["none"]
-            self.euler_classification = cats[max_class]
+
+        cats = self.cats + ["none"]
+        self.euler_classification = cats[max_class]
 
         return img_classifier
 

@@ -5,7 +5,7 @@ from Filters.screening import FileFilter
 import glob
 from tqdm import tqdm
 
-root_dir = "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/"
+root_dir = "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img"
 model_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5"
 model = load_model(model_dir)
 search_recursive = True
@@ -19,7 +19,7 @@ for i, file in enumerate(all_files):
     t.set_description(file[len(root_dir):])
 
     filter = FileFilter()
-    filter.assess_file(filepath=file, model=model, plot=False)
+    filter.assess_file(filepath=file, model=model, plot=True)
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filter.image_res]

@@ -167,10 +167,10 @@ class RabaniSweeper:
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        elif -0.005 <= region["euler_number"] / np.sum(img == nano_num) <= 0:
+        elif -0.005 <= region["euler_number"] / np.sum(img == nano_num):
             # Cell/Worm if starting to form
             cat = "cellular"
-        elif -0.030 <= region["euler_number"] / np.sum(img == nano_num) < -0.020:
+        elif -0.045 <= region["euler_number"] / np.sum(img == nano_num) < -0.005:
             # Labyrinth
             cat = "labyrinth"
         elif region["euler_number"] / np.sum(img == nano_num) <= -0.045:
