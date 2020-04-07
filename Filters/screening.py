@@ -1,3 +1,5 @@
+import os
+
 import h5py
 import numpy as np
 import pycroscopy as scope
@@ -19,12 +21,14 @@ class FileFilter:
         self.fail_reasons = []
         self.CNN_classification = None
         self.euler_classification = None
+        self.filepath = None
         self.with_euler = True
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    def assess_file(self, filepath, model, plot=False):
+    def assess_file(self, filepath, model, plot=False, savedir=None):
         """Try and filter the file"""
         data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = img_classifier_euler = None
+        self.filepath = filepath
 
         h5_file = self._load_ibw_file(filepath)
         if not self.fail_reasons:
@@ -52,12 +56,14 @@ class FileFilter:
             if self.with_euler:
                 img_classifier_euler = self._euler_classify(binarized_data)
 
-        if plot:
+        if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, img_classifier,
-                       img_classifier_euler)
+                       img_classifier_euler, savedir)
+            if not plot:
+                plt.close()
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
-              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None, img_classifier_euler=None):
+              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None, img_classifier_euler=None, savedir=None):
 
         fig, axs = plt.subplots(2, 4)
         fig.tight_layout(pad=3)
@@ -99,13 +105,17 @@ class FileFilter:
             all_preds_percentage(img_classifier_euler.euler_preds, self.cats + ["none"], axis=axs[1, 3])
             axs[1, 3].set_title('Euler Predictions')
 
+        if savedir:
+            filename = os.path.basename(self.filepath)[:-4]
+            plt.savefig(f"{savedir}/{filename}.png")
+
     def _load_ibw_file(self, filepath):
         try:
             translated_file = self._igor_translator.translate(file_path=filepath, verbose=False)
             h5_file = h5py.File(translated_file, mode='r')
             return h5_file
         except:
-            self.fail_reasons += ["Corrupt file or wrong file extension"]
+            self.fail_reasons += ["Corrupt file"]
 
     def _parse_ibw_file(self, h5_file):
         arr_data = np.array(h5_file['Measurement_000/Channel_000/Raw_Data'])

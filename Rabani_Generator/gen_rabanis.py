@@ -209,53 +209,8 @@ if __name__ == '__main__':
     axis_res = {"kT": 25,
                 "mu": 25,
                 "L": 3}
-    print("64-256 train")
-    print("")
-    rabani_sweeper3 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
-    rabani_sweeper3.call_rabani_sweep(params=parameters,
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)
 
-#########################
-
-    total_image_reps = 2
-
-    parameters = {"kT": [0.01, 0.35],
-                  "mu": [2.35, 3.47],
-                  "MR": 1,
-                  "C": 0.3,
-                  "e_nl": 1.5,
-                  "e_nn": 2,
-                  "L": [64, 256]}
-
-    axis_res = {"kT": 25,
-                "mu": 25,
-                "L": 3}
-    print("64-256 test")
-    print("")
-    rabani_sweeper4 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
-    rabani_sweeper4.call_rabani_sweep(params=parameters,
-                                     axis_steps=axis_res,
-                                     image_reps=total_image_reps)
-#########################
-    total_image_reps = 1
-
-    parameters = {"kT": [0.01, 0.35],
-                  "mu": [2.35, 3.47],
-                  "MR": 1,
-                  "C": 0.3,
-                  "e_nl": 1.5,
-                  "e_nn": 2,
-                  "L": [64, 256]}
-
-    axis_res = {"kT": 25,
-                "mu": 25,
-                "L": 3}
-    print("64-256 validate")
-    print("")
-    rabani_sweeper5 = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
-    rabani_sweeper5.call_rabani_sweep(params=parameters,
-                                     axis_steps=axis_res,
-                                     image_reps=total_image_reps)
-
-#
