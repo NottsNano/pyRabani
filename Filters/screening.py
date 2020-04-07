@@ -45,7 +45,7 @@ class FileFilter:
             self._is_image_noisy(median_phase)
 
         if not self.fail_reasons:
-            flattened_data = self._plane_flatten(median_data)
+            flattened_data = self._poly_plane_flatten(median_data)
 
         if not self.fail_reasons:
             flattened_data = self._normalize_data(flattened_data)
@@ -201,6 +201,22 @@ class FileFilter:
             background_plane = hor_array + ver_array + centroid_mass
 
             return arr - background_plane
+
+    def _poly_plane_flatten(self, arr, n=5):
+        horz_mean = np.mean(arr, axis=0)  # averages all the columns into a x direction array
+        vert_mean = np.mean(arr, axis=1)  # averages all the rows into a y direction array
+
+        line_array = np.arange(self.image_res)
+
+        horz_fit = np.polyfit(line_array, horz_mean, n)
+        vert_fit = np.polyfit(line_array, vert_mean, n)
+
+        horz_polyval = -np.poly1d(horz_fit)
+        vert_polyval = -np.poly1d(vert_fit)
+
+        xv, yv = np.meshgrid(horz_polyval(line_array), vert_polyval(line_array))
+
+        return arr + yv + xv
 
     def _binarise(self, arr, nbins=1000, gauss_sigma=10):
         threshes = np.linspace(0, 1, nbins)
