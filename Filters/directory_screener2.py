@@ -138,12 +138,14 @@ for k in files_ibw:
         # Count rows where the mode is the same as 95% of the values in the row or ie a dead scan line
         row_mode = stats.mode(row_i)
         # counter = np.count_nonzero(row_i == (stats.mode(row_i))[0])
-        counter = np.count_nonzero((0.95 * row_mode[0] < row_i) < 1.05 * row_mode[0])
+        counter = np.count_nonzero((0.95 * row_mode[0] < row_i) < 1.05 * row_mode[0]) # counts how many rows are just the mode value
         flat = counter > 0.95 * row_num
+        #  -----------------------------------------------------------
         slope = row_i == np.sort(row_i)
         slope_rev = row_i == np.sort(row_i)[::-1]
         dud_row += (counter > (0.95 * row_num))\
                   + sum(slope) > (0.95 * row_num) + sum(slope_rev) > (0.95 * row_num)
+        #  -----------------------------------------------------------
         # Still not great, maybe has the line fit to a polynomial and use a chi fit
 
     dud_perc = 100 * dud_row / row_num
