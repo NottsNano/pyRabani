@@ -255,7 +255,7 @@ class FileFilter:
         self.normalised_euler = region["euler_number"] / np.sum(arr != 0)
 
     def _CNN_classify(self, arr, model):
-        img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001)
+        img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001) #TODO /2 ?
 
         # For each class find the mean CNN_classification
         max_class = int(np.argmax(img_classifier.cnn_majority_preds))

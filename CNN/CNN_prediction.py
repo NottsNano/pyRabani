@@ -1,7 +1,8 @@
 import itertools
 
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, colors
+from matplotlib.ticker import MultipleLocator
 from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_training import h5RabaniDataGenerator
@@ -82,15 +83,52 @@ def predict_with_noise(img, model, perc_noise, perc_std):
     return img_classifier
 
 
-def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size, imsize=128):
+def visualise_autoencoder_preds(model, datadir, num_imgs, imsize=128):
+    # Get predictions
+    preds, truth = validation_pred_generator(model=model,
+                                             validation_datadir=datadir,
+                                             mode="autoencoder", y_params=["kT", "mu"],
+                                             y_cats=["liquid", "hole", "cellular", "labyrinth", "island"], batch_size=num_imgs, imsize=imsize, steps=1)
+
+    # Chop off excess
+    preds = preds[:num_imgs, :, :, 0]
+    truth = truth[:num_imgs, :, :, 0]
+
+    # Reshape and merge
+    preds = np.reshape(preds, (-1, preds.shape[-1]))
+    truth = np.reshape(truth, (-1, truth.shape[-1]))
+
+    img = np.concatenate((truth, preds), axis=1)
+
+    cmap = colors.ListedColormap(["black", "white", "orange"])
+    boundaries = [0, 0.5, 1]
+    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+
+    fig, ax = plt.subplots(1, 1)
+    ax.imshow(img, cmap=cmap)
+
+    ax.xaxis.set_major_locator(MultipleLocator(imsize))
+    ax.yaxis.set_major_locator(MultipleLocator(imsize))
+    ax.grid(which="major", ls="-", lw=2, color="r")
+
+    plt.axis("off")
+
+
+def validation_pred_generator(model, validation_datadir, mode, y_params, y_cats, batch_size, imsize=128, steps=None):
     """Prediction generator for simulated validation data"""
-    validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
+    validation_generator = h5RabaniDataGenerator(validation_datadir, network_structure=mode, batch_size=batch_size,
                                                  is_train=False, imsize=imsize, output_parameters_list=y_params,
                                                  output_categories_list=y_cats)
     validation_generator.is_validation_set = True
 
-    validation_preds = model.predict_generator(validation_generator, steps=validation_generator.__len__())
-    validation_truth = validation_generator.y_true
+    if not steps:
+        steps = validation_generator.__len__()
+
+    validation_preds = model.predict_generator(validation_generator, steps=steps)
+    if mode is "supervised":
+        validation_truth = validation_generator.y_true
+    else:
+        validation_truth = validation_generator.x_true
 
     return validation_preds, validation_truth
 
@@ -104,15 +142,15 @@ if __name__ == '__main__':
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image
-    imgold = tmp_img_loader(
-        "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/RAW/DATA 3/Si_d8th_ring5_05mgmL_0002.ibw").astype(
-        int)
-    img = imgold.copy()
-    img[imgold == 1] = 0
-    img[imgold == 0] = 2
+    # imgold = tmp_img_loader(
+    #     "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/RAW/DATA 3/Si_d8th_ring5_05mgmL_0002.ibw").astype(
+    #     int)
+    # img = imgold.copy()
+    # img[imgold == 1] = 0
+    # img[imgold == 0] = 2
 
     # See effect of adding noise to image
-    plot_noisy_predictions(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=1)
+    # plot_noisy_predictions(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=1)
     # img_classifier = ImageClassifier(img, trained_model)  # Do this because of immutability!
     # img_classifier.wrap_image()
     # img_classifier.validation_pred_image()

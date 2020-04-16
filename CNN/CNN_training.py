@@ -76,7 +76,8 @@ class h5RabaniDataGenerator(Sequence):
         self._get_class_weights()
 
         self._batches_counter = 0
-        self.y_true = np.zeros((self.__len__() * self.batch_size, len(self.original_categories_list)))
+        self.x_true = np.empty((self.__len__() * self.batch_size, self.image_res, self.image_res, 1))
+        self.y_true = np.empty((self.__len__() * self.batch_size, len(self.original_categories_list)))
 
     def _get_class_weights(self):
         """Open all the files once to compute the class weights"""
@@ -127,7 +128,7 @@ class h5RabaniDataGenerator(Sequence):
 
         # Preallocate output
         batch_x = np.empty((self.batch_size, self.image_res, self.image_res, 1))
-        batch_y = np.zeros((self.batch_size, len(self.original_categories_list)))
+        batch_y = np.empty((self.batch_size, len(self.original_categories_list)))
 
         # For each file in the batch
         for i in range(self.batch_size):
@@ -143,9 +144,16 @@ class h5RabaniDataGenerator(Sequence):
             idx_find = self.original_categories_list.index(h5_file.attrs["category"])
             batch_y[i, idx_find] = 1
 
+        if self.network_structure is "autoencoder":
+            batch_x /= 2 #TODO MAKE GLOBAL
+
         if self.is_validation_set:
             self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
             :] = batch_y
+
+            if self.network_structure is "autoencoder":
+                self.x_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
+                :, :, :] = batch_x
 
         if self.is_training_set:
             batch_x = self._augment(batch_x)
@@ -244,7 +252,7 @@ def train_autoencoder(train_datadir, test_datadir, y_params, y_cats, batch_size,
     # Set up generators
     train_generator = h5RabaniDataGenerator(train_datadir, network_structure="autoencoder", batch_size=batch_size,
                                             is_train=True, imsize=imsize,
-                                            output_parameters_list=y_params, output_categories_list=y_cats)
+                                            output_parameters_list=y_params, output_categories_list=y_cats, horizontal_flip=False, vertical_flip=False, x_noise=None, circshift=False, randomise_levels=False)
     test_generator = h5RabaniDataGenerator(test_datadir, network_structure="autoencoder", batch_size=batch_size,
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
@@ -274,6 +282,8 @@ def save_model(model, root_dir):
 
 
 if __name__ == '__main__':
+    from CNN.CNN_prediction import validation_pred_generator, visualise_autoencoder_preds
+
     # Train
     training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-01"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
@@ -294,3 +304,4 @@ if __name__ == '__main__':
                                       epochs=10)
 
     plot_model_history(trained_model)
+    visualise_autoencoder_preds(trained_model, testing_data_dir, 10)

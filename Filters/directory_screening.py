@@ -20,7 +20,7 @@ for i, file in enumerate(all_files):
     t.set_description(file[len(root_dir):])
 
     filter = FileFilter()
-    filter.assess_file(filepath=file, model=model, plot=False, savedir="/home/mltest1/tmp/pycharm_project_883/Images/test")
+    filter.assess_file(filepath=file, model=model, plot=False, savedir="/home/mltest1/tmp/pycharm_project_883/Images/testfilter")
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filter.image_res]

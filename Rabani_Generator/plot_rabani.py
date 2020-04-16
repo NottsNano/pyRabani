@@ -242,13 +242,11 @@ def show_image(img, axis=None):
 
 
 if __name__ == '__main__':
-    dir = "Data/Simulated_Images/2020-03-29/07-31"
+    dir = "Data/Simulated_Images/2020-03-30/16-53"
     model = load_model("Data/Trained_Networks/2020-03-30--18-10/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats,
-                                  trained_model=model)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
     show_random_selection_of_images(dir, 25,
-                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 128,
-                                    model=model)
+                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 128)
