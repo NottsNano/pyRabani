@@ -252,6 +252,10 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
         boundaries = [0, 0.5, 1]
         norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
+        # Binarise
+        true = np.round(true)
+        pred = np.round(pred)
+
         # Calculate mse
         mse = np.squeeze(((pred - true) ** 2).mean(axis=(1, 2)))
 
@@ -277,6 +281,7 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
                                              mode="autoencoder", y_params=["kT", "mu"],
                                              y_cats=["liquid", "hole", "cellular", "labyrinth", "island"],
                                              batch_size=10, imsize=imsize, steps=1)
+
     _plot_preds(preds, truth)
 
     # Get predictions of "good" and "bad" real data

@@ -147,6 +147,7 @@ class h5RabaniDataGenerator(Sequence):
 
         if self.network_structure is "autoencoder":
             batch_x /= 2  # TODO MAKE GLOBAL
+            batch_x = self._patch_binarisation(batch_x)
 
         if self.is_validation_set:
             self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
@@ -166,7 +167,6 @@ class h5RabaniDataGenerator(Sequence):
         if self.network_structure is "supervised":
             return batch_x, batch_y
         elif self.network_structure is "autoencoder":
-            batch_x = self._patch_binarisation(batch_x)
             return batch_x, batch_x
         else:
             raise KeyError("network_structure must be one of ['supervised', 'autoencoder']")
@@ -241,9 +241,12 @@ class h5RabaniDataGenerator(Sequence):
             replacement_inds = np.argwhere(batch_x[i, :, :, 0] == least_common_val)
             replacement_vals = np.random.choice(other_vals, size=(len(replacement_inds),), p=prob_other_levels)
 
-            batch_x[i, replacement_inds[:, 0], replacement_inds[:, 0], 0] = replacement_vals
+            batch_x[i, replacement_inds[:, 0], replacement_inds[:, 1], 0] = replacement_vals
+            batch_x[i, :, :, 0] -= batch_x[i, :, :, 0].min()
+            batch_x[i, :, :, 0] /= batch_x[i, :, :, 0].max()
 
         return batch_x
+
 
 def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
     # Set up generators
