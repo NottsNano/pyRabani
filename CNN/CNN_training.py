@@ -224,19 +224,26 @@ class h5RabaniDataGenerator(Sequence):
     @staticmethod
     def _patch_binarisation(batch_x):
         """
-        Finds the least common level in each image in the batch, and replaces each pixel of that type with the
-        most common level surrounding it
+        Finds the least common level in each image in the batch, and replaces it weighted by the other levels
         """
         for i in range(len(batch_x)):
-            level_inds, counts = np.unique(batch_x[i, :, :, 0], return_counts=True)
-            least_common_level = level_inds[np.argmin(counts)]
+            level_vals, counts = np.unique(batch_x[i, :, :, 0], return_counts=True)
+            level_inds = np.arange(3)
 
-            replacement_vals = np.zeros((len(least_common_level)))
-            for j, (x, y) in enumerate(np.array(least_common_level).T):
-                replacement_vals[j] = mode(batch_x[i, x - 1: x + 2, y - 1: y + 2, 0])[0][0]
+            least_common_ind = np.argmin(counts)
+            least_common_val = level_vals[least_common_ind]
 
-            batch_x[i, least_common_level[0], least_common_level[1], 0] = replacement_vals
+            other_vals = np.delete(level_vals, least_common_ind)
+            other_inds = np.delete(level_inds, least_common_ind)
 
+            prob_other_levels = counts[other_inds]/np.sum(counts[other_inds])
+
+            replacement_inds = np.argwhere(batch_x[i, :, :, 0] == least_common_val)
+            replacement_vals = np.random.choice(other_vals, size=(len(replacement_inds),), p=prob_other_levels)
+
+            batch_x[i, replacement_inds[:, 0], replacement_inds[:, 0], 0] = replacement_vals
+
+        return batch_x
 
 def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
     # Set up generators
