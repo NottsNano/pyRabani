@@ -1,3 +1,4 @@
+import glob
 import os
 
 import h5py
@@ -239,6 +240,70 @@ def show_image(img, axis=None):
         fig, axis = plt.subplots(1, 1)
     axis.imshow(img, cmap=cmap)
     axis.axis("off")
+
+
+def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_datadir, imsize=128):
+    from CNN.CNN_prediction import validation_pred_generator
+    from Filters.screening import FileFilter
+
+    def _plot_preds(pred, true):
+        # Make colormap
+        cmap = colors.ListedColormap(["black", "white", "orange"])
+        boundaries = [0, 0.5, 1]
+        norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+
+        # Calculate mse
+        mse = np.squeeze(((pred - true) ** 2).mean(axis=(1, 2)))
+
+        # Plot stacks of images
+        pred = np.reshape(pred, (-1, pred.shape[1]))
+        true = np.reshape(true, (-1, true.shape[1]))
+        img = np.concatenate((true, pred), axis=1)
+
+        fig, ax = plt.subplots(1, 1)
+        fig.suptitle(f"Mean error: {np.mean(mse) :.2f}")
+        ax.imshow(img, cmap=cmap)
+        ax.axis("off")
+
+        # Show mse for each image
+        ax.text(0, -10, "Orig")
+        ax.text(imsize, -10, "Recons")
+        for i, j in enumerate(mse):
+            ax.text((imsize * 2.5), (i * imsize) + (imsize // 2), f"mse = {j:.2f}")
+
+    # Get simulated predictions
+    preds, truth = validation_pred_generator(model=model,
+                                             validation_datadir=simulated_datadir,
+                                             mode="autoencoder", y_params=["kT", "mu"],
+                                             y_cats=["liquid", "hole", "cellular", "labyrinth", "island"],
+                                             batch_size=10, imsize=imsize, steps=1)
+    _plot_preds(preds, truth)
+
+    # Get predictions of "good" and "bad" real data
+    datadirs = [good_datadir, bad_datadir]
+    for datadir in datadirs:
+        truth = np.zeros((len(glob.glob(f"{datadir}/*.ibw")), imsize, imsize, 1))
+        for i, file in enumerate(glob.glob(f"{datadir}/*.ibw")):
+            filterer = FileFilter()
+            h5_file = filterer._load_ibw_file(file)
+            data, phase = filterer._parse_ibw_file(h5_file)
+
+            norm_data = filterer._normalize_data(data)
+            phase = filterer._normalize_data(phase)
+
+            median_data = filterer._median_align(norm_data)
+            median_phase = filterer._median_align(phase)
+            filterer._is_image_noisy(median_data)
+            filterer._is_image_noisy(median_phase)
+
+            flattened_data = filterer._poly_plane_flatten(median_data)
+
+            flattened_data = filterer._normalize_data(flattened_data)
+            binarized_data, _ = filterer._binarise(flattened_data)
+            truth[i, :, :, 0] = binarized_data[:imsize, :imsize]
+
+        preds = model.predict(truth)
+        _plot_preds(preds, truth)
 
 
 if __name__ == '__main__':

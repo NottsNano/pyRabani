@@ -1,12 +1,8 @@
 import itertools
 
 import numpy as np
-from matplotlib import pyplot as plt, colors
-from matplotlib.ticker import MultipleLocator
+from matplotlib import pyplot as plt
 from tensorflow.python.keras.models import load_model
-
-from CNN.CNN_training import h5RabaniDataGenerator
-from Rabani_Generator.gen_rabanis import RabaniSweeper
 
 
 class ImageClassifier:
@@ -83,37 +79,6 @@ def predict_with_noise(img, model, perc_noise, perc_std):
     return img_classifier
 
 
-def visualise_autoencoder_preds(model, datadir, num_imgs, imsize=128):
-    # Get predictions
-    preds, truth = validation_pred_generator(model=model,
-                                             validation_datadir=datadir,
-                                             mode="autoencoder", y_params=["kT", "mu"],
-                                             y_cats=["liquid", "hole", "cellular", "labyrinth", "island"], batch_size=num_imgs, imsize=imsize, steps=1)
-
-    # Chop off excess
-    preds = preds[:num_imgs, :, :, 0]
-    truth = truth[:num_imgs, :, :, 0]
-
-    # Reshape and merge
-    preds = np.reshape(preds, (-1, preds.shape[-1]))
-    truth = np.reshape(truth, (-1, truth.shape[-1]))
-
-    img = np.concatenate((truth, preds), axis=1)
-
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-
-    fig, ax = plt.subplots(1, 1)
-    ax.imshow(img, cmap=cmap)
-
-    ax.xaxis.set_major_locator(MultipleLocator(imsize))
-    ax.yaxis.set_major_locator(MultipleLocator(imsize))
-    ax.grid(which="major", ls="-", lw=2, color="r")
-
-    plt.axis("off")
-
-
 def validation_pred_generator(model, validation_datadir, mode, y_params, y_cats, batch_size, imsize=128, steps=None):
     """Prediction generator for simulated validation data"""
     validation_generator = h5RabaniDataGenerator(validation_datadir, network_structure=mode, batch_size=batch_size,
@@ -127,16 +92,23 @@ def validation_pred_generator(model, validation_datadir, mode, y_params, y_cats,
     validation_preds = model.predict_generator(validation_generator, steps=steps)
     if mode is "supervised":
         validation_truth = validation_generator.y_true
+
+        validation_preds = validation_preds[:steps*batch_size, :]
+        validation_truth = validation_truth[:steps*batch_size, :]
     else:
         validation_truth = validation_generator.x_true
+
+        validation_preds = validation_preds[:steps*batch_size, :, :, 0]
+        validation_truth = validation_truth[:steps*batch_size, :, :, 0]
 
     return validation_preds, validation_truth
 
 
 if __name__ == '__main__':
     from CNN.get_stats import all_preds_histogram
-    from Filters.alignerwthreshold import tmp_img_loader
     from Rabani_Generator.plot_rabani import show_image
+    from CNN.CNN_training import h5RabaniDataGenerator
+    from Rabani_Generator.gen_rabanis import RabaniSweeper
 
     trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']

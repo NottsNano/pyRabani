@@ -12,7 +12,7 @@ from tensorflow.keras.utils import Sequence
 
 from CNN.get_model import get_model, autoencoder
 from CNN.get_stats import plot_model_history
-from Rabani_Generator.plot_rabani import power_resize
+from Rabani_Generator.plot_rabani import power_resize, visualise_autoencoder_preds
 
 
 class h5RabaniDataGenerator(Sequence):
@@ -252,10 +252,12 @@ def train_autoencoder(train_datadir, test_datadir, y_params, y_cats, batch_size,
     # Set up generators
     train_generator = h5RabaniDataGenerator(train_datadir, network_structure="autoencoder", batch_size=batch_size,
                                             is_train=True, imsize=imsize,
-                                            output_parameters_list=y_params, output_categories_list=y_cats)
+                                            output_parameters_list=y_params, output_categories_list=y_cats,
+                                            horizontal_flip=False, vertical_flip=False, x_noise=None, circshift=False, randomise_levels=False)
     test_generator = h5RabaniDataGenerator(test_datadir, network_structure="autoencoder", batch_size=batch_size,
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
+
     (encoder, decoder, model) = autoencoder((imsize, imsize, 1), optimiser=Adam())
     early_stopping = EarlyStopping(monitor="val_loss", patience=10)
     model_checkpoint = ModelCheckpoint(get_model_storage_path("./"), monitor="val_loss", save_best_only=True)
@@ -285,8 +287,6 @@ def save_model(model, root_dir):
 
 
 if __name__ == '__main__':
-    from CNN.CNN_prediction import validation_pred_generator, visualise_autoencoder_preds
-
     # Train
     training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-01"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
@@ -304,7 +304,7 @@ if __name__ == '__main__':
                                       test_datadir=testing_data_dir,
                                       y_params=original_parameters, y_cats=original_categories, batch_size=128,
                                       imsize=128,
-                                      epochs=50)
+                                      epochs=10)
 
     plot_model_history(trained_model)
-    visualise_autoencoder_preds(trained_model, testing_data_dir, 10)
+    visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir, good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images", bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
