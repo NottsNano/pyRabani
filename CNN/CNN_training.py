@@ -5,7 +5,7 @@ import subprocess
 import h5py
 import numpy as np
 from keras.callbacks import EarlyStopping, ModelCheckpoint
-from scipy.stats import bernoulli
+from scipy.stats import bernoulli, mode
 from sklearn.utils import class_weight
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
@@ -80,7 +80,7 @@ class h5RabaniDataGenerator(Sequence):
         self.y_true = np.empty((self.__len__() * self.batch_size, len(self.original_categories_list)))
 
     def _get_class_weights(self):
-        """Open all the files once to compute the class weights"""
+        """Compute the class weights by opening files in the directory"""
         self.__reset_file_iterator__()
         if self.is_training_set:
             # os.scandir random iterates, so can take a subset of max 50k files to make good approximation
@@ -109,7 +109,7 @@ class h5RabaniDataGenerator(Sequence):
         self.__reset_file_iterator__()
 
     def on_epoch_end(self):
-        """At end of epoch"""
+        """Resets the file iterator at the end of an epoch"""
         self.__reset_file_iterator__()
 
     def __reset_file_iterator__(self):
@@ -118,6 +118,7 @@ class h5RabaniDataGenerator(Sequence):
         self._batches_counter = 0
 
     def __len__(self):
+        """Get number of complete batches that can be formed"""
         n_files = int(
             subprocess.Popen([f"find '{self.root_dir}' -maxdepth 1 | wc -l"],
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True).communicate()[0]) - 1
@@ -145,7 +146,7 @@ class h5RabaniDataGenerator(Sequence):
             batch_y[i, idx_find] = 1
 
         if self.network_structure is "autoencoder":
-            batch_x /= 2 #TODO MAKE GLOBAL
+            batch_x /= 2  # TODO MAKE GLOBAL
 
         if self.is_validation_set:
             self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
@@ -165,6 +166,7 @@ class h5RabaniDataGenerator(Sequence):
         if self.network_structure is "supervised":
             return batch_x, batch_y
         elif self.network_structure is "autoencoder":
+            batch_x = self._patch_binarisation(batch_x)
             return batch_x, batch_x
         else:
             raise KeyError("network_structure must be one of ['supervised', 'autoencoder']")
@@ -219,6 +221,22 @@ class h5RabaniDataGenerator(Sequence):
 
         return batch_x
 
+    @staticmethod
+    def _patch_binarisation(batch_x):
+        """
+        Finds the least common level in each image in the batch, and replaces each pixel of that type with the
+        most common level surrounding it
+        """
+        for i in range(len(batch_x)):
+            level_inds, counts = np.unique(batch_x[i, :, :, 0], return_counts=True)
+            least_common_level = level_inds[np.argmin(counts)]
+
+            replacement_vals = np.zeros((len(least_common_level)))
+            for j, (x, y) in enumerate(np.array(least_common_level).T):
+                replacement_vals[j] = mode(batch_x[i, x - 1: x + 2, y - 1: y + 2, 0])[0][0]
+
+            batch_x[i, least_common_level[0], least_common_level[1], 0] = replacement_vals
+
 
 def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
     # Set up generators
@@ -253,7 +271,8 @@ def train_autoencoder(train_datadir, test_datadir, y_params, y_cats, batch_size,
     train_generator = h5RabaniDataGenerator(train_datadir, network_structure="autoencoder", batch_size=batch_size,
                                             is_train=True, imsize=imsize,
                                             output_parameters_list=y_params, output_categories_list=y_cats,
-                                            horizontal_flip=False, vertical_flip=False, x_noise=None, circshift=False, randomise_levels=False)
+                                            horizontal_flip=False, vertical_flip=False, x_noise=None, circshift=False,
+                                            randomise_levels=False)
     test_generator = h5RabaniDataGenerator(test_datadir, network_structure="autoencoder", batch_size=batch_size,
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
@@ -307,4 +326,6 @@ if __name__ == '__main__':
                                       epochs=10)
 
     plot_model_history(trained_model)
-    visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir, good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images", bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
+    visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,
+                                good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
+                                bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")

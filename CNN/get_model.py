@@ -61,7 +61,7 @@ def _VGG(input_shape, output_num, optimiser):
     return model
 
 
-def autoencoder(input_shape, optimiser, filters=(32, 64), latentdim=128):
+def autoencoder(input_shape, optimiser, filters=(16, 32, 64), latentdim=256):
     """Modified from https://www.pyimagesearch.com/2020/03/02/anomaly-detection-with-keras-tensorflow-and-deep-learning/"""
     # Build the encoder
     inputs = Input(shape=input_shape)
