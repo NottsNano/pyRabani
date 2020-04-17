@@ -252,18 +252,21 @@ def train_autoencoder(train_datadir, test_datadir, y_params, y_cats, batch_size,
     # Set up generators
     train_generator = h5RabaniDataGenerator(train_datadir, network_structure="autoencoder", batch_size=batch_size,
                                             is_train=True, imsize=imsize,
-                                            output_parameters_list=y_params, output_categories_list=y_cats, horizontal_flip=False, vertical_flip=False, x_noise=None, circshift=False, randomise_levels=False)
+                                            output_parameters_list=y_params, output_categories_list=y_cats)
     test_generator = h5RabaniDataGenerator(test_datadir, network_structure="autoencoder", batch_size=batch_size,
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
     (encoder, decoder, model) = autoencoder((imsize, imsize, 1), optimiser=Adam())
+    early_stopping = EarlyStopping(monitor="val_loss", patience=10)
+    model_checkpoint = ModelCheckpoint(get_model_storage_path("./"), monitor="val_loss", save_best_only=True)
 
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
                         validation_steps=test_generator.__len__(),
                         epochs=epochs,
-                        max_queue_size=100)
+                        max_queue_size=100,
+                        callbacks=[model_checkpoint, early_stopping])
 
     return model
 
@@ -301,7 +304,7 @@ if __name__ == '__main__':
                                       test_datadir=testing_data_dir,
                                       y_params=original_parameters, y_cats=original_categories, batch_size=128,
                                       imsize=128,
-                                      epochs=10)
+                                      epochs=50)
 
     plot_model_history(trained_model)
     visualise_autoencoder_preds(trained_model, testing_data_dir, 10)
