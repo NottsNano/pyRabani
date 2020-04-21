@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import h5py
 import pyUSID
 from scipy import ndimage, signal
+from scipy.optimize import curve_fit
 import numpy as np
 from sys import exit
 
@@ -16,7 +17,16 @@ method = 1
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
 
-file_name = 'C12_Ci4_ring5_0001.ibw' #Change the file here!
+file_name = 'SiO2_contacts_21_0000.ibw' #Change the file here!
+
+# C12_Ci4_ring5_0001.ibw - Original image I used for testing whole py and the N = 2 Gaussian Curve Fit
+# C12b_Ci_ring8_0001.ibw - Garbage image that probably used the phase array for images, test with phase
+# maxes out the curve fitter
+# C12b_Ci_ring8_0006.ibw - Very successful showing, but was a fairly easy image
+# s5b_th_ring_Eout_0001.ibw - N=2 fit successful, findpeaks less so, not a great image for thresholding either way
+# Si_c2_1_0002HtT.tif - lone tif file, see later lines
+# Si_d10th_ring5_05mgmL_0005.ibw - Very successful showing, but was a fairly easy image
+# SiO2_contacts_21_0000.ibw - The two binarisers choose different thresholds, N=2 fit looks better
 
 # Translate the requisite file
 # Output = TranslateObj.translate(
@@ -328,8 +338,42 @@ else:
     plt.savefig(sav_loc + '_M' + str(method) +'.png')
 
 
-# plt.figure()
+#Fit 2 gaussians to the image histogram
 
+plt.figure()
+# plt.hist(gauss_data_Trace_Array.ravel(), bins=256, range=(0.0, 1.0), fc='k', ec='k') #calculating histogram
+
+hist, bin_edges = np.histogram(gauss_data_Trace_Array.ravel(), bins=256, range=(0.0, 1.0), density=True)
+bin_centres = (bin_edges[:-1] + bin_edges[1:])/2
+
+def gauss(x, *p):
+    A, mu, sigma = p
+    return A*np.exp(-(x-mu)**2/(2.*sigma**2))
+
+def gauss2(x, *p):
+    A1, mu1, sigma1, A2, mu2, sigma2 = p
+    return A1*np.exp(-(x-mu1)**2/(2.*sigma1**2)) + A2*np.exp(-(x-mu2)**2/(2.*sigma2**2))
+
+# p0 is the initial guess for the fitting coefficients initialize them differently so the optimization algorithm works better
+p0 = [1., -1., 1.,1., -1., 1.]
+
+#optimize and in the end you will have 6 coeff (3 for each gaussian)
+coeff, var_matrix = curve_fit(gauss2, bin_centres, hist, p0=p0)
+
+#you can plot each gaussian separately using
+pg1 = coeff[0:3]
+pg2 = coeff[3:]
+
+g1 = gauss(bin_centres, *pg1)
+g2 = gauss(bin_centres, *pg2)
+
+plt.plot(bin_centres, hist, label='Data')
+plt.plot(bin_centres, g1, label='Gaussian1')
+plt.plot(bin_centres, g2, label='Gaussian2')
+
+hist_thres = np.mean([pg1[1], pg2[1]]) # Finds the midpoint of the 2 mu values, probably should use intersect instead
+
+plt.imsave(sav_loc + '_M' + str(method) + 'THRES_CF.png', gauss_data_Trace_Array > hist_thres, cmap='gray')
 
 # else:
 # print('* ' + (k.replace('.ibw', '') + ' did not pass all checks.'))
