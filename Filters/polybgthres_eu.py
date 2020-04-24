@@ -11,20 +11,21 @@ from sys import exit
 
 from sklearn.preprocessing import PolynomialFeatures
 
-#Choose one of the three methods, 1, 2 or 3
+# Choose one of the three methods, 1, 2 or 3
 method = 1
 
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
 
-file_name = 'SiO2_contacts_21_0000.ibw' #Change the file here!
+file_name = 'Si_d10th_ring5_05mgmL_0005.ibw' #Change the file here!
 
 # C12_Ci4_ring5_0001.ibw - Original image I used for testing whole py and the N = 2 Gaussian Curve Fit
 # C12b_Ci_ring8_0001.ibw - Garbage image that probably used the phase array for images, test with phase
 # maxes out the curve fitter
 # C12b_Ci_ring8_0006.ibw - Very successful showing, but was a fairly easy image
 # s5b_th_ring_Eout_0001.ibw - N=2 fit successful, findpeaks less so, not a great image for thresholding either way
-# Si_c2_1_0002HtT.tif - lone tif file, see later lines
+# Si_c2_1_0002HtT.tif - lone tif file, returns a 470 x 470 that needs grayscale and cropping, comment lines in and
+# out past the h5 closing to test this.  Image is too corrupted for use however.
 # Si_d10th_ring5_05mgmL_0005.ibw - Very successful showing, but was a fairly easy image
 # SiO2_contacts_21_0000.ibw - The two binarisers choose different thresholds, N=2 fit looks better
 
@@ -47,7 +48,6 @@ h5_File = h5py.File(Output, mode='r')
 
 data_Trace = h5_File['Measurement_000/Channel_000/Raw_Data']
 phase_Trace = h5_File['Measurement_000/Channel_002/Raw_Data']
-# Line for the tif file
 data_Trace_Array = np.array(data_Trace[:])
 phase_Trace_Array = np.array(phase_Trace[:])
 
@@ -62,6 +62,14 @@ shaped_data_Trace_Array = np.reshape(data_Trace_Array, (row_num, row_num))
 shaped_phase_Trace_Array = np.reshape(phase_Trace_Array, (row_num, row_num))
 
 h5_File.close()
+
+# # Code used for testing the lone tif file, comment out when not in use
+# def rgb2gray(rgb):
+#     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
+# file_name = 'Si_c2_1_0002HtT.tif'
+# shaped_data_Trace_Array = plt.imread(r'thres_img/eu_tests/Si_c2_1_0002HtT.tif')
+# shaped_data_Trace_Array = rgb2gray(shaped_data_Trace_Array)
+# row_num = shaped_data_Trace_Array.shape[0]
 
 # ---------------Next step is to apply median difference to rows--------------
 # Create a function to take two adjacent rows and return the alignment required to
@@ -79,7 +87,7 @@ row_fit_data_Trace_Array = shaped_data_Trace_Array
 row_fit_data_Trace_Array[1, :] = shaped_data_Trace_Array[1, :] - np.mean(shaped_data_Trace_Array[1, :])
 
 aligned_med_data_Trace_Array = row_fit_data_Trace_Array
-aligned_med_phase_Trace_Array = shaped_phase_Trace_Array
+# aligned_med_phase_Trace_Array = shaped_phase_Trace_Array
 
 for i in range(1, row_num):
     row_iless1 = aligned_med_data_Trace_Array[i - 1, :]
@@ -87,10 +95,10 @@ for i in range(1, row_num):
     Offset = line_align(row_iless1, row_i)
     aligned_med_data_Trace_Array[i, :] = aligned_med_data_Trace_Array[i, :] + Offset
 
-    row_iless1 = aligned_med_phase_Trace_Array[i - 1, :]
-    row_i = aligned_med_phase_Trace_Array[i, :]
-    Offset = line_align(row_iless1, row_i)
-    aligned_med_phase_Trace_Array[i, :] = aligned_med_phase_Trace_Array[i, :] + Offset
+    # row_iless1 = aligned_med_phase_Trace_Array[i - 1, :]
+    # row_i = aligned_med_phase_Trace_Array[i, :]
+    # Offset = line_align(row_iless1, row_i)
+    # aligned_med_phase_Trace_Array[i, :] = aligned_med_phase_Trace_Array[i, :] + Offset
 
 
 # -------------------APPLY A POLYNOMIAL BACKGROUND REMOVAL--------------------
@@ -100,7 +108,7 @@ def normalise(array):  # Set an image numpy array's values to be between 0 and 1
                          / (np.max(array)-np.min(array))
     return norm_array
 
-plt.rc('font', size = 4)  # Set the fonts in graphs to 4
+plt.rc('font', size=4)  # Set the fonts in graphs to 4
 line_array = np.arange(0, row_num)  # Used for the polynomial plots
 degree = 5  # Determines the n in the n-th degree polynomial fits
 
@@ -112,7 +120,7 @@ if method == 1:
     # direction, then a product-meshgrid is formed, by addition of the resulting polynomials spread over
     # the range of the image size, and subtracted from the original image.
 
-    horz_mean = np.mean(aligned_med_data_Trace_Array, axis = 0) # averages all the columns into a x direction array
+    horz_mean = np.mean(aligned_med_data_Trace_Array, axis=0)  # averages all the columns into a x direction array
     vert_mean = np.mean(aligned_med_data_Trace_Array, axis=1)  # averages all the rows into a y direction array
 
     horz_fit = np.polyfit(line_array, horz_mean, degree)
@@ -270,9 +278,9 @@ cut_off = 0
 
 for i, t in enumerate(thres):
     pix[i] = np.sum(gauss_data_Trace_Array < t)
-    # Average over the previous 5 values and if the mean is 1% off the total number of pixels, write a cut off value.
+    # Average over the previous 10 values and if the mean is 1% off the total number of pixels, write a cut off value.
     # This removes the portion of the graph that is after the threshold saturates.
-    if i > 3 and cut_off == 0 and np.mean(pix[np.arange(i - 4, i + 1)]) > (0.99 * row_num * row_num):
+    if i > 8 and cut_off == 0 and np.mean(pix[np.arange(i - 9, i + 1)]) > (0.99 * row_num * row_num):
         cut_off = i
     else:
         cut_off = cut_off
@@ -338,7 +346,17 @@ else:
     plt.savefig(sav_loc + '_M' + str(method) +'.png')
 
 
-#Fit 2 gaussians to the image histogram
+
+plt.figure()
+dif_threshold_plot = plt.plot(thres[0:cut_off+1], pix_gauss_grad)
+dif_threshold_scatter = plt.scatter(thres[peaks], pix_gauss_grad[peaks])
+dif_threshold_scatter2 = plt.scatter(thres[troughs], pix_gauss_grad[troughs], marker='x')
+plt.grid(True)
+plt.savefig(sav_loc + '_M' + str(method) +'MIXTURE.png')
+
+
+#CURVE FIT METHOD N=2 Gaussians fitter
+# Fit 2 gaussians to the image histogram
 
 plt.figure()
 # plt.hist(gauss_data_Trace_Array.ravel(), bins=256, range=(0.0, 1.0), fc='k', ec='k') #calculating histogram
@@ -370,10 +388,43 @@ g2 = gauss(bin_centres, *pg2)
 plt.plot(bin_centres, hist, label='Data')
 plt.plot(bin_centres, g1, label='Gaussian1')
 plt.plot(bin_centres, g2, label='Gaussian2')
-
+plt.savefig(sav_loc + '_M' + str(method) +'N2.png')
 hist_thres = np.mean([pg1[1], pg2[1]]) # Finds the midpoint of the 2 mu values, probably should use intersect instead
 
-plt.imsave(sav_loc + '_M' + str(method) + 'THRES_CF.png', gauss_data_Trace_Array > hist_thres, cmap='gray')
+plt.imsave(sav_loc + '_M' + str(method) + 'THRES_CF.png', gauss_data_Trace_Array > hist_thres, cmap='gray')#
+
+# FIND A HISTOGRAM OF THE IMAGE PIXEL INTENSITY DATA BEFORE THE CUT-OFF POINT FOR A CROPPED SMOOTHER GRAPH
+
+# # Translate the cut off value from an index in 1000 to the data array size
+# cut_off_cf = int(np.ceil(cut_off * 256 / 1000))
+# data_cut_off = int(np.ceil((cut_off)))
+# # gauss_data_Trace_Array_c = np.sort(gauss_data_Trace_Array.ravel())[0:data_cut_off] # Wrong
+#
+
+
+# Use the cut-off value for the range of a histogram
+hist_c, bin_edges_c = np.histogram(gauss_data_Trace_Array, bins=256, range=(0.0, cut_off/1000), density=True)
+bin_centres_c = (bin_edges_c[:-1] + bin_edges_c[1:])/2
+
+# p0 is the initial guess for the fitting coefficients initialize them differently so the optimization algorithm works better
+p0 = [1., -1., 1.,1., -1., 1.]
+
+#optimize and in the end you will have 6 coeff (3 for each gaussian)
+coeff, var_matrix = curve_fit(gauss2, bin_centres_c, hist_c, p0=p0)
+
+#you can plot each gaussian separately using
+pg1 = coeff[0:3]
+pg2 = coeff[3:]
+
+g1_c = gauss(bin_centres_c, *pg1)
+g2_c = gauss(bin_centres_c, *pg2)
+
+#[0:cut_off_cf]
+plt.figure()
+plt.plot(bin_centres_c, hist_c, label='Data')
+plt.plot(bin_centres_c, g1_c, label='Gaussian1')
+plt.plot(bin_centres_c, g2_c, label='Gaussian2')
+plt.savefig(sav_loc + '_M' + str(method) +'N2CROP.png')
 
 # else:
 # print('* ' + (k.replace('.ibw', '') + ' did not pass all checks.'))
