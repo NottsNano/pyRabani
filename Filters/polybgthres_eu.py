@@ -17,7 +17,7 @@ method = 1
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
 
-file_name = 'Si_d10th_ring5_05mgmL_0005.ibw' #Change the file here!
+file_name = 's5b_th_ring_Eout_0001.ibw' #Change the file here!
 
 # C12_Ci4_ring5_0001.ibw - Original image I used for testing whole py and the N = 2 Gaussian Curve Fit
 # C12b_Ci_ring8_0001.ibw - Garbage image that probably used the phase array for images, test with phase
@@ -25,7 +25,7 @@ file_name = 'Si_d10th_ring5_05mgmL_0005.ibw' #Change the file here!
 # C12b_Ci_ring8_0006.ibw - Very successful showing, but was a fairly easy image
 # s5b_th_ring_Eout_0001.ibw - N=2 fit successful, findpeaks less so, not a great image for thresholding either way
 # Si_c2_1_0002HtT.tif - lone tif file, returns a 470 x 470 that needs grayscale and cropping, comment lines in and
-# out past the h5 closing to test this.  Image is too corrupted for use however.
+# out past the h5 closing to test this.  Image is too corrupted for use however, the centre ruins the polyfitter.
 # Si_d10th_ring5_05mgmL_0005.ibw - Very successful showing, but was a fairly easy image
 # SiO2_contacts_21_0000.ibw - The two binarisers choose different thresholds, N=2 fit looks better
 
@@ -123,13 +123,62 @@ if method == 1:
     horz_mean = np.mean(aligned_med_data_Trace_Array, axis=0)  # averages all the columns into a x direction array
     vert_mean = np.mean(aligned_med_data_Trace_Array, axis=1)  # averages all the rows into a y direction array
 
-    horz_fit = np.polyfit(line_array, horz_mean, degree)
-    vert_fit = np.polyfit(line_array, vert_mean, degree)
-    horz_polyval = -np.poly1d(horz_fit)
-    vert_polyval = -np.poly1d(vert_fit)
+    # horz_fit = np.polyfit(line_array, horz_mean, degree)
+    # vert_fit = np.polyfit(line_array, vert_mean, degree)
 
-    # plot meshgrid of x, y, and xy
-    horz_array, vert_array = np.meshgrid(horz_polyval(line_array), vert_polyval(line_array))
+    max_degree = 5
+    sq_dif_horz = np.zeros(max_degree)
+    sq_dif_vert = np.zeros(max_degree)
+    square_differences = np.zeros([max_degree, max_degree])
+
+    def polybgfitter_i(horz_mean, line_array, degree_i):
+        horz_fit = np.polyfit(line_array, horz_mean, degree_i)
+        horz_polyval = -np.poly1d(horz_fit)
+        return horz_polyval
+
+    def polybgfitter_j(vert_mean, line_array, degree_j):
+        horz_fit = np.polyfit(line_array, vert_mean, degree_j)
+        horz_polyval = -np.poly1d(horz_fit)
+        return horz_polyval
+
+    for i in range(1, max_degree + 1):
+        i_polyval = polybgfitter_i(horz_mean, line_array, i)
+        for j in range (1, max_degree + 1):
+            j_polyval = polybgfitter_i(horz_mean, line_array, j)
+            horz_array, vert_array = np.meshgrid(i_polyval(line_array), j_polyval(line_array))
+            mesh = horz_array + vert_array
+            square_differences[i-1, j-1] = np.sum(np.square(aligned_med_data_Trace_Array + mesh))
+
+    bestindices = np.unravel_index(np.argmax(square_differences, axis=None), square_differences.shape)
+    best_i_polyval = polybgfitter_i(horz_mean, line_array, bestindices[0])
+    best_j_polyval = polybgfitter_j(vert_mean, line_array, bestindices[1])
+    horz_array, vert_array = np.meshgrid(best_i_polyval(line_array), best_j_polyval(line_array))
+
+
+
+
+
+    # for degree in range(1, max_degree + 1):
+    #     horz_fit = np.polyfit(line_array, horz_mean, degree)
+    #     vert_fit = np.polyfit(line_array, vert_mean, degree)
+    #     horz_polyval = -np.poly1d(horz_fit)
+    #     vert_polyval = -np.poly1d(vert_fit)
+    #     sq_dif_horz[degree] = np.sum(np.square(horz_polyval(line_array) - horz_mean))
+    #     sq_dif_vert[degree] = np.sum(np.square(horz_polyval(line_array) - horz_mean))
+
+
+    # best_fit_horz = np.argmin(sq_dif_horz)
+    # best_fit_vert = np.argmin(sq_dif_vert)
+    # horz_fit = np.polyfit(line_array, horz_mean, best_fit_horz + 1)
+    # vert_fit = np.polyfit(line_array, vert_mean, best_fit_vert + 1)
+    # horz_polyval = -np.poly1d(horz_fit)
+    # vert_polyval = -np.poly1d(vert_fit)
+    # # sq_dif_horz[degree] = np.sum(np.square(horz_polyval(line_array) - horz_mean))
+    # # sq_dif_vert[degree] = np.sum(np.square(horz_polyval(line_array) - horz_mean))
+    #
+    # # plot meshgrid of x, y, and xy
+    # horz_array, vert_array = np.meshgrid(horz_polyval(line_array), vert_polyval(line_array))
+
     mesh = horz_array + vert_array
 
     _min, _max = np.amin([np.amin(horz_array), np.amin(vert_array)]), np.amax([np.amax(horz_array), np.amax(
@@ -275,6 +324,7 @@ n = 1000
 thres = np.linspace(0, 1, n)
 pix = np.zeros((n,))
 cut_off = 0
+start = 0
 
 for i, t in enumerate(thres):
     pix[i] = np.sum(gauss_data_Trace_Array < t)
@@ -284,9 +334,15 @@ for i, t in enumerate(thres):
         cut_off = i
     else:
         cut_off = cut_off
+    if i > 8 and start == 0 and np.mean(pix[np.arange(i - 9, i + 1)]) > (0.01 * row_num * row_num):
+        start = i
+    else:
+        start = start
 
-if cut_off == 0:  # A safety valve for if the loop doesn't find a cut off value
+if cut_off == 0:  # A safety valve for if the loop doesn't find a start or cut off value
     cut_off = n - 1
+if start == n - 1:
+    start = 0
 
 
 plt.subplot(3, 5, 11)
@@ -402,7 +458,7 @@ plt.imsave(sav_loc + '_M' + str(method) + 'THRES_CF.png', gauss_data_Trace_Array
 #
 
 
-# Use the cut-off value for the range of a histogram
+# Use the start and cut-off value for the range of a histogram, replace range 0.0 with
 hist_c, bin_edges_c = np.histogram(gauss_data_Trace_Array, bins=256, range=(0.0, cut_off/1000), density=True)
 bin_centres_c = (bin_edges_c[:-1] + bin_edges_c[1:])/2
 
@@ -425,6 +481,10 @@ plt.plot(bin_centres_c, hist_c, label='Data')
 plt.plot(bin_centres_c, g1_c, label='Gaussian1')
 plt.plot(bin_centres_c, g2_c, label='Gaussian2')
 plt.savefig(sav_loc + '_M' + str(method) +'N2CROP.png')
+
+hist_thres = np.mean([pg1[1], pg2[1]]) # Finds the midpoint of the 2 mu values, probably should use intersect instead
+
+plt.imsave(sav_loc + '_M' + str(method) + 'THRES_CF_CROP.png', gauss_data_Trace_Array > hist_thres, cmap='gray')#
 
 # else:
 # print('* ' + (k.replace('.ibw', '') + ' did not pass all checks.'))
