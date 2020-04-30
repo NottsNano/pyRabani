@@ -17,7 +17,7 @@ method = 1
 # Create an object capable of translating .ibw files
 TranslateObj = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
 
-file_name = 's5b_th_ring_Eout_0001.ibw' #Change the file here!
+file_name = 'Si_d10th_ring5_05mgmL_0005.ibw' #Change the file here!
 
 # C12_Ci4_ring5_0001.ibw - Original image I used for testing whole py and the N = 2 Gaussian Curve Fit
 # C12b_Ci_ring8_0001.ibw - Garbage image that probably used the phase array for images, test with phase
@@ -127,9 +127,10 @@ if method == 1:
     # vert_fit = np.polyfit(line_array, vert_mean, degree)
 
     max_degree = 5
+    min_degree = 1
     sq_dif_horz = np.zeros(max_degree)
     sq_dif_vert = np.zeros(max_degree)
-    square_differences = np.zeros([max_degree, max_degree])
+    square_differences = np.zeros([max_degree-min_degree+1, max_degree-min_degree+1])
 
     def polybgfitter_i(horz_mean, line_array, degree_i):
         horz_fit = np.polyfit(line_array, horz_mean, degree_i)
@@ -141,17 +142,17 @@ if method == 1:
         horz_polyval = -np.poly1d(horz_fit)
         return horz_polyval
 
-    for i in range(1, max_degree + 1):
+    for i in range(min_degree, max_degree + 1):
         i_polyval = polybgfitter_i(horz_mean, line_array, i)
-        for j in range (1, max_degree + 1):
+        for j in range(min_degree, max_degree + 1):
             j_polyval = polybgfitter_i(horz_mean, line_array, j)
             horz_array, vert_array = np.meshgrid(i_polyval(line_array), j_polyval(line_array))
             mesh = horz_array + vert_array
-            square_differences[i-1, j-1] = np.sum(np.square(aligned_med_data_Trace_Array + mesh))
+            square_differences[i-min_degree, j-min_degree] = np.sum(np.square(aligned_med_data_Trace_Array + mesh))
 
-    bestindices = np.unravel_index(np.argmax(square_differences, axis=None), square_differences.shape)
-    best_i_polyval = polybgfitter_i(horz_mean, line_array, bestindices[0])
-    best_j_polyval = polybgfitter_j(vert_mean, line_array, bestindices[1])
+    bestindices = np.unravel_index(np.argmin(square_differences, axis=None), square_differences.shape)
+    best_i_polyval = polybgfitter_i(horz_mean, line_array, bestindices[0]+min_degree)
+    best_j_polyval = polybgfitter_j(vert_mean, line_array, bestindices[1]+min_degree)
     horz_array, vert_array = np.meshgrid(best_i_polyval(line_array), best_j_polyval(line_array))
 
 
@@ -257,6 +258,7 @@ elif method == 3:
 
 else:
     print('Provide a valid Method number!')
+
 
 
 plt.subplot(3, 5, 1)
@@ -389,26 +391,24 @@ if opt_thres != 0: # and dud_perc < 5:
     plt.subplot(3, 5, 13)
     plt.imshow(norm_data_Trace_Array > opt_thres, extent=(0, row_num, 0, row_num), origin='lower', cmap='gray')
     plt.title('Final')
-    sav_loc = r'thres_img/eu_tests/res/' + file_name.replace('.ibw', 'BLUR='+str(blur_str))
-    plt.savefig(sav_loc + '_M' + str(method) +'.png')
+    sav_loc = r'thres_img/eu_tests/res2/' + file_name.replace('.ibw', '')
+    plt.savefig(sav_loc + '_M' + str(method) + 'BLUR='+str(blur_str) +'.png')
     # plt.title(k.replace('.ibw', '') + ' - Threshold = %.2f' % opt_thres)
     # plt.ion() # comment out to suppress output of a bunch of images
     # thres_loc = dir + 'tempr/' + k.replace('.ibw', 'THRES.png')
     # print('* ' + k.replace('.ibw', '') + ' passed all checks. Saving image.')
-    plt.imsave(sav_loc + '_M' + str(method) + 'THRES.png', norm_data_Trace_Array > opt_thres, cmap='gray')  # The image is flipped vertically, sorry
+    plt.imsave(sav_loc + '_M' + str(method) +'BLUR='+str(blur_str) + 'THRES.png', norm_data_Trace_Array > opt_thres, cmap='gray')  # The image is flipped vertically, sorry
     # successes = successes + 1
 else:
-    sav_loc = r'thres_img/eu_tests/res/' + file_name.replace('.ibw', 'BLUR='+str(blur_str))
+    sav_loc = r'thres_img/eu_tests/res2/' + file_name.replace('.ibw', '')
     plt.savefig(sav_loc + '_M' + str(method) +'.png')
-
-
 
 plt.figure()
 dif_threshold_plot = plt.plot(thres[0:cut_off+1], pix_gauss_grad)
 dif_threshold_scatter = plt.scatter(thres[peaks], pix_gauss_grad[peaks])
 dif_threshold_scatter2 = plt.scatter(thres[troughs], pix_gauss_grad[troughs], marker='x')
 plt.grid(True)
-plt.savefig(sav_loc + '_M' + str(method) +'MIXTURE.png')
+plt.savefig(sav_loc + '_M' + str(method) +'HISTFIT.png')
 
 
 #CURVE FIT METHOD N=2 Gaussians fitter
@@ -485,6 +485,13 @@ plt.savefig(sav_loc + '_M' + str(method) +'N2CROP.png')
 hist_thres = np.mean([pg1[1], pg2[1]]) # Finds the midpoint of the 2 mu values, probably should use intersect instead
 
 plt.imsave(sav_loc + '_M' + str(method) + 'THRES_CF_CROP.png', gauss_data_Trace_Array > hist_thres, cmap='gray')#
+
+
+# Save the raw ibw and processed tifs
+
+plt.imsave(sav_loc + '_RAW.png', shaped_data_Trace_Array, origin='lower', cmap='gray')
+plt.imsave(sav_loc + '_PROCESSED.png', norm_data_Trace_Array, origin='lower',
+           cmap='gray')
 
 # else:
 # print('* ' + (k.replace('.ibw', '') + ' did not pass all checks.'))
