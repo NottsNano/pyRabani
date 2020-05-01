@@ -62,6 +62,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
     for i, file in enumerate(files):
         img_file = h5py.File(f"{root_dir}/{file}", "r")
 
+
         # Find most appropriate location to place image in image grid
         x_ind = np.searchsorted(x_vals, img_file.attrs[xaxis])
         y_ind = np.searchsorted(y_vals, img_file.attrs[yaxis])
@@ -279,7 +280,7 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
     preds, truth = validation_pred_generator(model=model,
                                              validation_datadir=simulated_datadir,
                                              mode="autoencoder", y_params=["kT", "mu"],
-                                             y_cats=["liquid", "hole", "cellular", "labyrinth", "island"],
+                                             y_cats=["labyrinth"],
                                              batch_size=10, imsize=imsize, steps=1)
 
     _plot_preds(preds, truth)
@@ -312,10 +313,10 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
 
 
 if __name__ == '__main__':
-    dir = "Data/Simulated_Images/2020-03-30/16-53"
-    model = load_model("Data/Trained_Networks/2020-03-30--18-10/model.h5")
+    dir = "Data/Simulated_Images/2020-03-25/13-30"
+    model = load_model("Data/Trained_Networks/2020-01-05--11-36/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats, trained_model=model)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
     show_random_selection_of_images(dir, 25,

@@ -194,9 +194,7 @@ class RabaniSweeper:
 if __name__ == '__main__':
     root_dir = "Data/Simulated_Images"
 
-#########################
-
-    total_image_reps = 10
+    total_image_reps = 1
 
     parameters = {"kT": [0.01, 0.35],
                   "mu": [2.35, 3.47],
@@ -204,12 +202,11 @@ if __name__ == '__main__':
                   "C": 0.3,
                   "e_nl": 1.5,
                   "e_nn": 3,
-                  "L": [64, 256]}
+                  "L": 128}
 
     axis_res = {"kT": 25,
-                "mu": 25,
-                "L": 3}
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+                "mu": 25}
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)

@@ -18,7 +18,7 @@ from Rabani_Generator.plot_rabani import power_resize, visualise_autoencoder_pre
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, root_dir, batch_size, network_structure, output_parameters_list, output_categories_list,
                  is_train, imsize=None,
-                 horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True, randomise_levels=True):
+                 horizontal_flip=True, vertical_flip=True, x_noise=None, circshift=True, randomise_levels=True):
         """
         A keras data generator class for rabani simulations stored as h5 files in a directory
 
@@ -293,8 +293,8 @@ def train_autoencoder(train_datadir, test_datadir, y_params, y_cats, batch_size,
 
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__(),
-                        validation_steps=test_generator.__len__(),
+                        steps_per_epoch=train_generator.__len__()//5,
+                        validation_steps=test_generator.__len__()//5,
                         epochs=epochs,
                         max_queue_size=100,
                         callbacks=[model_checkpoint, early_stopping])
@@ -321,21 +321,21 @@ if __name__ == '__main__':
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-25/13-59"
 
-    original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
+    original_categories = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
     original_parameters = ["kT", "mu"]
 
-    # trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
-    #                             test_datadir=testing_data_dir,
-    #                             y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
-    #                             epochs=75)
+    trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
+                                test_datadir=testing_data_dir,
+                                y_params=original_parameters, y_cats=original_categories, batch_size=512, imsize=128,
+                                epochs=20)
 
-    trained_model = train_autoencoder(train_datadir=training_data_dir,
-                                      test_datadir=testing_data_dir,
-                                      y_params=original_parameters, y_cats=original_categories, batch_size=128,
-                                      imsize=128,
-                                      epochs=10)
-
-    plot_model_history(trained_model)
-    visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,
-                                good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
-                                bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
+    # trained_model = train_autoencoder(train_datadir=training_data_dir,
+    #                                   test_datadir=testing_data_dir,
+    #                                   y_params=original_parameters, y_cats=original_categories, batch_size=128,
+    #                                   imsize=128,
+    #                                   epochs=10)
+    #
+    # plot_model_history(trained_model)
+    # visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,
+    #                             good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
+    #                             bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
