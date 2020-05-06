@@ -1,5 +1,6 @@
-from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout
+from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout, Input, UpSampling2D
 from tensorflow.keras.models import Sequential
+from tensorflow.python.keras import Model
 
 
 def get_model(name, input_shape, output_num, optimiser):
@@ -55,3 +56,23 @@ def _VGG(input_shape, output_num, optimiser):
                   metrics=['accuracy'])
 
     return model
+
+
+def autoencoder(input_shape, optimiser):
+    input_img = Input(shape=input_shape)
+
+    nn = Conv2D(64, (3, 3), activation='relu', padding='same')(input_img)
+    nn = MaxPooling2D((2, 2), padding='same')(nn)
+    nn = Conv2D(32, (3, 3), activation='relu', padding='same')(nn)
+    encoded = MaxPooling2D((2, 2), padding='same')(nn)
+
+    nn = Conv2D(32, (3, 3), activation='relu', padding='same')(encoded)
+    nn = UpSampling2D((2, 2))(nn)
+    nn = Conv2D(64, (3, 3), activation='relu', padding='same')(nn)
+    nn = UpSampling2D((2, 2))(nn)
+    decoded = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(nn)
+
+    autoencoder = Model(input_img, decoded)
+    autoencoder.compile(optimizer=optimiser, loss='binary_crossentropy')
+
+    return autoencoder

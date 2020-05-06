@@ -82,15 +82,17 @@ def predict_with_noise(img, model, perc_noise, perc_std):
     return img_classifier
 
 
-def validation_pred_generator(model, validation_datadir, y_params, y_cats, batch_size, imsize=128):
+def validation_pred_generator(model, validation_datadir, network_type, y_params, y_cats, batch_size, imsize=128, steps=None):
     """Prediction generator for simulated validation data"""
-    validation_generator = h5RabaniDataGenerator(validation_datadir, batch_size=batch_size,
+    validation_generator = h5RabaniDataGenerator(validation_datadir, network_type=network_type, batch_size=batch_size,
                                                  is_train=False, imsize=imsize, output_parameters_list=y_params,
                                                  output_categories_list=y_cats)
     validation_generator.is_validation_set = True
 
-    validation_preds = model.predict_generator(validation_generator, steps=validation_generator.__len__())
-    validation_truth = validation_generator.y_true
+    if not steps:
+        steps = validation_generator.__len__()
+    validation_preds = model.predict_generator(validation_generator, steps=steps)[:steps * batch_size, :]
+    validation_truth = validation_generator.y_true[:steps * batch_size, :]
 
     return validation_preds, validation_truth
 
