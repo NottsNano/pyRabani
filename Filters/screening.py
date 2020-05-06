@@ -30,31 +30,35 @@ class FileFilter:
         data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = img_classifier_euler = None
         self.filepath = filepath
 
-        h5_file = self._load_ibw_file(filepath)
-        if not self.fail_reasons:
-            data, phase = self._parse_ibw_file(h5_file)
+        try:
+            h5_file = self._load_ibw_file(filepath)
+            if not self.fail_reasons:
+                data, phase = self._parse_ibw_file(h5_file)
 
-        if not self.fail_reasons:
-            norm_data = self._normalize_data(data)
-            phase = self._normalize_data(phase)
+            if not self.fail_reasons:
+                norm_data = self._normalize_data(data)
+                phase = self._normalize_data(phase)
 
-        if not self.fail_reasons:
-            median_data = self._median_align(norm_data)
-            median_phase = self._median_align(phase)
-            self._is_image_noisy(median_data)
-            self._is_image_noisy(median_phase)
+            if not self.fail_reasons:
+                median_data = self._median_align(norm_data)
+                median_phase = self._median_align(phase)
+                self._is_image_noisy(median_data)
+                self._is_image_noisy(median_phase)
 
-        if not self.fail_reasons:
-            flattened_data = self._poly_plane_flatten(median_data)
+            if not self.fail_reasons:
+                flattened_data = self._poly_plane_flatten(median_data)
 
-        if not self.fail_reasons:
-            flattened_data = self._normalize_data(flattened_data)
-            binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+            if not self.fail_reasons:
+                flattened_data = self._normalize_data(flattened_data)
+                binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+                self._are_lines_properly_binarised(binarized_data)
 
-        if not self.fail_reasons:
-            img_classifier = self._CNN_classify(binarized_data, model)
-            if self.with_euler:
-                img_classifier_euler = self._euler_classify(binarized_data)
+            if not self.fail_reasons:
+                img_classifier = self._CNN_classify(binarized_data, model)
+                if self.with_euler:
+                    img_classifier_euler = self._euler_classify(binarized_data)
+        except:
+            self.fail_reasons = "Unexpected error"
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, img_classifier,
@@ -67,6 +71,7 @@ class FileFilter:
 
         fig, axs = plt.subplots(2, 4)
         fig.tight_layout(pad=3)
+        fig.suptitle(f"{os.path.basename(self.filepath)} - {self.fail_reasons}", fontsize=5)
 
         if data is not None:
             axs[0, 0].imshow(data, cmap='RdGy')
@@ -107,7 +112,10 @@ class FileFilter:
 
         if savedir:
             filename = os.path.basename(self.filepath)[:-4]
-            plt.savefig(f"{savedir}/{filename}.png")
+            if len(self.fail_reasons) == 0:
+                plt.savefig(f"{savedir}/{self.CNN_classification}/{filename}.png", dpi=300)
+            else:
+                plt.savefig(f"{savedir}/fail/{filename}.png", dpi=300)
 
     def _load_ibw_file(self, filepath):
         try:
@@ -225,21 +233,29 @@ class FileFilter:
             pix[i] = np.sum(arr < t)
 
         pix_gauss_grad = ndimage.gaussian_gradient_magnitude(pix, gauss_sigma)
-        peaks, properties = signal.find_peaks(pix_gauss_grad, prominence=1)
-        troughs, properties = signal.find_peaks(-pix_gauss_grad, prominence=1)
+        peaks, properties = signal.find_peaks(pix_gauss_grad, prominence=50)
+        troughs, properties = signal.find_peaks(-pix_gauss_grad, prominence=50)
 
         if len(troughs) < 1:
-            self.fail_reasons += ["Failed to binarize"]
+            self.fail_reasons += ["Failed to binarise"]
             return None, None
         else:
             return arr > threshes[troughs[len(troughs) - 1]], (threshes, pix, pix_gauss_grad, peaks, troughs)
+
+    def _are_lines_properly_binarised(self, arr):
+        unique_lines = np.unique(arr, axis=0)
+        are_lines_improperly_binarised = len(unique_lines) < self.image_res - 20
+        if are_lines_improperly_binarised:
+            self.fail_reasons += ["Corrupt binarisation"]
+
+        return not are_lines_improperly_binarised
 
     def _get_normalised_euler(self, arr):
         region = (measure.regionprops((arr != 0) + 1)[0])
         self.normalised_euler = region["euler_number"] / np.sum(arr != 0)
 
     def _CNN_classify(self, arr, model):
-        img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001)
+        img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001) #TODO /2 ?
 
         # For each class find the mean CNN_classification
         max_class = int(np.argmax(img_classifier.cnn_majority_preds))
@@ -259,10 +275,10 @@ class FileFilter:
         img_classifier.euler_classify()
 
         max_class = int(np.argmax(img_classifier.euler_majority_preds))
-        if np.argmax(np.sum(img_classifier.euler_preds, axis=0) == len(self.cats)):
-            self.fail_reasons += ["Euler category not clear enough"]
-        if np.sum(img_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(img_classifier.euler_preds):
-            self.fail_reasons += ["Euler distributions too broad"]
+        # if np.argmax(np.sum(img_classifier.euler_preds, axis=0) == len(self.cats)):
+        #     self.fail_reasons += ["Euler category not clear enough"]
+        # if np.sum(img_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(img_classifier.euler_preds):
+        #     self.fail_reasons += ["Euler distributions too broad"]
 
         cats = self.cats + ["none"]
         self.euler_classification = cats[max_class]
