@@ -402,7 +402,7 @@ if len(troughs) < 1:
 
 else:
     opt_thres = thres[troughs[len(troughs)-1]]
-    print('Threshold found to be %.2f' % opt_thres + '.')
+    print('Threshold found to be %.3f' % opt_thres + '.')
 
 # Save a binarised image (if possible) as well as all the subplots created during processing
 if opt_thres != 0:
