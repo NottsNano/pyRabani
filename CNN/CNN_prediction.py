@@ -91,8 +91,13 @@ def validation_pred_generator(model, validation_datadir, network_type, y_params,
 
     if not steps:
         steps = validation_generator.__len__()
-    validation_preds = model.predict_generator(validation_generator, steps=steps)[:steps * batch_size, :]
-    validation_truth = validation_generator.y_true[:steps * batch_size, :]
+
+    if network_type == "classifier":
+        validation_preds = model.predict_generator(validation_generator, steps=steps)[:steps * batch_size, :]
+        validation_truth = validation_generator.y_true[:steps * batch_size, :]
+    elif network_type == "autoencoder":
+        validation_preds = model.predict_generator(validation_generator, steps=steps)[:steps * batch_size, :, :, :]
+        validation_truth = validation_generator.x_true[:steps * batch_size, :, :, :]
 
     return validation_preds, validation_truth
 

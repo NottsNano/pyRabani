@@ -3,6 +3,7 @@ import os
 
 import h5py
 import numpy as np
+import warnings
 from matplotlib import colors, pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.ticker import MultipleLocator
@@ -281,7 +282,6 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
                                              network_type="autoencoder", y_params=["kT", "mu"],
                                              y_cats=["liquid", "hole", "cellular", "labyrinth", "island"],
                                              batch_size=10, imsize=imsize, steps=1)
-
     _plot_preds(preds, truth)
 
     # Get predictions of "good" and "bad" real data
@@ -305,7 +305,11 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
 
             flattened_data = filterer._normalize_data(flattened_data)
             binarized_data, _ = filterer._binarise(flattened_data)
-            truth[i, :, :, 0] = binarized_data[:imsize, :imsize]
+
+            if binarized_data is not None:
+                truth[i, :, :, 0] = binarized_data[:imsize, :imsize]
+            else:
+                warnings.warn(f"Failed to preprocess {file}")
 
         preds = model.predict(truth)
         _plot_preds(preds, truth)
@@ -315,8 +319,7 @@ if __name__ == '__main__':
     dir = "Data/Simulated_Images/2020-03-29/07-31"
     model = load_model("Data/Trained_Networks/2020-03-30--18-10/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats,
-                                  trained_model=model)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
     show_random_selection_of_images(dir, 25,

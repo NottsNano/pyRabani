@@ -18,7 +18,7 @@ class FileFilter:
         self._igor_translator = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
         self.image_res = None
         self.normalised_euler = None
-        self.fail_reasons = []
+        self.fail_reasons = None
         self.CNN_classification = None
         self.euler_classification = None
         self.filepath = None
@@ -58,7 +58,7 @@ class FileFilter:
                 if self.with_euler:
                     img_classifier_euler = self._euler_classify(binarized_data)
         except:
-            self.fail_reasons = "Unexpected error"
+            self._add_fail_reason("Unexpected error")
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, img_classifier,
@@ -117,6 +117,12 @@ class FileFilter:
             else:
                 plt.savefig(f"{savedir}/fail/{filename}.png", dpi=300)
 
+    def _add_fail_reason(self, fail_str):
+        if not self.fail_reasons:
+            self.fail_reasons = [fail_str]
+        else:
+            self.fail_reasons += fail_str
+
     def _load_ibw_file(self, filepath):
         try:
             translated_file = self._igor_translator.translate(file_path=filepath, verbose=False)
@@ -126,8 +132,13 @@ class FileFilter:
             self.fail_reasons += ["Corrupt file"]
 
     def _parse_ibw_file(self, h5_file):
-        arr_data = np.array(h5_file['Measurement_000/Channel_000/Raw_Data'])
-        arr_phase = np.array(h5_file['Measurement_000/Channel_002/Raw_Data'])
+        if 'Measurement_000/Channel_000/Raw_Data' in h5_file.keys():
+            arr_data = np.array(h5_file['Measurement_000/Channel_000/Raw_Data'])
+            arr_phase = np.array(h5_file['Measurement_000/Channel_002/Raw_Data'])
+        else:
+            print(f"{h5_file}")
+            self._add_fail_reason("Corrupt scan")
+            return None
 
         if int(np.sqrt(len(arr_data))) == np.sqrt(len(arr_data)):
             self.image_res = int(np.sqrt(len(arr_data)))
@@ -135,9 +146,8 @@ class FileFilter:
             arr_phase_reshaped = np.reshape(arr_phase, (self.image_res, self.image_res))
             h5_file.close()
             return arr_data_reshaped, arr_phase_reshaped
-
         else:
-            self.fail_reasons += ["Incomplete scan"]
+            self._add_fail_reason("Incomplete scan")
 
     def _normalize_data(self, arr):
         return (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
@@ -169,7 +179,7 @@ class FileFilter:
 
         is_noisy = dud_rows / self.image_res > 0.05
         if is_noisy:
-            self.fail_reasons += ["Noisy image"]
+            self._add_fail_reason("Noisy image")
 
         return is_noisy
 
@@ -185,7 +195,7 @@ class FileFilter:
         square_differences = np.zeros((10, 10))
         centroid = ndimage.measurements.center_of_mass(arr)
         if not (0 <= int(centroid[0]) <= self.image_res):
-            self.fail_reasons += ["Failed to plane flatten"]
+            self._add_fail_reason("Failed to plane flatten")
             return None
         else:
             centroid_mass = arr[int(centroid[0]), int(centroid[1])]
@@ -237,7 +247,7 @@ class FileFilter:
         troughs, properties = signal.find_peaks(-pix_gauss_grad, prominence=50)
 
         if len(troughs) < 1:
-            self.fail_reasons += ["Failed to binarise"]
+            self._add_fail_reason("Failed to binarise")
             return None, None
         else:
             return arr > threshes[troughs[len(troughs) - 1]], (threshes, pix, pix_gauss_grad, peaks, troughs)
@@ -246,7 +256,7 @@ class FileFilter:
         unique_lines = np.unique(arr, axis=0)
         are_lines_improperly_binarised = len(unique_lines) < self.image_res - 20
         if are_lines_improperly_binarised:
-            self.fail_reasons += ["Corrupt binarisation"]
+            self._add_fail_reason("Corrupt binarisation")
 
         return not are_lines_improperly_binarised
 
@@ -260,9 +270,9 @@ class FileFilter:
         # For each class find the mean CNN_classification
         max_class = int(np.argmax(img_classifier.cnn_majority_preds))
         if np.max(img_classifier.cnn_majority_preds) < 0.8:
-            self.fail_reasons += ["CNN not confident enough"]
+            self._add_fail_reason("CNN not confident enough")
         if np.all(np.std(img_classifier.cnn_preds, axis=0) > 0.1):
-            self.fail_reasons += ["CNN distributions too broad"]
+            self._add_fail_reason("CNN distributions too broad")
         # if not self.fail_reasons:
         self.CNN_classification = self.cats[max_class]
 
@@ -276,9 +286,9 @@ class FileFilter:
 
         max_class = int(np.argmax(img_classifier.euler_majority_preds))
         # if np.argmax(np.sum(img_classifier.euler_preds, axis=0) == len(self.cats)):
-        #     self.fail_reasons += ["Euler category not clear enough"]
+        #     self._add_fail_reason("Euler category not clear enough")
         # if np.sum(img_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(img_classifier.euler_preds):
-        #     self.fail_reasons += ["Euler distributions too broad"]
+        #     self._add_fail_reason("Euler distributions too broad")
 
         cats = self.cats + ["none"]
         self.euler_classification = cats[max_class]

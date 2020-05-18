@@ -10,7 +10,7 @@ from sklearn.utils import class_weight
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
 
-from CNN.get_model import get_model, autoencoder
+from CNN.get_model import get_model, autoencoder, autoencoder3
 from CNN.get_stats import plot_model_history
 from Rabani_Generator.plot_rabani import power_resize, visualise_autoencoder_preds
 
@@ -77,6 +77,7 @@ class h5RabaniDataGenerator(Sequence):
         self._get_class_weights()
 
         self._batches_counter = 0
+        self.x_true = np.zeros((self.__len__() * self.batch_size, self.image_res, self.image_res, 1))
         self.y_true = np.zeros((self.__len__() * self.batch_size, len(self.original_categories_list)))
 
     def _get_class_weights(self):
@@ -137,16 +138,15 @@ class h5RabaniDataGenerator(Sequence):
             h5_file = h5py.File(file_entry, "r")
 
             batch_x[i, :, :, 0] = power_resize(h5_file["sim_results"]["image"][()], self.image_res).astype(np.uint8)
-            # batch_x[i, 0, 0, 0] = 0
-            # batch_x[i, 1, 0, 0] = 1
-            # batch_x[i, 2, 0, 0] = 2
 
             idx_find = self.original_categories_list.index(h5_file.attrs["category"])
             batch_y[i, idx_find] = 1
 
-        if self.is_validation_set:
-            self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
-            :] = batch_y
+            if self.is_validation_set:
+                self.x_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
+                :, :, :] = batch_x
+                self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
+                :] = batch_y
 
         if self.is_training_set:
             batch_x = self._augment(batch_x)
@@ -156,10 +156,17 @@ class h5RabaniDataGenerator(Sequence):
             self.__reset_file_iterator__()
 
         if self.network_type is "classifier":
+            if self.is_validation_set:
+                self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
+                :] = batch_y
             return batch_x, batch_y
         elif self.network_type is "autoencoder":
-            noisy_x = self.speckle_noise(batch_x, perc_noise=0.1, perc_std=0.005)
-            return noisy_x/2, batch_x/2
+            batch_x = self._patch_binarisation(batch_x)
+            noisy_x = self.speckle_noise(batch_x, perc_noise=0.4, perc_std=0.005)
+
+            if self.is_validation_set:
+                self.x_true = self._patch_binarisation(self.x_true)
+            return noisy_x, batch_x
         else:
             pass
 
@@ -208,8 +215,28 @@ class h5RabaniDataGenerator(Sequence):
         for i, p in enumerate(p_all):
             rand_mask[i, :, :, 0] = bernoulli.rvs(p=p, size=batch_x[0, :, :, 0].shape)
 
-        rand_arr = 2 * np.random.randint(0, 2, size=batch_x.shape)
+        rand_arr = (len(np.unique(batch_x))-1) * np.random.randint(0, len(np.unique(batch_x))-1, size=batch_x.shape)
         batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
+        return batch_x
+
+    @staticmethod
+    def _patch_binarisation(batch_x):
+        """
+        Finds the least common level in each image in the batch, and replaces it randomly by the other levels
+        """
+        for i in range(len(batch_x)):
+            level_vals, counts = np.unique(batch_x[i, :, :, 0], return_counts=True)
+            if len(level_vals) > 2:
+                least_common_ind = np.argmin(counts)
+                least_common_val = level_vals[least_common_ind]
+                other_vals = np.delete(level_vals, least_common_ind)
+
+                replacement_inds = np.nonzero(batch_x[i, :, :, 0] == least_common_ind)
+                replacement_vals = np.random.choice(other_vals, size=(len(replacement_inds[0]),), p=[0.5, 0.5])
+
+                batch_x[i, replacement_inds[0], replacement_inds[1], 0] = replacement_vals
+            batch_x[i, :, :, 0] -= batch_x[i, :, :, 0].min()
+            batch_x[i, :, :, 0] /= batch_x[i, :, :, 0].max()
 
         return batch_x
 
@@ -290,7 +317,7 @@ if __name__ == '__main__':
     trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
                                      test_datadir=testing_data_dir,
                                      y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
-                                     epochs=10)
+                                     epochs=15)
 
     plot_model_history(trained_model)
     visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,

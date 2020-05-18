@@ -204,8 +204,8 @@ if __name__ == '__main__':
                   "e_nn": 3,
                   "L": 128}
 
-    axis_res = {"kT": 25,
-                "mu": 25}
+    axis_res = {"kT": 10,
+                "mu": 10}
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
