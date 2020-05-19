@@ -295,9 +295,9 @@ def train_autoencoder(model_dir, train_datadir, test_datadir, y_params, y_cats, 
 
 
 def get_model_storage_path(root_dir):
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
-    os.mkdir(f"{root_dir}/{current_date}")
-    model_path = f"{root_dir}/{current_date}/model.h5"
+    current_datetime = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M")
+    os.mkdir(f"{root_dir}/{current_datetime}")
+    model_path = f"{root_dir}/{current_datetime}/model.h5"
 
     return model_path
 
@@ -330,3 +330,5 @@ if __name__ == '__main__':
     visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,
                                 good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
                                 bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
+
+    save_model(trained_model, "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks")

@@ -330,6 +330,8 @@ class FileFilter:
 if __name__ == '__main__':
     category_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
+    denoising_model = load_model(
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-19--19-36/model.h5")
 
     test_filter = FileFilter()
     test_filter.assess_file(
