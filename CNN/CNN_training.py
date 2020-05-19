@@ -4,53 +4,51 @@ import subprocess
 
 import h5py
 import numpy as np
-from keras.callbacks import EarlyStopping, ModelCheckpoint
 from scipy.stats import bernoulli
 from sklearn.utils import class_weight
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
 
-from CNN.get_model import get_model, autoencoder, autoencoder3
+from CNN.get_model import get_model, autoencoder
 from CNN.get_stats import plot_model_history
 from Rabani_Generator.plot_rabani import power_resize, visualise_autoencoder_preds
 
 
 class h5RabaniDataGenerator(Sequence):
-    def __init__(self, root_dir, network_type, batch_size, output_parameters_list, output_categories_list, is_train,
-                 imsize=None,
-                 horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True, randomise_levels=True):
+    def __init__(self, simulated_image_dir, network_type, batch_size, output_parameters_list, output_categories_list,
+                 is_train, imsize=None, horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True,
+                 randomise_levels=True):
         """
-         A keras data generator class for rabani simulations stored as h5 files in a directory
+        A keras data generator class for rabani simulations stored as h5 files in a directory
 
-         Parameters
-         ----------
+        Parameters
+        ----------
+        simulated_image_dir : str
+            The image directory to run through. Must only have h5 files in it
+        batch_size : int
+            Number of items to return every time __getitem__() is called
+        network_type : str
+            The calling network type. Must be one of ["classifier", "atoencoder"]
+        is_train : bool
+            Boolean describing if the class is generating data for training or for testing.
+            If True, no augmentations will be applied
+        horizontal_flip : bool
+            Randomly applies horizontal flips. Only occurs if is_train is True
+        vertical_flip : bool
+            Randomly applies vertical flips. Only occurs if is_train is True
+        x_noise : float or None
+            Applies a percentage of speckle noise if not None. Only occurs if is_train is True
+        circshift : bool
+            Randomly pans around the wrapped simulations. Only occurs if is_train is True
+        randomise_levels : bool
+            Randomly swaps the integer denoting substrate/liquid/nanoparticle batchwise. Only occurs if is_train is True
+        output_parameters_list : iterable of str
+            Unused for now. Used for prediction of specific rabani simulated parameters
+        output_categories_list : iterable of str
+            Categories to be predicted by the network if network_structure == "classifier"
+        """
 
-         root_dir : str
-             The folder directory to run through. Must only have h5 files in it
-         batch_size : int
-             Number of items to return every time __getitem__() is called
-         network_type : str
-             The calling network type. Must be one of ["Classifier", "Autoencoder"]
-         is_train : bool
-             Boolean describing if the class is generating data for training or for testing.
-             If True, no augmentations will be applied
-         horizontal_flip : bool
-             Randomly applies horizontal flips. Only occurs if is_train is True
-         vertical_flip : bool
-             Randomly applies vertical flips. Only occurs if is_train is True
-         x_noise : float or None
-             Applies a percentage of speckle noise if not None. Only occurs if is_train is True
-         circshift : bool
-             Randomly pans around the wrapped simulations. Only occurs if is_train is True
-         randomise_levels : bool
-             Randomly swaps the integer denoting substrate/liquid/nanoparticle batchwise. Only occurs if is_train is True
-         output_parameters_list : iterable of str
-             Unused for now. Used for prediction of specific rabani simulated parameters
-         output_categories_list : iterable of str
-             Categories to be predicted by the network if network_structure == "Supervised"
-         """
-
-        self.root_dir = root_dir
+        self.root_dir = simulated_image_dir
         self.batch_size = batch_size
         self.original_parameters_list = output_parameters_list
         self.original_categories_list = output_categories_list
@@ -215,7 +213,7 @@ class h5RabaniDataGenerator(Sequence):
         for i, p in enumerate(p_all):
             rand_mask[i, :, :, 0] = bernoulli.rvs(p=p, size=batch_x[0, :, :, 0].shape)
 
-        rand_arr = (len(np.unique(batch_x))-1) * np.random.randint(0, len(np.unique(batch_x))-1, size=batch_x.shape)
+        rand_arr = (len(np.unique(batch_x)) - 1) * np.random.randint(0, len(np.unique(batch_x)) - 1, size=batch_x.shape)
         batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
         return batch_x
 
@@ -250,11 +248,11 @@ def train_classifier(model_dir, train_datadir, test_datadir, y_params, y_cats, b
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
-    # Set up model
+    # Set up cnn_model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
     model = get_model("VGG", input_shape, len(y_cats), Adam())
     # early_stopping = EarlyStopping(monitor="val_loss", patience=10)
-    # model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
+    # model_checkpoint = ModelCheckpoint(get_model_storage_path(cnn_dir), monitor="val_loss", save_best_only=True)
 
     # Train
     model.fit_generator(generator=train_generator,
@@ -310,16 +308,17 @@ if __name__ == '__main__':
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
-    # trained_model = train_classifier(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
+    # trained_model = train_classifier(cnn_dir="Data/Trained_Networks", train_datadir=training_data_dir,
     #                                  test_datadir=testing_data_dir,
     #                                  y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
     #                                  epochs=75)
     trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
-                                     test_datadir=testing_data_dir,
-                                     y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
-                                     epochs=15)
+                                      test_datadir=testing_data_dir,
+                                      y_params=original_parameters, y_cats=original_categories, batch_size=128,
+                                      imsize=128,
+                                      epochs=15)
 
     plot_model_history(trained_model)
     visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,
-                                    good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
-                                    bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
+                                good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
+                                bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")

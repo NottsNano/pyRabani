@@ -9,17 +9,34 @@ from Rabani_Generator.gen_rabanis import RabaniSweeper
 
 
 class ImageClassifier:
-    """Majority classify an image with window rolling"""
+    """
+    Classifies a single image after subsampling it
 
-    def __init__(self, img_arr, model, window_jump=4):
-        self.img_arr = img_arr
+    Parameters
+    ----------
+    img : ndarray
+        Either a single 2D image of size larger than the cnn_model, or a single image of identical size
+         to the cnn_model and windowed and wrapped to 4D
+    window_stride : int or None
+        The stride length to jump by when sub-sampling img to form an image. Default 4
+    cnn_model : object of type tensorflow.category_model
+        A trained tensorflow category_model
+    """
 
-        self.model = model
-        if self.model:
-            self.network_img_size = self.model.input_shape[1]
+    def __init__(self, img, cnn_model, window_stride=4):
+        self.img_arr = img
 
-        self.jump = window_jump
-        self.cnn_arr = None
+        self.cnn_model = cnn_model
+
+        if self.cnn_model:
+            self.network_img_size = self.cnn_model.input_shape[1]
+
+        self.jump = window_stride
+
+        if img.ndim != 4:
+            self.cnn_arr = self._wrap_image_to_tensorflow(img, self.network_img_size, self.jump)
+        else:
+            self.cnn_arr = img
 
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
         self.cnn_preds = None
@@ -27,19 +44,23 @@ class ImageClassifier:
         self.euler_preds = None
         self.euler_majority_preds = None
 
-    def wrap_image(self):
+    @staticmethod
+    def _wrap_image_to_tensorflow(img, network_img_size, stride):
+        """Subsamples an image to turn it into a tensorflow-compatible shape"""
         # Figure out how many "windows" to make
-        num_jumps = int((len(self.img_arr) - self.network_img_size) / self.jump)
+        num_jumps = int((len(img) - network_img_size) / stride)
         jump_idx = itertools.product(np.arange(num_jumps), np.arange(num_jumps))
 
         # Copy each window out
-        self.cnn_arr = np.zeros((num_jumps ** 2, self.network_img_size, self.network_img_size, 1))
+        cnn_arr = np.zeros((num_jumps ** 2, network_img_size, network_img_size, 1))
         for i, (jump_i, jump_j) in enumerate(jump_idx):
-            self.cnn_arr[i, :, :, 0] = self.img_arr[(jump_i * self.jump): (jump_i * self.jump) + self.network_img_size,
-                                       (jump_j * self.jump): (jump_j * self.jump) + self.network_img_size]
+            cnn_arr[i, :, :, 0] = img[(jump_i * stride): (jump_i * stride) + network_img_size,
+                                  (jump_j * stride): (jump_j * stride) + network_img_size]
+
+        return cnn_arr
 
     def cnn_classify(self):
-        self.cnn_preds = self.model.predict(self.cnn_arr)
+        self.cnn_preds = self.cnn_model.predict(self.cnn_arr)
         self.cnn_majority_preds = np.mean(self.cnn_preds, axis=0)
 
     def euler_classify(self):
@@ -55,7 +76,6 @@ class ImageClassifier:
 
 def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
     """Progressively add noise to an image and classifying it"""
-
     fig, axes = plt.subplots(1, 2)
     fig.tight_layout(pad=3)
     img = img.copy()
@@ -72,11 +92,10 @@ def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, 
             plt.savefig(f"{savedir}/img_{i}.png")
 
 
-def predict_with_noise(img, model, perc_noise, perc_std):
+def predict_with_noise(img, cnn_model, perc_noise, perc_std):
     img = img.copy()  # Do this because of immutability!
     img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std)[0, :, :, 0]
-    img_classifier = ImageClassifier(img, model)
-    img_classifier.wrap_image()
+    img_classifier = ImageClassifier(img, cnn_model)
     img_classifier.cnn_classify()
 
     return img_classifier
@@ -107,7 +126,7 @@ if __name__ == '__main__':
     from Filters.alignerwthreshold import tmp_img_loader
     from Rabani_Generator.plot_rabani import show_image
 
-    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
+    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image

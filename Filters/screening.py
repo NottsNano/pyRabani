@@ -8,7 +8,8 @@ from scipy import stats, ndimage, signal
 from skimage import measure
 from tensorflow.python.keras.models import load_model
 
-from CNN.CNN_prediction import predict_with_noise, ImageClassifier
+from CNN.CNN_prediction import ImageClassifier
+from CNN.CNN_training import h5RabaniDataGenerator
 from CNN.get_stats import all_preds_histogram, all_preds_percentage
 from Rabani_Generator.plot_rabani import show_image
 
@@ -17,16 +18,38 @@ class FileFilter:
     def __init__(self):
         self._igor_translator = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
         self.image_res = None
+        self.image_classifier = None
         self.normalised_euler = None
         self.fail_reasons = None
         self.CNN_classification = None
         self.euler_classification = None
         self.filepath = None
-        self.with_euler = True
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    def assess_file(self, filepath, model, plot=False, savedir=None):
-        """Try and filter the file"""
+    def assess_file(self, filepath, cnn_model, denoising_model=None, assess_euler=True, plot=False, savedir=None):
+        """Load, preprocess, classify and filter a single real image.
+
+        Parameters
+        ----------
+        filepath : str
+            Path linking to a .ibw file to assess
+        cnn_model : object of type tensorflow.category_model
+            Tensorflow category_model containing categories FileFilter.cats
+        denoising_model : None or object of type tensorflow.category_model
+            Optional. Tensorflow category_model to perform denoising. Default None
+        assess_euler : bool
+            Optional. If the normalised Euler characteristic should be assessed or not. Default True
+        plot : bool
+            Optional. If we should plot the results of preprocessing/assessment. Default False
+        savedir : None or str
+            Optional. If a string, save the plot to the given directory. Default None
+
+        Examples
+        --------
+        >>> filterer = FileFilter
+        >>> filterer.assess_file()
+        """
+
         data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = img_classifier_euler = None
         self.filepath = filepath
 
@@ -36,7 +59,7 @@ class FileFilter:
                 data, phase = self._parse_ibw_file(h5_file)
 
             if not self.fail_reasons:
-                norm_data = self._normalize_data(data)
+                data = self._normalize_data(data)
                 phase = self._normalize_data(phase)
 
             if not self.fail_reasons:
@@ -50,13 +73,18 @@ class FileFilter:
 
             if not self.fail_reasons:
                 flattened_data = self._normalize_data(flattened_data)
-                binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+                binarized_data, binarized_data_for_plotting = self._binarise(data)
                 self._are_lines_properly_binarised(binarized_data)
 
             if not self.fail_reasons:
-                img_classifier = self._CNN_classify(binarized_data, model)
-                if self.with_euler:
-                    img_classifier_euler = self._euler_classify(binarized_data)
+                assessment_arr = self._wrap_image_to_tensorflow(binarized_data, cnn_model.input_shape[1])
+                if denoising_model:
+                    assessment_arr = self._denoise(assessment_arr, denoising_model)
+                self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
+
+                self._CNN_classify(assessment_arr)
+                if assess_euler:
+                    self._euler_classify(assessment_arr)
         except:
             self._add_fail_reason("Unexpected error")
 
@@ -67,7 +95,8 @@ class FileFilter:
                 plt.close()
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
-              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None, img_classifier_euler=None, savedir=None):
+              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None, img_classifier_euler=None,
+              savedir=None):
 
         fig, axs = plt.subplots(2, 4)
         fig.tight_layout(pad=3)
@@ -264,73 +293,74 @@ class FileFilter:
         region = (measure.regionprops((arr != 0) + 1)[0])
         self.normalised_euler = region["euler_number"] / np.sum(arr != 0)
 
-    def _CNN_classify(self, arr, model):
-        img_classifier = predict_with_noise(img=arr, model=model, perc_noise=0.05, perc_std=0.001) #TODO /2 ?
+    @staticmethod
+    def _wrap_image_to_tensorflow(img, network_img_size, jump_size=4):
+        return ImageClassifier._wrap_image_to_tensorflow(img, network_img_size, jump_size)
+
+    def _denoise(self, arr, denoising_model):
+        return denoising_model.predict(arr)
+
+    def _CNN_classify(self, arr):
+        arr = h5RabaniDataGenerator.speckle_noise(arr, perc_noise=0.05, perc_std=0.001)
 
         # For each class find the mean CNN_classification
-        max_class = int(np.argmax(img_classifier.cnn_majority_preds))
-        if np.max(img_classifier.cnn_majority_preds) < 0.8:
+        max_class = int(np.argmax(self.image_classifier.cnn_majority_preds))
+        if np.max(self.image_classifier.cnn_majority_preds) < 0.8:
             self._add_fail_reason("CNN not confident enough")
-        if np.all(np.std(img_classifier.cnn_preds, axis=0) > 0.1):
+        if np.all(np.std(self.image_classifier.cnn_preds, axis=0) > 0.1):
             self._add_fail_reason("CNN distributions too broad")
-        # if not self.fail_reasons:
+
         self.CNN_classification = self.cats[max_class]
 
-        return img_classifier
-
     def _euler_classify(self, arr):
-        img_classifier = ImageClassifier(arr, model=None)
-        img_classifier.network_img_size = 128
-        img_classifier.wrap_image()
-        img_classifier.euler_classify()
+        self.image_classifier.cnn_arr = arr  # Overwrite the class in case we added noise earlier
+        self.image_classifier.euler_classify()
 
-        max_class = int(np.argmax(img_classifier.euler_majority_preds))
-        # if np.argmax(np.sum(img_classifier.euler_preds, axis=0) == len(self.cats)):
-        #     self._add_fail_reason("Euler category not clear enough")
-        # if np.sum(img_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(img_classifier.euler_preds):
-        #     self._add_fail_reason("Euler distributions too broad")
+        max_class = int(np.argmax(self.image_classifier.euler_majority_preds))
+        if np.argmax(np.sum(self.image_classifier.euler_preds, axis=0) == len(self.cats)):
+            self._add_fail_reason("Euler category not clear enough")
+        if np.sum(self.image_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(self.image_classifier.euler_preds):
+            self._add_fail_reason("Euler distributions too broad")
 
         cats = self.cats + ["none"]
         self.euler_classification = cats[max_class]
 
-        return img_classifier
-
 
 if __name__ == '__main__':
-    model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
+    category_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5")
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw",
-        model, plot=True)
+        category_model, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-        model, plot=True)
+        category_model, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-        model, plot=True)
+        category_model, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
-        model, plot=True)
+        category_model, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
-        model, plot=True)
+        category_model, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
-        model, plot=True)
+        category_model, plot=True)
     print(test_filter.fail_reasons)
