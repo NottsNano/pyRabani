@@ -59,8 +59,12 @@ class ImageClassifier:
 
         return cnn_arr
 
-    def cnn_classify(self):
-        self.cnn_preds = self.cnn_model.predict(self.cnn_arr)
+    def cnn_classify(self, perc_noise=0.05, perc_std=0.001):
+        noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr, perc_noise, perc_std,
+                                                          randomness="batchwise",
+                                                          num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0])))
+
+        self.cnn_preds = self.cnn_model.predict(noisy_array)
         self.cnn_majority_preds = np.mean(self.cnn_preds, axis=0)
 
     def euler_classify(self):
@@ -101,7 +105,8 @@ def predict_with_noise(img, cnn_model, perc_noise, perc_std):
     return img_classifier
 
 
-def validation_pred_generator(model, validation_datadir, network_type, y_params, y_cats, batch_size, imsize=128, steps=None):
+def validation_pred_generator(model, validation_datadir, network_type, y_params, y_cats, batch_size, imsize=128,
+                              steps=None):
     """Prediction generator for simulated validation data"""
     validation_generator = h5RabaniDataGenerator(validation_datadir, network_type=network_type, batch_size=batch_size,
                                                  is_train=False, imsize=imsize, output_parameters_list=y_params,
@@ -126,7 +131,8 @@ if __name__ == '__main__':
     from Filters.alignerwthreshold import tmp_img_loader
     from Rabani_Generator.plot_rabani import show_image
 
-    trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5")
+    trained_model = load_model(
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5")
     cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     # Classify a real image

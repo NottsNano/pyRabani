@@ -204,16 +204,24 @@ class h5RabaniDataGenerator(Sequence):
         return tmp_x
 
     @staticmethod
-    def speckle_noise(batch_x, perc_noise, perc_std):
+    def speckle_noise(batch_x, perc_noise, perc_std, randomness="elementwise", num_uniques=None):
         if batch_x.ndim == 2:
             batch_x = np.expand_dims(np.expand_dims(batch_x, 0), -1)
 
-        p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
-        rand_mask = np.zeros(batch_x.shape)
-        for i, p in enumerate(p_all):
-            rand_mask[i, :, :, 0] = bernoulli.rvs(p=p, size=batch_x[0, :, :, 0].shape)
+        if randomness == "elementwise":
+            p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
+            rand_mask = np.zeros(batch_x.shape)
+            for i, p in enumerate(p_all):
+                rand_mask[i, :, :, 0] = bernoulli.rvs(p=p, size=batch_x[0, :, :, 0].shape)
+        elif randomness == "batchwise":
+            # TODO: This is very slow - ~22% of a single file screen! Just take random percentage of indices?
+            rand_mask = bernoulli.rvs(p=np.abs(np.random.normal(loc=perc_noise, scale=perc_std)), size=batch_x.shape)
+        else:
+            raise ValueError("randomness must be one of ['elementwise', batchwise]")
 
-        rand_arr = (len(np.unique(batch_x)) - 1) * np.random.randint(0, len(np.unique(batch_x)) - 1, size=batch_x.shape)
+        if not num_uniques:  # calling np.unique on massive 4d arrays is insanely slow!!
+            num_uniques = len(np.unique(batch_x))
+        rand_arr = (num_uniques - 1) * np.random.randint(0, num_uniques - 1, size=batch_x.shape)
         batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
         return batch_x
 
@@ -248,7 +256,7 @@ def train_classifier(model_dir, train_datadir, test_datadir, y_params, y_cats, b
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
-    # Set up cnn_model
+    # Set up model
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
     model = get_model("VGG", input_shape, len(y_cats), Adam())
     # early_stopping = EarlyStopping(monitor="val_loss", patience=10)

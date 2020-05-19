@@ -49,7 +49,18 @@ class RabaniSweeper:
         self.sftp = self.ssh.open_sftp()
 
     def call_rabani_sweep(self, params, axis_steps, image_reps):
-        """Run an optimised set of rabani simulations, sweeping along desired axis/axes"""
+        """Run an optimised set of rabani simulations, sweeping along desired axis/axes
+
+        Parameters
+        ----------
+        params : dict[str | int or float] or dict[str | list[int or float, int or float] ]
+            Parameters describing the values of kT, mu, MR, C, e_nl, e_nn and L of the simulations. Single values
+            are fixed, while a list of [min max] will be swept through. L can only scale as 2^n.
+        axis_steps : int or dict[str | int]
+            Resolution of the sweep for each axis
+        image_reps : int
+            Number of repeats of each swept value
+        """
 
         def get_linspace_ranges(param, param_key, axis_res):
             if type(param[param_key]) is list:

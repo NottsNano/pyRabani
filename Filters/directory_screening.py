@@ -8,7 +8,7 @@ from tqdm import tqdm
 # image_dir = "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img"
 image_dir = "/media/mltest1/Dat Storage/Manu AFM CD Box"
 cnn_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5"
-autoencoder_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5"
+denoiser_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5"
 
 model = load_model(cnn_dir)
 search_recursive = True

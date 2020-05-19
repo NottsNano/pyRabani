@@ -9,7 +9,6 @@ from skimage import measure
 from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_prediction import ImageClassifier
-from CNN.CNN_training import h5RabaniDataGenerator
 from CNN.get_stats import all_preds_histogram, all_preds_percentage
 from Rabani_Generator.plot_rabani import show_image
 
@@ -26,7 +25,7 @@ class FileFilter:
         self.filepath = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    def assess_file(self, filepath, cnn_model, denoising_model=None, assess_euler=True, plot=False, savedir=None):
+    def assess_file(self, filepath, cnn_model, denoising_model=None, assess_euler=False, plot=False, savedir=None):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
@@ -53,49 +52,52 @@ class FileFilter:
         data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = img_classifier_euler = None
         self.filepath = filepath
 
-        try:
-            h5_file = self._load_ibw_file(filepath)
-            if not self.fail_reasons:
-                data, phase = self._parse_ibw_file(h5_file)
+        # try:
+        h5_file = self._load_ibw_file(filepath)
 
-            if not self.fail_reasons:
-                data = self._normalize_data(data)
-                phase = self._normalize_data(phase)
+        if not self.fail_reasons:
+            data, phase = self._parse_ibw_file(h5_file)
 
-            if not self.fail_reasons:
-                median_data = self._median_align(norm_data)
-                median_phase = self._median_align(phase)
-                self._is_image_noisy(median_data)
-                self._is_image_noisy(median_phase)
+        if not self.fail_reasons:
+            norm_data = self._normalize_data(data)
 
-            if not self.fail_reasons:
-                flattened_data = self._poly_plane_flatten(median_data)
+        if not self.fail_reasons:
+            median_data = self._median_align(norm_data)
+            self._is_image_noisy(median_data)
 
-            if not self.fail_reasons:
-                flattened_data = self._normalize_data(flattened_data)
-                binarized_data, binarized_data_for_plotting = self._binarise(data)
-                self._are_lines_properly_binarised(binarized_data)
+        if not self.fail_reasons:
+            flattened_data = self._poly_plane_flatten(median_data)
 
-            if not self.fail_reasons:
+        if not self.fail_reasons:
+            flattened_data = self._normalize_data(flattened_data)
+            binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+
+        if not self.fail_reasons:
+            self._are_lines_properly_binarised(binarized_data)
+
+        if not self.fail_reasons:
+            if denoising_model:
                 assessment_arr = self._wrap_image_to_tensorflow(binarized_data, cnn_model.input_shape[1])
-                if denoising_model:
-                    assessment_arr = self._denoise(assessment_arr, denoising_model)
-                self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
+                assessment_arr = self._denoise(assessment_arr, denoising_model)
+            else:
+                assessment_arr = binarized_data
 
-                self._CNN_classify(assessment_arr)
-                if assess_euler:
-                    self._euler_classify(assessment_arr)
-        except:
-            self._add_fail_reason("Unexpected error")
+            self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
+            self._CNN_classify()
+
+            if assess_euler:
+                self._euler_classify()
+        # except:
+        #     self._add_fail_reason("Unexpected error")
 
         if plot or savedir:
-            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, img_classifier,
-                       img_classifier_euler, savedir)
+            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting,
+                       self.image_classifier, savedir)
             if not plot:
                 plt.close()
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
-              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None, img_classifier_euler=None,
+              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None,
               savedir=None):
 
         fig, axs = plt.subplots(2, 4)
@@ -135,8 +137,8 @@ class FileFilter:
             all_preds_percentage(img_classifier.cnn_preds, self.cats, axis=axs[1, 2])
             axs[1, 1].set_title('Network Predictions')
             axs[1, 2].set_title('Network Predictions')
-        if img_classifier_euler is not None:
-            all_preds_percentage(img_classifier_euler.euler_preds, self.cats + ["none"], axis=axs[1, 3])
+        if img_classifier.euler_preds is not None:
+            all_preds_percentage(img_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
             axs[1, 3].set_title('Euler Predictions')
 
         if savedir:
@@ -165,7 +167,7 @@ class FileFilter:
             arr_data = np.array(h5_file['Measurement_000/Channel_000/Raw_Data'])
             arr_phase = np.array(h5_file['Measurement_000/Channel_002/Raw_Data'])
         else:
-            print(f"{h5_file}")
+            # print(f"{h5_file}")
             self._add_fail_reason("Corrupt scan")
             return None
 
@@ -193,7 +195,7 @@ class FileFilter:
         return arr
 
     def _is_image_noisy(self, arr):
-        # TODO: Do a polynomial line fit & use chi fit to determine if line is noise
+        # TODO: Do a polynomial line fit & use chi fit to determine if line is noise - this is also quite slow ~10%
         dud_rows = 0
         for i in range(self.image_res):
             # If 95% of the values in the row != the mode, assume dead scan line
@@ -300,8 +302,8 @@ class FileFilter:
     def _denoise(self, arr, denoising_model):
         return denoising_model.predict(arr)
 
-    def _CNN_classify(self, arr):
-        arr = h5RabaniDataGenerator.speckle_noise(arr, perc_noise=0.05, perc_std=0.001)
+    def _CNN_classify(self):
+        self.image_classifier.cnn_classify()
 
         # For each class find the mean CNN_classification
         max_class = int(np.argmax(self.image_classifier.cnn_majority_preds))
@@ -312,8 +314,7 @@ class FileFilter:
 
         self.CNN_classification = self.cats[max_class]
 
-    def _euler_classify(self, arr):
-        self.image_classifier.cnn_arr = arr  # Overwrite the class in case we added noise earlier
+    def _euler_classify(self):
         self.image_classifier.euler_classify()
 
         max_class = int(np.argmax(self.image_classifier.euler_majority_preds))
@@ -327,7 +328,8 @@ class FileFilter:
 
 
 if __name__ == '__main__':
-    category_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/cnn_model.h5")
+    category_model = load_model(
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
 
     test_filter = FileFilter()
     test_filter.assess_file(

@@ -226,6 +226,8 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
 
         plt.title(cat)
 
+    return x, y
+
 
 def show_image(img, axis=None):
     """Show a binarized image"""
@@ -322,6 +324,6 @@ if __name__ == '__main__':
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
-    show_random_selection_of_images(dir, 25,
-                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"], 128,
+    x, y = show_random_selection_of_images(dir, 25,
+                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island", "none"], 128,
                                     model=model)
