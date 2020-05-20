@@ -63,7 +63,7 @@ class FileFilter:
 
         if not self.fail_reasons:
             median_data = self._median_align(norm_data)
-            # self._is_image_noisy(median_data)
+            self._is_image_noisy(median_data)
 
         if not self.fail_reasons:
             flattened_data = self._poly_plane_flatten(median_data)
@@ -195,20 +195,18 @@ class FileFilter:
         return arr
 
     def _is_image_noisy(self, arr):
-        # TODO: Do a polynomial line fit & use chi fit to determine if line is noise - this is also quite slow ~10%
-        dud_rows = 0
-        for i in range(self.image_res):
-            # If 95% of the values in the row != the mode, assume dead scan line
-            row_mode = stats.mode(arr[i, :])
-            counter = np.count_nonzero((0.95 * row_mode[0] < arr[i, :]) < 1.05 * row_mode[0])
+        # Do >5% of rows have >95% of pixels the same value?
+        modes = stats.mode(arr, axis=1)
+        is_row_solid = modes[1] >= 0.95 * self.image_res
+        is_noisy_solid = (np.sum(is_row_solid) / self.image_res) >= 0.05
 
-            dud_rows = dud_rows + counter > 0.95 * self.image_res + np.prod(arr[i, :] == np.sort(arr[i, :])) + np.prod(
-                arr[i, :] == np.sort(arr[i, :])[::-1])
+        # Do >5% of rows have mean not within 80% of the value of the mean of the image?
+        is_row_outlier = np.logical_or((np.mean(arr) * 0.2) >= np.mean(arr, 1),
+                                       np.mean(arr, 1) >= (np.mean(arr) * 1.8))
 
-            dud_rows += (counter > (0.95 * self.image_res)) + sum(arr[i, :] == np.sort(arr[i, :])) > (
-                    0.95 * self.image_res) + sum(arr[i, :] == np.sort(arr[i, :])[::-1]) > (0.95 * self.image_res)
+        is_noisy_outlier = (np.sum(is_row_outlier) / self.image_res) >= 0.05
 
-        is_noisy = dud_rows / self.image_res > 0.05
+        is_noisy = is_noisy_solid or is_noisy_outlier
         if is_noisy:
             self._add_fail_reason("Noisy image")
 
