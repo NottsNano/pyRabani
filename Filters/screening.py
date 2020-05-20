@@ -25,7 +25,7 @@ class FileFilter:
         self.filepath = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    def assess_file(self, filepath, cnn_model, denoising_model=None, assess_euler=False, plot=False, savedir=None):
+    def assess_file(self, filepath, cnn_model, denoising_model=None, assess_euler=True, plot=False, savedir=None):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
@@ -91,13 +91,12 @@ class FileFilter:
         #     self._add_fail_reason("Unexpected error")
 
         if plot or savedir:
-            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting,
-                       self.image_classifier, savedir)
+            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
             if not plot:
                 plt.close()
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
-              binarized_data=None, binarized_data_for_plotting=None, img_classifier=None,
+              binarized_data=None, binarized_data_for_plotting=None,
               savedir=None):
 
         fig, axs = plt.subplots(2, 4)
@@ -132,27 +131,27 @@ class FileFilter:
         if binarized_data is not None:
             show_image(binarized_data, axis=axs[0, 3])
             axs[0, 3].set_title('Binarized')
-        if img_classifier is not None:
-            all_preds_histogram(img_classifier.cnn_preds, self.cats, axis=axs[1, 1])
-            all_preds_percentage(img_classifier.cnn_preds, self.cats, axis=axs[1, 2])
+        if self.image_classifier is not None:
+            all_preds_histogram(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 1])
+            all_preds_percentage(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 2])
             axs[1, 1].set_title('Network Predictions')
             axs[1, 2].set_title('Network Predictions')
-        if img_classifier.euler_preds is not None:
-            all_preds_percentage(img_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
+        if self.image_classifier is not None:
+            all_preds_percentage(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
             axs[1, 3].set_title('Euler Predictions')
 
         if savedir:
             filename = os.path.basename(self.filepath)[:-4]
-            if len(self.fail_reasons) == 0:
-                plt.savefig(f"{savedir}/{self.CNN_classification}/{filename}.png", dpi=300)
-            else:
+            if self.fail_reasons:
                 plt.savefig(f"{savedir}/fail/{filename}.png", dpi=300)
+            else:
+                plt.savefig(f"{savedir}/{self.CNN_classification}/{filename}.png", dpi=300)
 
     def _add_fail_reason(self, fail_str):
         if not self.fail_reasons:
             self.fail_reasons = [fail_str]
         else:
-            self.fail_reasons += fail_str
+            self.fail_reasons += [fail_str]
 
     def _load_ibw_file(self, filepath):
         try:
@@ -338,7 +337,7 @@ if __name__ == '__main__':
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw",
-        category_model, denoising_model, plot=False)
+        category_model, denoising_model, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
