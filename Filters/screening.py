@@ -63,7 +63,7 @@ class FileFilter:
 
         if not self.fail_reasons:
             median_data = self._median_align(norm_data)
-            self._is_image_noisy(median_data)
+            # self._is_image_noisy(median_data)
 
         if not self.fail_reasons:
             flattened_data = self._poly_plane_flatten(median_data)
@@ -296,11 +296,11 @@ class FileFilter:
         self.normalised_euler = region["euler_number"] / np.sum(arr != 0)
 
     @staticmethod
-    def _wrap_image_to_tensorflow(img, network_img_size, jump_size=4):
+    def _wrap_image_to_tensorflow(img, network_img_size, jump_size=8):
         return ImageClassifier._wrap_image_to_tensorflow(img, network_img_size, jump_size)
 
     def _denoise(self, arr, denoising_model):
-        return denoising_model.predict(arr)
+        return np.round(denoising_model.predict(arr))
 
     def _CNN_classify(self):
         self.image_classifier.cnn_classify()
@@ -336,35 +336,35 @@ if __name__ == '__main__':
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw",
-        category_model, plot=True)
+        category_model, denoising_model, plot=False)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-        category_model, plot=True)
+        category_model, denoising_model, plot=False)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-        category_model, plot=True)
+        category_model, denoising_model, plot=False)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
-        category_model, plot=True)
+        category_model, denoising_model, plot=False)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
-        category_model, plot=True)
+        category_model, denoising_model, plot=False)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
-        category_model, plot=True)
+        category_model, denoising_model, plot=False)
     print(test_filter.fail_reasons)

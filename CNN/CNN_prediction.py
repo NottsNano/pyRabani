@@ -23,7 +23,7 @@ class ImageClassifier:
         A trained tensorflow category_model
     """
 
-    def __init__(self, img, cnn_model, window_stride=4):
+    def __init__(self, img, cnn_model, window_stride=8):
         self.img_arr = img
 
         self.cnn_model = cnn_model
