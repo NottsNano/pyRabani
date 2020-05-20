@@ -1,11 +1,11 @@
 import itertools
 
 import numpy as np
-from matplotlib import pyplot as plt
 from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_training import h5RabaniDataGenerator
 from Rabani_Generator.gen_rabanis import RabaniSweeper
+from utils import adding_noise_test
 
 
 class ImageClassifier:
@@ -78,33 +78,6 @@ class ImageClassifier:
         self.euler_majority_preds = np.mean(self.euler_preds, axis=0)
 
 
-def plot_noisy_predictions(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
-    """Progressively add noise to an image and classifying it"""
-    fig, axes = plt.subplots(1, 2)
-    fig.tight_layout(pad=3)
-    img = img.copy()
-    for i in range(noise_steps):
-        axes[0].clear()
-        axes[1].clear()
-
-        img_classifier = predict_with_noise(img, model, perc_noise, perc_std)
-
-        show_image(img, axis=axes[0])
-        all_preds_histogram(img_classifier.cnn_preds, cats, axis=axes[1])
-
-        if savedir:
-            plt.savefig(f"{savedir}/img_{i}.png")
-
-
-def predict_with_noise(img, cnn_model, perc_noise, perc_std):
-    img = img.copy()  # Do this because of immutability!
-    img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std)[0, :, :, 0]
-    img_classifier = ImageClassifier(img, cnn_model)
-    img_classifier.cnn_classify()
-
-    return img_classifier
-
-
 def validation_pred_generator(model, validation_datadir, network_type, y_params, y_cats, batch_size, imsize=128,
                               steps=None):
     """Prediction generator for simulated validation data"""
@@ -127,9 +100,7 @@ def validation_pred_generator(model, validation_datadir, network_type, y_params,
 
 
 if __name__ == '__main__':
-    from CNN.get_stats import all_preds_histogram
     from Filters.alignerwthreshold import tmp_img_loader
-    from Rabani_Generator.plot_rabani import show_image
 
     trained_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
@@ -144,7 +115,7 @@ if __name__ == '__main__':
     img[imgold == 0] = 2
 
     # See effect of adding noise to image
-    plot_noisy_predictions(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=1)
+    adding_noise_test(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=1)
     # img_classifier = ImageClassifier(img, trained_model)  # Do this because of immutability!
     # img_classifier.wrap_image()
     # img_classifier.validation_pred_image()
