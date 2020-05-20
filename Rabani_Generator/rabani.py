@@ -1,5 +1,5 @@
 """
-rabani model in python - adapted from Rabani.m - Andrew Stannard 27/06/19, Rabani cnn_model in Matlab
+rabani model in python - adapted from Rabani.m - Andrew Stannard 27/06/19, Rabani model in Matlab
 """
 
 from math import exp

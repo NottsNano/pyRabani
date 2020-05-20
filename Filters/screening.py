@@ -305,10 +305,14 @@ class FileFilter:
 
         # For each class find the mean CNN_classification
         max_class = int(np.argmax(self.image_classifier.cnn_majority_preds))
+
         if np.max(self.image_classifier.cnn_majority_preds) < 0.8:
             self._add_fail_reason("CNN not confident enough")
         if np.all(np.std(self.image_classifier.cnn_preds, axis=0) > 0.1):
             self._add_fail_reason("CNN distributions too broad")
+        if np.sum(self.image_classifier.cnn_preds[:, max_class] >= 0.9999) > (0.98 * len(
+                self.image_classifier.cnn_preds)):
+            self._add_fail_reason("CNN overfit")
 
         self.CNN_classification = self.cats[max_class]
 
