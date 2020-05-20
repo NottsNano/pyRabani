@@ -1,13 +1,13 @@
 import glob
-import numpy as np
+
 import pandas as pd
 from tensorflow.python.keras.models import load_model
 from tqdm import tqdm
 
 from Filters.screening import FileFilter
+from utils import make_pd_nans_identical
 
-# image_dir = "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img"
-IMAGE_DIR = "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/tp"
+IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box" #"/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/tp"
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-19--19-36/model.h5"
 SEARCH_RECURSIVE = True
@@ -26,11 +26,10 @@ all_files = [f for f in glob.glob(f"{IMAGE_DIR}/**/*.ibw", recursive=SEARCH_RECU
 t = tqdm(total=len(all_files), smoothing=True)
 for i, file in enumerate(all_files):
     t.update(1)
-    t.set_description(file[len(IMAGE_DIR):])
+    t.set_description(f"...{file[-25:]}")
 
     filterer = FileFilter()
-    filterer.assess_file(filepath=file, cnn_model=cnn_model, denoising_model=denoiser_model, plot=False,
-                       savedir="/home/mltest1/tmp/pycharm_project_883/Images/testfilter")
+    filterer.assess_file(filepath=file, cnn_model=cnn_model, denoising_model=denoiser_model, plot=False)
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
@@ -47,7 +46,6 @@ for i, file in enumerate(all_files):
 
     del filterer
 
-df_summary = df_summary.replace({np.nan: None})
-
+df_summary = make_pd_nans_identical(df_summary)
 # To load the list columns properly, do np.array(dframe[column].tolist())
-df_summary.to_csv("/home/mltest1/tmp/pycharm_project_883/Images/BigParse2.csv", index=False)
+df_summary.to_csv("/home/mltest1/tmp/pycharm_project_883/Data/ClassificationWithFullDenoising.csv", index=False)

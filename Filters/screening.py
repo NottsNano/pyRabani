@@ -52,43 +52,45 @@ class FileFilter:
         data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = img_classifier_euler = None
         self.filepath = filepath
 
-        # try:
-        h5_file = self._load_ibw_file(filepath)
+        try:
+            h5_file = self._load_ibw_file(filepath)
 
-        if not self.fail_reasons:
-            data, phase = self._parse_ibw_file(h5_file)
+            if not self.fail_reasons:
+                data, phase = self._parse_ibw_file(h5_file)
 
-        if not self.fail_reasons:
-            norm_data = self._normalize_data(data)
+            if not self.fail_reasons:
+                norm_data = self._normalize_data(data)
 
-        if not self.fail_reasons:
-            median_data = self._median_align(norm_data)
-            self._is_image_noisy(median_data)
+            if not self.fail_reasons:
+                median_data = self._median_align(norm_data)
+                self._is_image_noisy(median_data)
 
-        if not self.fail_reasons:
-            flattened_data = self._poly_plane_flatten(median_data)
+            if not self.fail_reasons:
+                flattened_data = self._poly_plane_flatten(median_data)
 
-        if not self.fail_reasons:
-            flattened_data = self._normalize_data(flattened_data)
-            binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+            if not self.fail_reasons:
+                flattened_data = self._normalize_data(flattened_data)
+                binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
 
-        if not self.fail_reasons:
-            self._are_lines_properly_binarised(binarized_data)
+            if not self.fail_reasons:
+                self._are_lines_properly_binarised(binarized_data)
 
-        if not self.fail_reasons:
-            if denoising_model:
-                assessment_arr = self._wrap_image_to_tensorflow(binarized_data, cnn_model.input_shape[1])
-                assessment_arr = self._denoise(assessment_arr, denoising_model)
-            else:
-                assessment_arr = binarized_data
+            if not self.fail_reasons:
+                if denoising_model:
+                    assessment_arr = self._wrap_image_to_tensorflow(binarized_data, cnn_model.input_shape[1])
+                    assessment_arr = self._denoise(assessment_arr, denoising_model)
+                else:
+                    assessment_arr = binarized_data
 
-            self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
-            self._CNN_classify()
+                self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
+                self._CNN_classify()
 
-            if assess_euler:
-                self._euler_classify()
-        # except:
-        #     self._add_fail_reason("Unexpected error")
+                if assess_euler:
+                    self._euler_classify()
+        except:
+            self.image_classifier = None
+            self._add_fail_reason("Unexpected error")
+            return None
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
@@ -159,7 +161,7 @@ class FileFilter:
             h5_file = h5py.File(translated_file, mode='r')
             return h5_file
         except:
-            self.fail_reasons += ["Corrupt file"]
+            self._add_fail_reason("Corrupt file")
 
     def _parse_ibw_file(self, h5_file):
         if 'Measurement_000/Channel_000/Raw_Data' in h5_file.keys():
