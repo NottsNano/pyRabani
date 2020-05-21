@@ -12,14 +12,17 @@ df_automated = pd.read_csv(AUTOMATED_ASSESSMENT_FILE)
 df_manual["File"] = df_manual["File"].str.replace("HtTM0.tif", "")
 df_automated["File"] = df_automated["File Path"].str.extract('.*\/(.*)\..*')
 
-# Drop duplicates and files not present in the manual assessments
-df_automated = df_automated[df_automated["File"].str.contains('|'.join(df_manual["File"]))]
-df_automated = df_automated.drop_duplicates("File")
-assert len(df_automated) <= len(df_manual), "Not enough files dropped!"
+# Drop duplicates, ambiguous files, and files not present in both assessments
+df_automated = df_automated[df_automated["File"].str.match('|'.join(df_manual["File"]))].drop_duplicates("File")
+df_manual = df_manual[df_manual["File"].str.match('|'.join(df_automated["File"]))].drop_duplicates("File")
+df_automated = df_automated[~df_automated["File"].str.contains("image|file|test", case=False)]
+df_manual = df_manual[~df_manual["File"].str.contains("image|file|test", case=False)]
 
 # Reorder rows to be identical
-df_manual = df_manual.set_index("File")
-df_automated = df_automated.set_index("File")
+df_manual = df_manual.set_index("File").sort_index()
+df_automated = df_automated.set_index("File").sort_index()
+
+assert df_automated.index.equals(df_manual.index), "Manual and automated files must be identical"
 
 # Attempt to fill in category based on regime text (N.B. OVERWRITES manual 1/0s)
 df_manual["finger"] = df_manual["Regime"].str.contains("finger", case=False).astype(int)
