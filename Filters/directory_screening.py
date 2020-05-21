@@ -5,7 +5,7 @@ from tensorflow.python.keras.models import load_model
 from tqdm import tqdm
 
 from Filters.screening import FileFilter
-from utils import make_pd_nans_identical
+from CNN.utils import make_pd_nans_identical
 
 IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box" #"/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/thres_img/tp"
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5"

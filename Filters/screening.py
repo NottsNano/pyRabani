@@ -309,7 +309,7 @@ class FileFilter:
 
         if np.max(self.image_classifier.cnn_majority_preds) < 0.8:
             self._add_fail_reason("CNN not confident enough")
-        if np.all(np.std(self.image_classifier.cnn_preds, axis=0) > 0.1):
+        if np.any(np.std(self.image_classifier.cnn_preds, axis=0) > 0.1):
             self._add_fail_reason("CNN distributions too broad")
         if np.sum(self.image_classifier.cnn_preds[:, max_class] >= 0.9999) > (0.98 * len(
                 self.image_classifier.cnn_preds)):
@@ -321,10 +321,12 @@ class FileFilter:
         self.image_classifier.euler_classify()
 
         max_class = int(np.argmax(self.image_classifier.euler_majority_preds))
-        if np.argmax(np.sum(self.image_classifier.euler_preds, axis=0) == len(self.cats)):
-            self._add_fail_reason("Euler category not clear enough")
-        if np.sum(self.image_classifier.euler_preds, axis=0)[max_class] <= 0.9 * len(self.image_classifier.euler_preds):
+        if np.max(self.image_classifier.euler_majority_preds) < 0.8:
+            self._add_fail_reason("Euler not confident enough")
+        if np.any(np.std(self.image_classifier.euler_preds, axis=0) > 0.1):
             self._add_fail_reason("Euler distributions too broad")
+        if np.argmax(np.sum(self.image_classifier.euler_preds, axis=0) == len(self.cats)):
+            self._add_fail_reason("Euler cannot classify")
 
         cats = self.cats + ["none"]
         self.euler_classification = cats[max_class]

@@ -5,7 +5,7 @@ from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_training import h5RabaniDataGenerator
 from Rabani_Generator.gen_rabanis import RabaniSweeper
-from utils import adding_noise_test
+from CNN.utils import adding_noise_test
 
 
 class ImageClassifier:
