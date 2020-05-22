@@ -2,6 +2,10 @@ from ast import literal_eval
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
+from sklearn.metrics import roc_curve, auc
+
+from CNN.get_stats import plot_confusion_matrix, ROC_one_vs_all, PR_one_vs_all
 
 
 def load_and_parse(manual_file, automated_file):
@@ -59,11 +63,58 @@ def _restore_stored_list(df):
     return df
 
 
-def _classifications_to_matrix(merged_df):
+def filter_multi_label(df_merged):
+    filtered = df_merged.drop(
+        df_merged[df_merged[["cell", "Labrynthine", "particle", "porous", "finger"]].sum(axis=1) != 1].index)
+    return filtered.drop(filtered[(filtered[["finger", "porous"]] > 0).any(axis=1)].index)
+
+
+def filter_automated_failing(df_merged, reason):
+    if reason == "any":
+        return df_merged.drop(df_merged[pd.notnull(df_merged["Fail Reasons"])].index)
+    elif reason == "euler":
+        return df_merged.drop(df_merged[df_merged["Fail Reasons"].str.contains("euler", case=False) & pd.notnull(
+            df_merged["Fail Reasons"])].index)
+    elif reason == "cnn":
+        return df_merged.drop(df_merged[df_merged["Fail Reasons"].str.contains("cnn", case=False) & pd.notnull(
+            df_merged["Fail Reasons"])].index)
+    elif reason == "preprocessing":
+        return df_merged.drop(df_merged[df_merged["Fail Reasons"].str.contains(
+            "binaris|flatten|noisy|incomplete|corrupt|unexpected", case=False) & pd.notnull(
+            df_merged["Fail Reasons"])].index)
+    else:
+        raise ValueError("reason must be one of ['any', 'euler', 'cnn', 'preprocessing']")
+
+
+def _classifications_to_matrix(df_merged):
     """Converts the classification columns of the dframes to a matrix"""
-    auto_classes_cnn = np.array(merged_df["CNN Mean"].tolist())[:, 3:]
-    auto_classes_euler = np.array(merged_df["Euler Mean"].tolist())[:, 3:]
-    manual_classes_truth = np.array(merged_df[["cell", "Labrynthine", "particle"]])
+    auto_classes_cnn = np.array(df_merged["CNN Mean"].tolist())[:, 2:]
+    auto_classes_euler = np.array(df_merged["Euler Mean"].tolist())[:, 2:-1]
+    manual_classes_truth = np.array(df_merged[["cell", "Labrynthine", "particle"]])
+
+    return auto_classes_cnn, auto_classes_euler, manual_classes_truth
+
+
+def _onehot_encode(arr):
+    return np.argmax(arr, axis=1)
+
+
+def stats_filtering(df_multiclass):
+    df_preproc_fail = filter_automated_failing(df_multiclass, reason="preprocessing")
+    print((f"{len(df_multiclass) - len(df_preproc_fail)}/{len(df_multiclass)} "
+           "multi-class human classifications could not be preprocessed"))
+
+    df_euler_fail = filter_automated_failing(df_multiclass, reason="euler")
+    print(f"{len(df_multiclass) - len(df_euler_fail)}/{len(df_preproc_fail)} "
+          "successfully preprocessed multi-class human classifications could not be confidently Euler classified")
+
+    df_cnn_fail = filter_automated_failing(df_multiclass, reason="cnn")
+    print(f"{len(df_multiclass) - len(df_cnn_fail)}/{len(df_preproc_fail)} "
+          "successfully preprocessed multi-class human classifications could not be confidently CNN classified")
+
+    df_filter_fail = filter_automated_failing(df_multiclass, reason="any")
+    print(f"{len(df_multiclass) - len(df_filter_fail)}/{len(df_multiclass)} "
+          "total multi-class human classifications could not be preprocessed/classified")
 
 
 if __name__ == '__main__':
@@ -74,13 +125,19 @@ if __name__ == '__main__':
     dframe_manual, dframe_automated = load_and_parse(MANUAL_ASSESSMENT_FILE, AUTOMATED_ASSESSMENT_FILE)
 
     # Filter results
-    # Remove manual multi-label classifications
     dframe_merged = dframe_manual.join(dframe_automated)
-    dframe_merged = dframe_merged.drop(
-        dframe_merged[dframe_merged[["cell", "Labrynthine", "particle"]].sum(axis=1) != 1].index)
+    dframe_multilabel_filtered = filter_multi_label(dframe_merged)
+    dframe_failing_filtered = filter_automated_failing(dframe_multilabel_filtered, reason="preprocessing")
 
-    # Remove automated filtered out
+    # Get stats
+    pred_cnn, pred_euler, truth = _classifications_to_matrix(dframe_failing_filtered)
+    stats_filtering(dframe_multilabel_filtered)
 
-    # Turn classifications into matrices
-
-    # Get classification report and graphs
+    plot_confusion_matrix(y_truth=_onehot_encode(truth), y_pred=_onehot_encode(pred_cnn),
+                          cats=CATS, title="CNN Preds")
+    plot_confusion_matrix(y_truth=_onehot_encode(truth), y_pred=_onehot_encode(pred_euler),
+                          cats=CATS, title="Euler Preds")
+    ROC_one_vs_all(pred_cnn, truth, cats=CATS, title="CNN ROC")
+    ROC_one_vs_all(pred_euler, truth, cats=CATS, title="Euler ROC")
+    PR_one_vs_all(pred_cnn, truth, cats=CATS, title="CNN ROC")
+    PR_one_vs_all(pred_euler, truth, cats=CATS, title="Euler ROC")

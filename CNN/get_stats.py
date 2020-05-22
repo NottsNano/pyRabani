@@ -16,7 +16,7 @@ def plot_model_history(model):
         plt.ylabel(plot_metric)
 
 
-def plot_confusion_matrix(y_truth, y_pred, cats, cmap=None, normalize=True):
+def plot_confusion_matrix(y_truth, y_pred, cats, cmap=None, normalize=True, title=None):
     cm = metrics.confusion_matrix(y_truth, y_pred)
     accuracy = np.trace(cm) / float(np.sum(cm))
     misclass = 1 - accuracy
@@ -52,12 +52,17 @@ def plot_confusion_matrix(y_truth, y_pred, cats, cmap=None, normalize=True):
     plt.ylabel('True label')
     plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
 
+    if title:
+        plt.title(title)
+
+
 def all_preds_percentage(preds, cats, axis=None):
     if not axis:
         fig, axis = plt.subplots(1, 1)
 
     axis.pie(np.sum(preds, axis=0), labels=cats)
     axis.axis("equal")
+
 
 def all_preds_histogram(preds, cats, axis=None):
     if not axis:
@@ -73,7 +78,7 @@ def all_preds_histogram(preds, cats, axis=None):
         axis.set_ylim([0, 100])
 
 
-def ROC_one_vs_all(majority_pred, truth, cats, axis=None):
+def ROC_one_vs_all(majority_pred, truth, cats, title=None, axis=None):
     fpr = {}
     tpr = {}
     tholds = {}
@@ -87,8 +92,13 @@ def ROC_one_vs_all(majority_pred, truth, cats, axis=None):
             truth[:, i].astype(int), majority_pred[:, i]))
         roc_auc[cat] = metrics.auc(fpr[cat], tpr[cat])
         axis.plot(fpr[cat], tpr[cat], label=f'{cat}, AUC = {roc_auc[cat]:.2f}')
+    axis.plot([0, 1], [0, 1], 'k--')
+    
+    if title:
+        axis.set_title(title)
+    else:
+        axis.set_title('Receiver Operating Characteristic')
 
-    axis.set_title('Receiver Operating Characteristic')
     axis.set_xlabel('False Positive Rate')
     axis.set_ylabel('True Positive Rate')
     axis.set_xlim([0, 1])
@@ -98,7 +108,7 @@ def ROC_one_vs_all(majority_pred, truth, cats, axis=None):
     return tpr, fpr, tholds, roc_auc
 
 
-def PR_one_vs_all(majority_pred, truth, cats, axis=None):
+def PR_one_vs_all(majority_pred, truth, cats, title=None, axis=None):
     prec = {}
     recall = {}
     tholds = {}
@@ -113,7 +123,10 @@ def PR_one_vs_all(majority_pred, truth, cats, axis=None):
         pr_auc[cat] = metrics.auc(recall[cat], prec[cat])
         axis.plot(prec[cat], recall[cat], label=f'{cat}, AUC = {pr_auc[cat]:.2f}')
 
-    axis.set_title('Precision-Recall')
+    if title:
+        axis.set_title(title)
+    else:
+        axis.set_title('Precision-Recall')
     axis.set_xlabel('Precision')
     axis.set_ylabel('Recall')
     axis.set_xlim([0, 1])
@@ -135,7 +148,7 @@ if __name__ == '__main__':
     # Predict simulated validation set
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"
     y_preds, y_truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-                                             y_params=params, y_cats=cats, batch_size=100, imsize=128)
+                                                 y_params=params, y_cats=cats, batch_size=100, imsize=128)
 
     # Calculate CNN_classification stats
     ROC_one_vs_all(y_preds, y_truth, cats)
