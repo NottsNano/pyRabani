@@ -36,26 +36,34 @@ def load_and_parse(manual_file, automated_file):
     df_manual["Labrynthine"] = df_manual[["Labrynthine", "worm"]].max(axis=1)
     df_manual = df_manual.drop(["worm"], axis=1)
 
-    df_automated[["CNN Mean", "CNN std", "Euler Mean", "Euler std"]] = _restore_stored_list(df_automated[["CNN Mean", "CNN std", "Euler Mean", "Euler std"]])
+    df_automated[["CNN Mean", "CNN std", "Euler Mean", "Euler std"]] = _restore_stored_list(
+        df_automated[["CNN Mean", "CNN std", "Euler Mean", "Euler std"]])
 
     return df_manual, df_automated
 
 
 def _restore_stored_list(df):
     """Allows pandas cells saved as lists to be acted on as lists instead of strings"""
-    df = df.copy()      # Avoid mutability issues
+    df = df.copy()  # Avoid mutability issues
 
     for col in list(df.columns):
         df[col] = df[col].str.replace("\s{1,10}", ",")
         df[col] = df[col].str.replace(",]", "]")
 
-        list_len = int(df[col].str.count(",").max())+1
+        list_len = int(df[col].str.count(",").max()) + 1
         strng = str([0.] * list_len)
         df[col] = df[col].replace(np.nan, strng)
 
-        df[col] = df[col].apply(literal_eval)      # pd.eval only works with 100 vals - recommended workaround
+        df[col] = df[col].apply(literal_eval)  # pd.eval only works with 100 vals - recommended workaround
 
     return df
+
+
+def _classifications_to_matrix(merged_df):
+    """Converts the classification columns of the dframes to a matrix"""
+    auto_classes_cnn = np.array(merged_df["CNN Mean"].tolist())[:, 3:]
+    auto_classes_euler = np.array(merged_df["Euler Mean"].tolist())[:, 3:]
+    manual_classes_truth = np.array(merged_df[["cell", "Labrynthine", "particle"]])
 
 
 if __name__ == '__main__':
@@ -68,14 +76,11 @@ if __name__ == '__main__':
     # Filter results
     # Remove manual multi-label classifications
     dframe_merged = dframe_manual.join(dframe_automated)
-
+    dframe_merged = dframe_merged.drop(
+        dframe_merged[dframe_merged[["cell", "Labrynthine", "particle"]].sum(axis=1) != 1].index)
 
     # Remove automated filtered out
 
     # Turn classifications into matrices
-
-    automated_classifications_cnn = np.array(dframe_automated["CNN Mean"].tolist())[:, 3:]
-    automated_classifications_euler = np.array(dframe_automated["Euler Mean"].tolist())[:, 3:]
-    manual_classifications_true = np.array(dframe_manual[["cell", "Labrynthine", "particle"]])
 
     # Get classification report and graphs
