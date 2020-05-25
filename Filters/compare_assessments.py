@@ -3,9 +3,11 @@ from ast import literal_eval
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import classification_report
 
 from CNN.get_stats import plot_confusion_matrix, ROC_one_vs_all, PR_one_vs_all
+from Filters.screening import FileFilter
+from Rabani_Generator.plot_rabani import show_image
 
 
 def load_and_parse(manual_file, automated_file):
@@ -37,8 +39,8 @@ def load_and_parse(manual_file, automated_file):
     df_manual["worm"] = df_manual["Regime"].str.contains("worm", case=False).astype(int)
 
     # Combine 'labyrinthine' and 'worm' columns
-    df_manual["Labrynthine"] = df_manual[["Labrynthine", "worm"]].max(axis=1)
-    df_manual = df_manual.drop(["worm"], axis=1)
+    # df_manual["Labrynthine"] = df_manual[["Labrynthine", "worm"]].max(axis=1)
+    # df_manual = df_manual.drop(["worm"], axis=1)
 
     df_automated[["CNN Mean", "CNN std", "Euler Mean", "Euler std"]] = _restore_stored_list(
         df_automated[["CNN Mean", "CNN std", "Euler Mean", "Euler std"]])
@@ -117,8 +119,21 @@ def stats_filtering(df_multiclass):
           "total multi-class human classifications could not be preprocessed/classified")
 
 
+def compare_classifications(df):
+    ngridpts = int(np.sqrt(len(df)))
+    fig, axs = plt.subplots(ngridpts, ngridpts)
+    axs = axs.reshape((-1,))
+
+    for i, file in enumerate(df.iterrows()):
+        filterer = FileFilter()
+        filterer.assess_file(file[1]["File Path"])
+
+        show_image(filterer.binarized_data, axis=axs[i],
+                   title=f"Steff = {file[1]['File Path']} | CNN = {file[1]['CNN Classification']}")
+
+
 if __name__ == '__main__':
-    AUTOMATED_ASSESSMENT_FILE = "/home/mltest1/tmp/pycharm_project_883/Data/ClassificationWithFullDenoising.csv"
+    AUTOMATED_ASSESSMENT_FILE = "/home/mltest1/tmp/pycharm_project_883/Data/ClassificationWithoutFullDenoising.csv"
     MANUAL_ASSESSMENT_FILE = "/home/mltest1/tmp/pycharm_project_883/Data/steff_assessment.csv"
     CATS = ["Cellular", "Labyrinthine", "Islands"]
 
@@ -127,7 +142,7 @@ if __name__ == '__main__':
     # Filter results
     dframe_merged = dframe_manual.join(dframe_automated)
     dframe_multilabel_filtered = filter_multi_label(dframe_merged)
-    dframe_failing_filtered = filter_automated_failing(dframe_multilabel_filtered, reason="preprocessing")
+    dframe_failing_filtered = filter_automated_failing(dframe_multilabel_filtered, reason="any")
 
     # Get stats
     pred_cnn, pred_euler, truth = _classifications_to_matrix(dframe_failing_filtered)
@@ -137,7 +152,12 @@ if __name__ == '__main__':
                           cats=CATS, title="CNN Preds")
     plot_confusion_matrix(y_truth=_onehot_encode(truth), y_pred=_onehot_encode(pred_euler),
                           cats=CATS, title="Euler Preds")
+
     ROC_one_vs_all(pred_cnn, truth, cats=CATS, title="CNN ROC")
     ROC_one_vs_all(pred_euler, truth, cats=CATS, title="Euler ROC")
+
     PR_one_vs_all(pred_cnn, truth, cats=CATS, title="CNN ROC")
     PR_one_vs_all(pred_euler, truth, cats=CATS, title="Euler ROC")
+
+    classification_report(y_pred=_onehot_encode(pred_cnn), y_true=_onehot_encode(truth))
+    classification_report(y_pred=_onehot_encode(pred_euler), y_true=_onehot_encode(truth))

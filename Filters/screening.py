@@ -19,13 +19,14 @@ class FileFilter:
         self.image_res = None
         self.image_classifier = None
         self.normalised_euler = None
+        self.binarized_data = None
         self.fail_reasons = None
         self.CNN_classification = None
         self.euler_classification = None
         self.filepath = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    def assess_file(self, filepath, cnn_model, denoising_model=None, assess_euler=True, plot=False, savedir=None):
+    def assess_file(self, filepath, cnn_model=None, denoising_model=None, assess_euler=True, plot=False, savedir=None):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
@@ -33,7 +34,8 @@ class FileFilter:
         filepath : str
             Path linking to a .ibw file to assess
         cnn_model : object of type tensorflow.category_model
-            Tensorflow category_model containing categories FileFilter.cats
+            Optional. Tensorflow category_model containing categories FileFilter.cats.
+            If None (default), only preprocessing will take place
         denoising_model : None or object of type tensorflow.category_model
             Optional. Tensorflow category_model to perform denoising. Default None
         assess_euler : bool
@@ -70,30 +72,31 @@ class FileFilter:
 
             if not self.fail_reasons:
                 flattened_data = self._normalize_data(flattened_data)
-                binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+                self.binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
 
             if not self.fail_reasons:
-                self._are_lines_properly_binarised(binarized_data)
+                self._are_lines_properly_binarised(self.binarized_data)
 
             if not self.fail_reasons:
                 if denoising_model:
-                    assessment_arr = self._wrap_image_to_tensorflow(binarized_data, cnn_model.input_shape[1])
+                    assessment_arr = self._wrap_image_to_tensorflow(self.binarized_data, cnn_model.input_shape[1])
                     assessment_arr = self._denoise(assessment_arr, denoising_model)
                 else:
-                    assessment_arr = binarized_data
+                    assessment_arr = self.binarized_data
 
-                self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
-                self._CNN_classify()
+                if category_model:
+                    self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
+                    self._CNN_classify()
 
-                if assess_euler:
-                    self._euler_classify()
+                    if assess_euler:
+                        self._euler_classify()
         except:
             self.image_classifier = None
             self._add_fail_reason("Unexpected error")
             return None
 
         if plot or savedir:
-            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
+            self._plot(data, median_data, flattened_data, self.binarized_data, binarized_data_for_plotting, savedir)
             if not plot:
                 plt.close()
 

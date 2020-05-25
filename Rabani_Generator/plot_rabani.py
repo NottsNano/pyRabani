@@ -229,7 +229,7 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
     return x, y
 
 
-def show_image(img, axis=None):
+def show_image(img, axis=None, title=None):
     """Show a binarized image"""
     img[0, 0] = 0
     img[0, 1] = 1
@@ -243,6 +243,9 @@ def show_image(img, axis=None):
         fig, axis = plt.subplots(1, 1)
     axis.imshow(img, cmap=cmap)
     axis.axis("off")
+
+    if title:
+        axis.set_title(title)
 
 
 def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_datadir, imsize=128):
