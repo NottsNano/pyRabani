@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
 from skimage import measure
 from tensorflow.python.keras.models import load_model
-
+import pyUSID as usid
 from CNN.CNN_prediction import ImageClassifier
 from CNN.get_stats import all_preds_histogram, all_preds_percentage
 from Rabani_Generator.plot_rabani import show_image
@@ -16,7 +16,7 @@ from Rabani_Generator.plot_rabani import show_image
 class FileFilter:
     def __init__(self):
         self._igor_translator = scope.io.translators.IgorIBWTranslator(max_mem_mb=1024)
-        self.image_res = None
+        self.image_res = self.image_size = None
         self.image_classifier = None
         self.normalised_euler = None
         self.binarized_data = None
@@ -174,6 +174,8 @@ class FileFilter:
             # print(f"{h5_file}")
             self._add_fail_reason("Corrupt scan")
             return None
+
+        self.image_size = usid.hdf_utils.get_all_main(h5_file)[0].get_pos_values("X").max()
 
         if int(np.sqrt(len(arr_data))) == np.sqrt(len(arr_data)):
             self.image_res = int(np.sqrt(len(arr_data)))

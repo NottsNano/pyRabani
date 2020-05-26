@@ -17,7 +17,7 @@ cnn_model = load_model(CNN_DIR)
 denoiser_model = load_model(DENOISER_DIR)
 
 df_summary = pd.DataFrame(
-    columns=["File Path", "Resolution", "Fail Reasons",
+    columns=["File Path", "Resolution", "Size", "Fail Reasons",
              "CNN Classification", "CNN Mean", "CNN std",
              "Euler Classification", "Euler Mean", "Euler std"])
 
@@ -36,6 +36,7 @@ for i, file in enumerate(all_files):
 
         df_summary.loc[i, ["File Path"]] = [file]
         df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
+        df_summary.loc[i, ["Size"]] = [filterer.image_size]
         df_summary.loc[i, ["Fail Reasons"]] = [filterer.fail_reasons]
         df_summary.loc[i, ["CNN Classification"]] = [filterer.CNN_classification]
         df_summary.loc[i, ["Euler Classification"]] = [filterer.euler_classification]
