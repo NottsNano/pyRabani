@@ -12,7 +12,7 @@ from numba import jit, prange
 from Rabani_Generator.plot_rabani import show_image
 
 
-@jit(nopython=True, fastmath=False, cache=False)
+@jit(nopython=True, fastmath=True, cache=True)
 def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
     # L = 128  # System length
     N = L ** 2  # System volume
@@ -278,7 +278,7 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
     return out, m
 
 
-@jit(nopython=True, parallel=True, fastmath=False, cache=False)
+@jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def _run_rabani_sweep(params):
     axis_steps = len(params)
     runs = np.zeros((axis_steps, int(params[0, 6]), int(params[0, 6])))
