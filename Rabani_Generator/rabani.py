@@ -9,8 +9,10 @@ import numpy as np
 from matplotlib import colors
 from numba import jit, prange
 
+from Rabani_Generator.plot_rabani import show_image
 
-@jit(nopython=True, fastmath=True, cache=True)
+
+@jit(nopython=True, fastmath=False, cache=False)
 def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
     # L = 128  # System length
     N = L ** 2  # System volume
@@ -276,23 +278,20 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
     return out, m
 
 
-@jit(nopython=True, parallel=True, fastmath=True, cache=True)
+@jit(nopython=True, parallel=True, fastmath=False, cache=False)
 def _run_rabani_sweep(params):
     axis_steps = len(params)
-    runs = np.zeros((int(params[0, 6]), int(params[0, 6]), axis_steps))
+    runs = np.zeros((axis_steps, int(params[0, 6]), int(params[0, 6])))
     m_all = np.zeros((axis_steps,))
 
     for i in prange(axis_steps):
-        runs[:, :, i], m_all[i] = rabani_single(kT=params[i, 0], mu=params[i, 1], MR=int(params[i, 2]), C=params[i, 3],
-                                                e_nl=params[i, 4], e_nn=params[i, 5], L=int(params[i, 6]))
+        runs[i, :, :], m_all[i] = rabani_single(kT=float(params[i, 0]), mu=float(params[i, 1]),
+                                                MR=int(params[i, 2]), C=float(params[i, 3]),
+                                                e_nl=float(params[i, 4]), e_nn=float(params[i, 5]), L=int(params[i, 6]))
 
     return runs, m_all
 
 
 if __name__ == '__main__':
-    img, num_steps = rabani_single(kT=0.6, mu=2.8, MR=1, C=0.3, e_nl=1.5, e_nn=2, L=128)
-
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-    plt.imshow(img, cmap=cmap)
+    img, num_steps = rabani_single(kT=0.3, mu=3.2, MR=1, C=0.3, e_nl=1.5, e_nn=2, L=128)
+    show_image(img)

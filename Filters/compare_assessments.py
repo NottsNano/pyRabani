@@ -129,7 +129,7 @@ def compare_classifications(df):
         filterer.assess_file(file[1]["File Path"])
 
         show_image(filterer.binarized_data, axis=axs[i],
-                   title=f"Steff = {file[1]['File Path']} | CNN = {file[1]['CNN Classification']}")
+                   title=f"Steff = {file[1]['Regime']} | CNN = {file[1]['CNN Classification']}")
 
 
 if __name__ == '__main__':

@@ -117,7 +117,6 @@ class RabaniSweeper:
 
             for image_rep in range(image_reps):
                 imgs, m_all = _run_rabani_sweep(self.params)
-                imgs = np.swapaxes(imgs, 0, 2)
                 self.save_rabanis(imgs, m_all)
                 pbar.update(block_size)
 
@@ -128,7 +127,7 @@ class RabaniSweeper:
             os.makedirs(dir)
 
     def save_rabanis(self, imgs, m_all):
-        for rep, img in enumerate(imgs):  # Does rep not match up with params?
+        for rep, img in enumerate(imgs):
             master_file = h5py.File(
                 f"{self._file_base}--{self.sweep_cnt}.h5",
                 "a")
@@ -212,11 +211,11 @@ if __name__ == '__main__':
                   "MR": 1,
                   "C": 0.3,
                   "e_nl": 1.5,
-                  "e_nn": 3,
+                  "e_nn": 2,
                   "L": 128}
 
-    axis_res = {"kT": 10,
-                "mu": 10}
+    axis_res = {"kT": 5,
+                "mu": 5}
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
