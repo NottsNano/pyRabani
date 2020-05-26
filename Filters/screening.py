@@ -175,7 +175,7 @@ class FileFilter:
             self._add_fail_reason("Corrupt scan")
             return None
 
-        self.image_size = usid.hdf_utils.get_all_main(h5_file)[0].get_pos_values("X").max()
+        self.image_size = h5_file["Measurement_000"]["Position_Values"][-1, -1]
 
         if int(np.sqrt(len(arr_data))) == np.sqrt(len(arr_data)):
             self.image_res = int(np.sqrt(len(arr_data)))
