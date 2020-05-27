@@ -11,7 +11,7 @@ from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 
-from CNN.utils import power_resize
+from CNN.utils import power_resize, remove_least_common_level
 
 
 def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
@@ -56,12 +56,16 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
         # Find most appropriate location to place image in image grid
         x_ind = np.searchsorted(x_vals, img_file.attrs[xaxis])
         y_ind = np.searchsorted(y_vals, img_file.attrs[yaxis])
-        img = power_resize(img_file["sim_results"]["image"][()], img_res) * 255 // 2
+
+        bin_img = remove_least_common_level(img_file["sim_results"]["image"][()])
+        img = power_resize(bin_img, img_res)
+
         big_img_arr[(y_ind * img_res):((y_ind + 1) * img_res), (x_ind * img_res):((x_ind + 1) * img_res)] = np.flipud(
             img)
 
         # If there's a trained model input, make an array of predictions
-        assert categories, "Need categories if also inputting a model" if trained_model else None
+        if trained_model:
+            assert categories, "Need categories if also inputting a model"
         if categories:
             if trained_model:
                 pred = np.argmax(trained_model.predict(np.expand_dims(np.expand_dims(img, 0), -1)))
@@ -70,6 +74,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
 
             preds_arr[(y_ind * img_res):((y_ind + 1) * img_res), (x_ind * img_res):((x_ind + 1) * img_res)] = pred
 
+        # Parse the normalised euler number
         eulers[y_ind, x_ind] = img_file['sim_results']["region_props"]["normalised_euler_number"][()]
         reg = measure.regionprops((img_file['sim_results']["image"][()] != 0) + 1)[0]
         eulers_cmp[y_ind, x_ind] = reg["euler_number"] / np.sum(img_file['sim_results']["image"][()] == 2)
@@ -180,7 +185,7 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
                 # Plot
                 big_img[plot_j * img_res:(plot_j + 1) * img_res,
                 plot_i * img_res:(plot_i + 1) * img_res] = power_resize(
-                    img_file["sim_results"]["image"][()], img_res) * 255 // 2
+                    img_file["sim_results"]["image"][()], img_res)
 
         axs[plot_num].imshow(big_img, cmap=cmap)
 
@@ -315,10 +320,10 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
 
 
 if __name__ == '__main__':
-    dir = "Data/Simulated_Images/2020-05-26/18-35"
+    dir = "Data/Simulated_Images/2020-05-27/13-13"
     model = load_model("Data/Trained_Networks/2020-03-30--18-10/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
     x, y = show_random_selection_of_images(dir, 25,

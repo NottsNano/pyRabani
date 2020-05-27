@@ -1,13 +1,13 @@
 import json
 import os
 import platform
+import warnings
 from datetime import datetime
 from itertools import product
 
 import h5py
 import numpy as np
 import paramiko
-import warnings
 from scipy.stats import mode
 from skimage import measure
 from tqdm import tqdm
@@ -101,7 +101,7 @@ class RabaniSweeper:
         C_linspace = get_linspace_ranges(params, "C", axis_steps)
         e_nl_linspace = get_linspace_ranges(params, "e_nl", axis_steps)
         e_nn_linspace = get_linspace_ranges(params, "e_nn", axis_steps)
-        L_all = get_linspace_ranges(params, "L", axis_steps)
+        L_all = np.array(list(map(int, get_linspace_ranges(params, "L", axis_steps))))
 
         tot_len = len(np.array(
             list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, L_all))))
@@ -116,13 +116,13 @@ class RabaniSweeper:
         pbar = tqdm(total=tot_len * image_reps)
         for image_rep in range(image_reps):
             for L in L_all:
-                self.params = np.array(
+                params = np.array(
                     list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, [L])))
-                assert 0. not in self.params, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
+                assert 0. not in params, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
 
-                imgs, m_all = _run_rabani_sweep(self.params)
-                self.save_rabanis(imgs, m_all)
-                pbar.update(len(self.params))
+                imgs, m_all = _run_rabani_sweep(params)
+                self.save_rabanis(imgs, m_all, params)
+                pbar.update(len(params))
 
         self.end_datetime = datetime.now()
 
@@ -130,21 +130,21 @@ class RabaniSweeper:
         if not os.path.isdir(dir):
             os.makedirs(dir)
 
-    def save_rabanis(self, imgs, m_all):
+    def save_rabanis(self, imgs, m_all, params):
         for rep, img in enumerate(imgs):
             master_file = h5py.File(
                 f"{self._file_base}--{self.sweep_cnt}.h5",
                 "a")
 
-            region, cat = self.calculate_stats(img, self.params[rep, 6])
+            region, cat = self.calculate_stats(img, params[rep, 6])
 
-            master_file.attrs["kT"] = self.params[rep, 0]
-            master_file.attrs["mu"] = self.params[rep, 1]
-            master_file.attrs["MR"] = self.params[rep, 2]
-            master_file.attrs["C"] = self.params[rep, 3]
-            master_file.attrs["e_nl"] = self.params[rep, 4]
-            master_file.attrs["e_nn"] = self.params[rep, 5]
-            master_file.attrs["L"] = self.params[rep, 6]
+            master_file.attrs["kT"] = params[rep, 0]
+            master_file.attrs["mu"] = params[rep, 1]
+            master_file.attrs["MR"] = params[rep, 2]
+            master_file.attrs["C"] = params[rep, 3]
+            master_file.attrs["e_nl"] = params[rep, 4]
+            master_file.attrs["e_nn"] = params[rep, 5]
+            master_file.attrs["L"] = params[rep, 6]
             master_file.attrs["category"] = cat
 
             sim_results = master_file.create_group("sim_results")
@@ -205,7 +205,7 @@ class RabaniSweeper:
 if __name__ == '__main__':
     root_dir = "Data/Simulated_Images"
 
-    total_image_reps = 1
+    total_image_reps = 10
 
     parameters = {"kT": [0.07, 0.4],
                   "mu": [2.35, 3],
@@ -213,13 +213,13 @@ if __name__ == '__main__':
                   "C": 0.3,
                   "e_nl": 1.5,
                   "e_nn": 2,
-                  "L": [64, 512]}
+                  "L": [64, 200]}
 
-    axis_res = {"kT": 15,
-                "mu": 15,
-                "L": 3}
+    axis_res = {"kT": 25,
+                "mu": 25,
+                "L": 10}
 
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)

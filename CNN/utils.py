@@ -60,4 +60,27 @@ def power_resize(image, newsize):
 
 def nn_resize(image, newsize):
     """Resize image by any amount, with nearest-neighbour interpolation"""
-    return resize(image, (newsize, newsize), order=0, anti_aliasing=True)
+    new_image = (resize(image, (newsize, newsize), order=0) * 255 // 2).astype(int)
+
+    # Fix aliasing making NP -> L
+    if np.all(np.unique(image) == [0, 2]):
+        new_image[new_image == 1] = 2
+
+    return new_image
+
+
+def remove_least_common_level(image):
+    level_vals, counts = np.unique(image, return_counts=True)
+
+    if len(counts) > 2:
+        least_common_ind = np.argmin(counts)
+        least_common_val = level_vals[least_common_ind]
+
+        common_vals = np.delete(level_vals, least_common_ind)
+
+        replacement_inds = np.nonzero(image == least_common_ind)
+        replacement_vals = np.random.choice(common_vals, size=(len(replacement_inds[0]),), p=[0.5, 0.5])
+
+        image[replacement_inds[0], replacement_inds[1]] = replacement_vals
+
+    return image

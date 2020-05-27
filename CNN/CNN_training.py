@@ -155,6 +155,7 @@ class h5RabaniDataGenerator(Sequence):
             self.__reset_file_iterator__()
 
         if self.network_type is "classifier":
+            batch_x = self._patch_binarisation(batch_x)
             if self.is_validation_set:
                 self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
                 :] = batch_y
@@ -318,19 +319,19 @@ if __name__ == '__main__':
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
-    # trained_model = train_classifier(cnn_dir="Data/Trained_Networks", train_datadir=training_data_dir,
-    #                                  test_datadir=testing_data_dir,
-    #                                  y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
-    #                                  epochs=75)
-    trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
-                                      test_datadir=testing_data_dir,
-                                      y_params=original_parameters, y_cats=original_categories, batch_size=128,
-                                      imsize=128,
-                                      epochs=15)
+    trained_model = train_classifier(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
+                                     test_datadir=testing_data_dir,
+                                     y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
+                                     epochs=75)
+    # trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
+    #                                   test_datadir=testing_data_dir,
+    #                                   y_params=original_parameters, y_cats=original_categories, batch_size=128,
+    #                                   imsize=128,
+    #                                   epochs=15)
 
     plot_model_history(trained_model)
-    visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,
-                                good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
-                                bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
+    # visualise_autoencoder_preds(trained_model, simulated_datadir=testing_data_dir,
+    #                             good_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Good_Images",
+    #                             bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
 
     save_model(trained_model, "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks")
