@@ -7,6 +7,7 @@ from itertools import product
 import h5py
 import numpy as np
 import paramiko
+import warnings
 from scipy.stats import mode
 from skimage import measure
 from tqdm import tqdm
@@ -34,9 +35,9 @@ class RabaniSweeper:
         self.params = None
         self.sweep_cnt = 1
 
-        self._time = f"{self.root_dir}/{self.start_date}/{self.start_time}"
-        self._file_base = f"{self._time}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}"
-        self.make_storage_folder(self._time)
+        self._dir_base = f"{self.root_dir}/{self.start_date}/{self.start_time}"
+        self._file_base = f"{self._dir_base}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}"
+        self.make_storage_folder(self._dir_base)
 
     def setup_ssh(self):
         with open("details.json", 'r') as f:
@@ -100,7 +101,7 @@ class RabaniSweeper:
         C_linspace = get_linspace_ranges(params, "C", axis_steps)
         e_nl_linspace = get_linspace_ranges(params, "e_nl", axis_steps)
         e_nn_linspace = get_linspace_ranges(params, "e_nn", axis_steps)
-        L_all = get_square_ranges(params["L"], axis_steps)
+        L_all = get_linspace_ranges(params, "L", axis_steps)
 
         tot_len = len(np.array(
             list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, L_all))))
@@ -108,17 +109,20 @@ class RabaniSweeper:
         current_time = self.start_datetime.strftime("%H:%M:%S")
         print(f"{current_time} - Beginning generation of {tot_len * image_reps} rabanis")
 
-        pbar = tqdm(total=tot_len * image_reps)
-        for L in L_all:
-            self.params = np.array(
-                list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, [L])))
-            block_size = len(self.params)
-            assert 0. not in self.params, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
+        if self.generate_mode == "visualise":
+            warnings.warn("Generation mode is currently set to visualisation!")
+            assert image_reps == 1
 
-            for image_rep in range(image_reps):
+        pbar = tqdm(total=tot_len * image_reps)
+        for image_rep in range(image_reps):
+            for L in L_all:
+                self.params = np.array(
+                    list(product(kT_linspace, mu_linspace, MR_linspace, C_linspace, e_nl_linspace, e_nn_linspace, [L])))
+                assert 0. not in self.params, "Setting any value to 0 will cause buffer overflows and corrupted runs!"
+
                 imgs, m_all = _run_rabani_sweep(self.params)
                 self.save_rabanis(imgs, m_all)
-                pbar.update(block_size)
+                pbar.update(len(self.params))
 
         self.end_datetime = datetime.now()
 
@@ -155,12 +159,11 @@ class RabaniSweeper:
 
             master_file.close()
 
-            if cat is not "none":
-                if self.sftp_when_done:
-                    self.network_rabanis()
-            elif self.generate_mode is "make_dataset":
-                os.remove(
-                    f"{self._file_base}--{self.sweep_cnt}.h5")
+            if (cat == "none") and (self.generate_mode == "make_dataset"):
+                os.remove(f"{self._file_base}--{self.sweep_cnt}.h5")
+
+            if self.sftp_when_done:
+                self.network_rabanis()
 
             self.sweep_cnt += 1
 
@@ -177,13 +180,13 @@ class RabaniSweeper:
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        elif -0.005 <= region["euler_number"] / np.sum(img == nano_num):
+        elif -0.00025 <= region["euler_number"] / np.sum(img == nano_num):
             # Cell/Worm if starting to form
             cat = "cellular"
-        elif -0.045 <= region["euler_number"] / np.sum(img == nano_num) < -0.005:
+        elif -0.02 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
             # Labyrinth
             cat = "labyrinth"
-        elif region["euler_number"] / np.sum(img == nano_num) <= -0.045:
+        elif region["euler_number"] / np.sum(img == nano_num) <= -0.03:
             # Island
             cat = "island"
         else:
@@ -194,11 +197,9 @@ class RabaniSweeper:
     def network_rabanis(self):
         if not self.ssh:
             self.setup_ssh()
-        self.sftp.put(
-            f"{self._file_base}--{self.sweep_cnt - 1}.h5",
-            f"/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/date/time/rabanis--{platform.node()}--{self.start_date}--{self.start_time}--{self.sweep_cnt - 1}.h5")
-        os.remove(
-            f"{self._file_base}--{self.sweep_cnt}.h5")
+        for file in os.listdir(self._dir_base):
+            self.sftp.put(file, f"/home/mltest1/tmp/pycharm_project_883/{self._dir_base}/{file}")
+            os.remove(f"{self._dir_base}/{file}")
 
 
 if __name__ == '__main__':
@@ -206,18 +207,19 @@ if __name__ == '__main__':
 
     total_image_reps = 1
 
-    parameters = {"kT": [0.01, 0.35],
-                  "mu": [2.35, 3.47],
+    parameters = {"kT": [0.07, 0.4],
+                  "mu": [2.35, 3],
                   "MR": 1,
                   "C": 0.3,
                   "e_nl": 1.5,
                   "e_nn": 2,
-                  "L": 128}
+                  "L": [64, 512]}
 
-    axis_res = {"kT": 5,
-                "mu": 5}
+    axis_res = {"kT": 15,
+                "mu": 15,
+                "L": 3}
+
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)
-

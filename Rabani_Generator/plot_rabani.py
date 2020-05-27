@@ -1,9 +1,9 @@
 import glob
 import os
+import warnings
 
 import h5py
 import numpy as np
-import warnings
 from matplotlib import colors, pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.ticker import MultipleLocator
@@ -11,17 +11,7 @@ from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 
-
-def power_resize(image, newsize):
-    """Enlarge image by a factor of ^2"""
-    if image.shape[0] != newsize:
-        num_tiles = newsize / image.shape[0]
-        assert num_tiles % 1 == 0, f"New image must be ^2 larger than original image (Requested {image.shape[0]} -> {newsize})"
-        new_image = np.repeat(np.repeat(image, int(num_tiles), axis=0), int(num_tiles), axis=1)
-    else:
-        new_image = image
-
-    return new_image
+from CNN.utils import power_resize
 
 
 def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
@@ -71,9 +61,13 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
             img)
 
         # If there's a trained model input, make an array of predictions
-        if trained_model:
-            pred = np.argmax(
-                trained_model.predict(np.expand_dims(np.expand_dims(img, 0), -1)))
+        assert categories, "Need categories if also inputting a model" if trained_model else None
+        if categories:
+            if trained_model:
+                pred = np.argmax(trained_model.predict(np.expand_dims(np.expand_dims(img, 0), -1)))
+            else:
+                pred = cats.index(img_file.attrs["category"])
+
             preds_arr[(y_ind * img_res):((y_ind + 1) * img_res), (x_ind * img_res):((x_ind + 1) * img_res)] = pred
 
         eulers[y_ind, x_ind] = img_file['sim_results']["region_props"]["normalised_euler_number"][()]
@@ -98,12 +92,11 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
     # Sample grid
     fig1, ax1 = plt.subplots()
     plt.imshow(big_img_arr, cmap=cmap, origin="lower")
-    if trained_model:
+    if categories:
         cmap_pred = get_cmap("viridis", len(categories))
         cax1 = plt.imshow(preds_arr, cmap=cmap_pred, origin="lower", alpha=0.6)
         cbar1 = fig1.colorbar(cax1, ticks=np.arange(np.max(preds_arr) + 1))
-        if categories:
-            cbar1.ax.set_yticklabels(categories)
+        cbar1.ax.set_yticklabels(categories)
 
     plt.xticks(np.arange(len(y_vals)) * img_res + img_res / 2, blank_labels_mu, rotation=90)
     plt.yticks(np.arange(len(x_vals)) * img_res + img_res / 2, blank_labels_y)
@@ -202,7 +195,8 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
     """Show a random selection of simulated images, with categories chosen by simulation/CNN prediction"""
     from CNN.CNN_training import h5RabaniDataGenerator
 
-    img_generator = h5RabaniDataGenerator(datadir, network_type="classifier", batch_size=num_imgs, is_train=False, imsize=imsize,
+    img_generator = h5RabaniDataGenerator(datadir, network_type="classifier", batch_size=num_imgs, is_train=False,
+                                          imsize=imsize,
                                           output_parameters_list=y_params, output_categories_list=y_cats)
     img_generator.is_validation_set = True
 
@@ -321,12 +315,13 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
 
 
 if __name__ == '__main__':
-    dir = "Data/Simulated_Images/2020-03-29/07-31"
+    dir = "Data/Simulated_Images/2020-05-26/18-35"
     model = load_model("Data/Trained_Networks/2020-03-30--18-10/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128, categories=cats)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
 
     x, y = show_random_selection_of_images(dir, 25,
-                                    ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island", "none"], 128,
-                                    model=model)
+                                           ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island", "none"],
+                                           128,
+                                           model=model)

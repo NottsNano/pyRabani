@@ -1,5 +1,8 @@
+import warnings
+
 import numpy as np
 from matplotlib import pyplot as plt
+from skimage.transform import resize
 
 
 def make_pd_nans_identical(df, replacement_value=None):
@@ -37,3 +40,24 @@ def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
     img_classifier.cnn_classify()
 
     return img_classifier
+
+
+def power_resize(image, newsize):
+    """Enlarge image by a factor of ^2"""
+    if image.shape[0] != newsize:
+        num_tiles = newsize / image.shape[0]
+        if num_tiles % 1 == 0:
+            new_image = np.repeat(np.repeat(image, int(num_tiles), axis=0), int(num_tiles), axis=1)
+        else:
+            warnings.warn(
+                f"Scaling is not ^2 (Requested {image.shape[0]} -> {newsize}). Using sklearn nearest-neighbour")
+            new_image = nn_resize(image, newsize)
+    else:
+        new_image = image
+
+    return new_image
+
+
+def nn_resize(image, newsize):
+    """Resize image by any amount, with nearest-neighbour interpolation"""
+    return resize(image, (newsize, newsize), order=0, anti_aliasing=True)

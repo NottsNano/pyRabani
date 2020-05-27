@@ -170,12 +170,11 @@ class FileFilter:
         if 'Measurement_000/Channel_000/Raw_Data' in h5_file.keys():
             arr_data = np.array(h5_file['Measurement_000/Channel_000/Raw_Data'])
             arr_phase = np.array(h5_file['Measurement_000/Channel_002/Raw_Data'])
+            self.image_size = h5_file["Measurement_000"]["Position_Values"][-1, -1]
         else:
             # print(f"{h5_file}")
             self._add_fail_reason("Corrupt scan")
             return None
-
-        self.image_size = h5_file["Measurement_000"]["Position_Values"][-1, -1]
 
         if int(np.sqrt(len(arr_data))) == np.sqrt(len(arr_data)):
             self.image_res = int(np.sqrt(len(arr_data)))

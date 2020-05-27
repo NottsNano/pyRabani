@@ -4,9 +4,7 @@ rabani model in python - adapted from Rabani.m - Andrew Stannard 27/06/19, Raban
 
 from math import exp
 
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import colors
 from numba import jit, prange
 
 from Rabani_Generator.plot_rabani import show_image
