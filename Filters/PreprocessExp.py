@@ -4,6 +4,7 @@
 ## Write in Ostu Mask and old Poly BG sub method if required
 ## Include ability to change degrees of freedom in detrenders (and append that to the saved filename)
 ## Comment the code you ape
+## Add the ability to simply save the images produced by plot-all and a simple format for final preprocessed image in 2-step
 
 import h5py
 import numpy as np
@@ -231,6 +232,7 @@ if detrender == 'spline' or plot_all == 'yes':
                    cmap='RdGy')
         plt.title('MoD-Spline')
         noticks()
+        plt.imsave(sav_loc + '_mod_spline.png', detrended_data_Trace_Array, origin='lower', cmap='RdGy')
 
         data_matrix = ro.r.matrix(otsu_aligned_data_Trace_Array, nrow=row_num, ncol=row_num)
         ro.r.assign("r_data_matrix", data_matrix)
@@ -243,6 +245,7 @@ if detrender == 'spline' or plot_all == 'yes':
                    cmap='RdGy')
         plt.title('Otsu-Spline')
         noticks()
+        plt.imsave(sav_loc + '_otsu_spline.png', detrended_data_Trace_Array, origin='lower', cmap='RdGy')
 
 if detrender == 'poly' or plot_all == 'yes':
     # Description of Polynomial goes here
@@ -285,6 +288,7 @@ if detrender == 'poly' or plot_all == 'yes':
                    cmap='RdGy')
         plt.title('MoD-Poly')
         noticks()
+        plt.imsave(sav_loc + '_mod_poly.png', detrended_data_Trace_Array, origin='lower', cmap='RdGy')
 
         data_matrix = ro.r.matrix(otsu_aligned_data_Trace_Array, nrow=row_num, ncol=row_num)
         ro.r.assign("r_data_matrix", data_matrix)
@@ -297,6 +301,7 @@ if detrender == 'poly' or plot_all == 'yes':
                    cmap='RdGy')
         plt.title('Otsu-Poly')
         noticks()
+        plt.imsave(sav_loc + '_otsu_poly.png', detrended_data_Trace_Array, origin='lower', cmap='RdGy')
 
 # elif detrender == 'oldpoly' or plot_all == 'yes':
 # else:
