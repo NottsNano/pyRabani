@@ -183,7 +183,7 @@ class RabaniSweeper:
         elif -0.00025 <= region["euler_number"] / np.sum(img == nano_num):
             # Cell/Worm if starting to form
             cat = "cellular"
-        elif -0.02 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
+        elif -0.01 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
             # Labyrinth
             cat = "labyrinth"
         elif region["euler_number"] / np.sum(img == nano_num) <= -0.03:
@@ -205,10 +205,10 @@ class RabaniSweeper:
 if __name__ == '__main__':
     root_dir = "Data/Simulated_Images"
 
-    total_image_reps = 10
+    total_image_reps = 1
 
     parameters = {"kT": [0.07, 0.4],
-                  "mu": [2.35, 3],
+                  "mu": [2.35, 3.3],
                   "MR": 1,
                   "C": 0.3,
                   "e_nl": 1.5,
@@ -217,7 +217,7 @@ if __name__ == '__main__':
 
     axis_res = {"kT": 25,
                 "mu": 25,
-                "L": 10}
+                "L": 5}
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,

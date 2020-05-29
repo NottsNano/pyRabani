@@ -73,8 +73,12 @@ def remove_least_common_level(image):
     level_vals, counts = np.unique(image, return_counts=True)
 
     if len(counts) > 2:
-        least_common_ind = np.argmin(counts)
-        least_common_val = level_vals[least_common_ind]
+        if (np.sum(image == 1) / image.shape[0] ** 2 >= 0.4) and (
+                np.sum(image == 0) / image.shape[0] ** 2 >= 0.02):  # Hole, so don't remove substrate
+            least_common_ind = 2
+        else:
+            least_common_ind = np.argmin(counts)
+            least_common_val = level_vals[least_common_ind]
 
         common_vals = np.delete(level_vals, least_common_ind)
 
@@ -84,3 +88,10 @@ def remove_least_common_level(image):
         image[replacement_inds[0], replacement_inds[1]] = replacement_vals
 
     return image
+
+def normalise(image):
+    image -= image.min()
+    image /= image.max()
+
+    return image
+

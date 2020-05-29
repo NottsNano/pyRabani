@@ -146,7 +146,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
     return big_img_arr, eulers
 
 
-def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
+def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5), trained_model=None):
     """Plot a selection of images between a range of normalised euler numbers,
     to eventually determine training labels"""
     # Setup and parse input
@@ -169,7 +169,13 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5)):
         for file in files:
             # Determine the euler number
             img_file = h5py.File(f"{root_dir}/{file}", "r")
-            img_category = img_file.attrs["category"]
+
+            if trained_model:
+                bin_img = remove_least_common_level(img_file["sim_results"]["image"][()])
+                img = power_resize(bin_img, img_res)
+                img_category = categories[np.argmax(trained_model.predict(np.expand_dims(np.expand_dims(img, 0), -1)))]
+            else:
+                img_category = img_file.attrs["category"]
 
             # If we are going to plot
             if category == img_category:
@@ -218,7 +224,7 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
         plt.axis("off")
 
         if model:
-            pred = model.predict(np.expand_dims(np.expand_dims(power_resize(x[i, :, :, 0], imsize), 0), 3))
+            pred = model.predict(np.expand_dims(np.expand_dims(x[i, :, :, 0], 0), 3))
             cat = y_cats[np.argmax(pred[0, :])]
         else:
             cat = (y_cats[np.argmax(y[i, :])])
@@ -320,13 +326,13 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
 
 
 if __name__ == '__main__':
-    dir = "Data/Simulated_Images/2020-05-27/13-13"
-    model = load_model("Data/Trained_Networks/2020-03-30--18-10/model.h5")
+    dir = "Data/Simulated_Images/Test"
+    model = load_model("Data/Trained_Networks/2020-05-29--10-48/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=128)
-    plot_threshold_selection(root_dir=dir, categories=cats, img_res=128)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=200, trained_model=model, categories=cats)
+    plot_threshold_selection(root_dir=dir, categories=cats, img_res=200, trained_model=model)
 
     x, y = show_random_selection_of_images(dir, 25,
-                                           ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island", "none"],
-                                           128,
+                                           ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"],
+                                           200,
                                            model=model)

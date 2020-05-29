@@ -8,17 +8,18 @@ from scipy.stats import bernoulli
 from sklearn.utils import class_weight
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 from CNN.get_model import get_model, autoencoder
 from CNN.get_stats import plot_model_history
 from Rabani_Generator.plot_rabani import visualise_autoencoder_preds
-from CNN.utils import power_resize
+from CNN.utils import power_resize, remove_least_common_level, normalise
 
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, simulated_image_dir, network_type, batch_size, output_parameters_list, output_categories_list,
-                 is_train, imsize=None, horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True,
-                 randomise_levels=True):
+                 is_train, imsize=None, horizontal_flip=True, vertical_flip=True, x_noise=None, circshift=True,
+                 randomise_levels=False):
         """
         A keras data generator class for rabani simulations stored as h5 files in a directory
 
@@ -100,7 +101,6 @@ class h5RabaniDataGenerator(Sequence):
             self.class_weights_dict = class_weight.compute_class_weight('balanced',
                                                                         np.arange(len(self.original_categories_list)),
                                                                         class_inds)
-
         self.__reset_file_iterator__()
 
     def _get_image_res(self):
@@ -159,6 +159,7 @@ class h5RabaniDataGenerator(Sequence):
             if self.is_validation_set:
                 self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
                 :] = batch_y
+
             return batch_x, batch_y
         elif self.network_type is "autoencoder":
             batch_x = self._patch_binarisation(batch_x)
@@ -200,7 +201,7 @@ class h5RabaniDataGenerator(Sequence):
     @staticmethod
     def randomise_level_index(batch_x):
         tmp_x = batch_x.copy()
-        for i, idx in enumerate(np.random.choice(np.arange(3), 3, replace=False)):
+        for i, idx in enumerate(np.random.choice(np.unique(batch_x), len(np.unique(batch_x)), replace=False)):
             tmp_x[batch_x == idx] = i
 
         return tmp_x
@@ -234,18 +235,8 @@ class h5RabaniDataGenerator(Sequence):
         Finds the least common level in each image in the batch, and replaces it randomly by the other levels
         """
         for i in range(len(batch_x)):
-            level_vals, counts = np.unique(batch_x[i, :, :, 0], return_counts=True)
-            if len(level_vals) > 2:
-                least_common_ind = np.argmin(counts)
-                least_common_val = level_vals[least_common_ind]
-                other_vals = np.delete(level_vals, least_common_ind)
-
-                replacement_inds = np.nonzero(batch_x[i, :, :, 0] == least_common_ind)
-                replacement_vals = np.random.choice(other_vals, size=(len(replacement_inds[0]),), p=[0.5, 0.5])
-
-                batch_x[i, replacement_inds[0], replacement_inds[1], 0] = replacement_vals
-            batch_x[i, :, :, 0] -= batch_x[i, :, :, 0].min()
-            batch_x[i, :, :, 0] /= batch_x[i, :, :, 0].max()
+            batch_x[i, :, :, 0] = remove_least_common_level(batch_x[i, :, :, 0])
+            batch_x[i, :, :, 0] = normalise(batch_x[i, :, :, 0])
 
         return batch_x
 
@@ -263,16 +254,17 @@ def train_classifier(model_dir, train_datadir, test_datadir, y_params, y_cats, b
     input_shape = (train_generator.image_res, train_generator.image_res, 1)
     model = get_model("VGG", input_shape, len(y_cats), Adam())
     # early_stopping = EarlyStopping(monitor="val_loss", patience=10)
-    # model_checkpoint = ModelCheckpoint(get_model_storage_path(cnn_dir), monitor="val_loss", save_best_only=True)
+    model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
 
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__(),
+                        steps_per_epoch=train_generator.__len__()//10,
                         validation_steps=test_generator.__len__(),
                         class_weight=train_generator.class_weights_dict,
                         epochs=epochs,
-                        max_queue_size=100)
+                        max_queue_size=100,
+                        callbacks=[model_checkpoint])
 
     return model
 
@@ -286,13 +278,15 @@ def train_autoencoder(model_dir, train_datadir, test_datadir, y_params, y_cats, 
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
     model = autoencoder((imsize, imsize, 1), optimiser=Adam())
+    model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
 
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
                         steps_per_epoch=train_generator.__len__(),
                         validation_steps=test_generator.__len__(),
                         epochs=epochs,
-                        max_queue_size=100)
+                        max_queue_size=100,
+                        callbacks=[model_checkpoint])
 
     return model
 
@@ -312,8 +306,8 @@ def save_model(model, root_dir):
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-01"  # "/media/mltest1/Dat Storage/pyRabani_Images"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/Train"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/Test"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-25/13-59"
 
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
@@ -321,12 +315,12 @@ if __name__ == '__main__':
 
     trained_model = train_classifier(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
                                      test_datadir=testing_data_dir,
-                                     y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=128,
-                                     epochs=75)
+                                     y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=200,
+                                     epochs=10)
     # trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
     #                                   test_datadir=testing_data_dir,
     #                                   y_params=original_parameters, y_cats=original_categories, batch_size=128,
-    #                                   imsize=128,
+    #                                   imsize=200,
     #                                   epochs=15)
 
     plot_model_history(trained_model)
