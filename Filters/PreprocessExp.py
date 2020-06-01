@@ -2,9 +2,21 @@
 
 # To-Do:
 ## Write in Ostu Mask and old Poly BG sub method if required
-## Include ability to change degrees of freedom in detrenders (and append that to the saved filename)
 ## Comment the code you ape
-## Add the ability to simply save the images produced by plot-all and a simple format for final preprocessed image in 2-step
+## Add the toggle to simply save the images produced by plot-all and a simple format for final preprocessed image in 2-ste
+## Make a separate code that
+## Make it so spline dof 1 can be used by changing it from df -1 to df +1
+
+# Images
+## 'C12b_Ci_ring8_0006.ibw'
+## Si_d10_ring5_05mgmL_0003.ibw - Filters poorly
+## SiO2_d10_ring5_1mgmL_0003.ibw
+
+# eu_testsR/C12_Ci4_ring5_0001.ibw
+# eu_testsR/C12b_Ci_ring8_0001.ibw x
+# eu_testsR/s5b_th_ring_Eout_0001.ibw
+# eu_testsR/Si_d10th_ring5_05mgmL_0005.ibw you forgot this one :P
+# eu_testsR/SiO2_contacts_21_0000.ibw
 
 import h5py
 import numpy as np
@@ -13,11 +25,11 @@ import pycroscopy as scope
 from rpy2.robjects.packages import importr
 from rpy2 import robjects as ro
 import rpy2.robjects.numpy2ri
-splines = importr('splines')
+splines = importr('splines')   # Imports the splines package in R
 
 
 # Change the file here!
-file_name = 'C12b_Ci_ring8_0006.ibw'
+file_name = 'eu_testsR/C12_Ci4_ring5_0001.ibw'
 # Change the file path if needed
 file_path = r'imageR/' + file_name
 # Change the preprocessing methods here, comment out all but one in each string
@@ -35,11 +47,20 @@ plot_all = (  # Choose whether to ignore the above two options and perform all o
     "yes"
     # "no"
 )
-# Where to save the resulting files, all appended with the file name and method
+
+# Define a degree of freedom to be used in detrenders, Df acts as the DoF in spline while DoF in the polynomial
+# detrend DoF acts as Df - 1.  Default is 4.
+Df = 2
+
+# Assign DoF to a variable in R space
+DoF = ro.r.matrix(Df)
+ro.r.assign("df", DoF)
+
+# Where to save the resulting files, all appended with the file name, method and detrender degrees of freedom
 if plot_all == 'no':
-    append = '_'+aligner+'_'+detrender
+    append = '_'+aligner+'_'+detrender+str(Df)
 elif plot_all == 'yes':
-    append = '_all'
+    append = '_all_' + str(Df)
 sav_loc = r'resR/' + file_name.replace('.ibw', append)
 
 
@@ -60,9 +81,10 @@ def trace_loader(filepath):
     h5_File.close()
     return data_Trace_Array
 
+# Load the ibw file from the chosen file path and save the data trace as a numpy array
 data_Trace_Array = trace_loader(file_path)
 
-# Identify the size of the data trace array
+# Identify the size of the data trace array and reshape the array accordingly
 if data_Trace_Array.shape[0] == 65536:
     row_num = 256
 elif data_Trace_Array.shape[0] == 262144:
@@ -73,7 +95,7 @@ elif data_Trace_Array.shape[0] == 1048576:
 shaped_data_Trace_Array = np.reshape(data_Trace_Array, (row_num, row_num))
 
 plt.rc('font', size=4)  # Set the fonts in graphs to 4
-def noticks():  # Function to remove ticks on graph axes
+def noticks():   # Define a unction to remove ticks on graph axes
     plt.xticks([])
     plt.yticks([])
 
@@ -85,16 +107,17 @@ def normalise(array):
     return norm_array
 
 
-ro.numpy2ri.activate()  # Converts all R-objects entering the dataspace into numpy-able formats
+ro.numpy2ri.activate()  # Converts all R-objects entering the python variable space into numpy-able formats
 
 norm_data_Trace_Array = normalise(shaped_data_Trace_Array)
 
+# Return the raw image as a plot
 plt.figure()
 if plot_all == 'yes':
     plt.subplot(2, 4, 1)
 elif plot_all == 'no':
     plt.subplot(3, 1, 1)
-plt.imshow(shaped_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
+plt.imshow(norm_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
 plt.title(file_name)
 noticks()
@@ -125,6 +148,7 @@ if aligner == 'mod' or plot_all == 'yes':
     aligned_data_Trace_Array = mod_align(shaped_data_Trace_Array, row_num)
     aligned_data_Trace_Array = normalise(aligned_data_Trace_Array)
 
+    # Plot the result
     if plot_all == 'yes':
         plt.subplot(2, 4, 2)
         mod_aligned_data_Trace_Array = aligned_data_Trace_Array
@@ -135,10 +159,12 @@ if aligner == 'mod' or plot_all == 'yes':
            cmap='RdGy')
     plt.title('MoD')
     noticks()
+    plt.imsave(sav_loc + '_mod.png', aligned_data_Trace_Array, origin='lower', cmap='RdGy')
 
 if aligner == 'otsu' or plot_all == 'yes':
 # Otsu aligner description goes here
 
+    # Write a string for calling in R space that defines the functions and code required for thresholding
     otsustring = '''
       otsu_thresh<-function(y) {
       breaks<-(0:255)/255
@@ -165,13 +191,15 @@ if aligner == 'otsu' or plot_all == 'yes':
     otsualign = normim-otsumatrix # Fourth step in Otsu alignment
 
     '''
-
+    # Assign the normalised data trace array to a variable in R space
     data_matrix = ro.r.matrix(norm_data_Trace_Array, nrow=row_num, ncol=row_num)
     ro.r.assign("r_data_matrix", data_matrix)
     ro.r("normim <- r_data_matrix")
+    # Run the pre-defined string and return the last assigned variable in R, the aligned image, as a numpy array
     aligned_data_Trace_Array = ro.r(otsustring)
     aligned_data_Trace_Array = normalise(aligned_data_Trace_Array)
 
+    # Plot the result
     if plot_all == 'yes':
         plt.subplot(2, 4, 3)
         otsu_aligned_data_Trace_Array = aligned_data_Trace_Array
@@ -182,6 +210,7 @@ if aligner == 'otsu' or plot_all == 'yes':
            cmap='RdGy')
     plt.title('Otsu')
     noticks()
+    plt.imsave(sav_loc + '_otsu.png', aligned_data_Trace_Array, origin='lower', cmap='RdGy')
 
 # elif aligner == 'maskotsu' or plot_all == 'yes':
 # else:
@@ -201,7 +230,7 @@ if detrender == 'spline' or plot_all == 'yes':
       im1data$x<-rep(1:row_num,row_num)
       im1data$y<-as.vector(t(matrix(rep(1:row_num,row_num),row_num,row_num)))
 
-      im4mod3<-lm(intensity~ns(x,4)*ns(y,4),data=im1data) # 1st step of spline detrend
+      im4mod3<-lm(intensity~ns(x,df)*ns(y,df),data=im1data) # 1st step of spline detrend
     # replace ns(x,4) for poly(x,3) for polynomial fit (df = degrees of freedom) (n-1 takes into account constant)
       im1data$lmresid<-(im4mod3$residuals -min(im4mod3$residuals))/(max(im4mod3$residuals)-min(im4mod3$residuals))  # 2nd step of spline detrend
 
@@ -257,7 +286,7 @@ if detrender == 'poly' or plot_all == 'yes':
       im1data$x<-rep(1:row_num,row_num)
       im1data$y<-as.vector(t(matrix(rep(1:row_num,row_num),row_num,row_num)))
 
-      im4mod3<-lm(intensity~poly(x,3)*poly(y,3),data=im1data) # 1st step of poly detrend
+      im4mod3<-lm(intensity~poly(x,df-1)*poly(y,df-1),data=im1data) # 1st step of poly detrend
     # replace ns(x,4) for poly(x,3) for polynomial fit (df = degrees of freedom) (n-1 takes into account constant)
       im1data$lmresid<-(im4mod3$residuals -min(im4mod3$residuals))/(max(im4mod3$residuals)-min(im4mod3$residuals))  # 2nd step of poly detrend
 
@@ -313,3 +342,11 @@ if detrender == 'poly' or plot_all == 'yes':
 
 plt.ion()
 plt.savefig(sav_loc + '.svg')
+
+
+# data_matrix = ro.r.matrix(mod_aligned_data_Trace_Array, nrow=row_num, ncol=row_num)
+# ro.r.assign("r_data_matrix", data_matrix)
+# ro.r("normim <- r_data_matrix")
+# aligned_data_Trace_Array = ro.r(otsustring)
+# aligned_data_Trace_Array = normalise(aligned_data_Trace_Array)
+# plt.imsave(sav_loc + '_eu_test.png', aligned_data_Trace_Array, origin='lower', cmap='RdGy')
