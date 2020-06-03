@@ -10,9 +10,9 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 
-from CNN.get_model import get_model, autoencoder
 from Analysis.get_stats import plot_model_history
-from CNN.utils import power_resize, remove_least_common_level, normalise
+from CNN.get_model import get_model, autoencoder
+from CNN.utils import resize_image, remove_least_common_level, normalise
 
 
 class h5RabaniDataGenerator(Sequence):
@@ -135,7 +135,7 @@ class h5RabaniDataGenerator(Sequence):
             file_entry = self._file_iterator.__next__().path
             h5_file = h5py.File(file_entry, "r")
 
-            batch_x[i, :, :, 0] = power_resize(h5_file["sim_results"]["image"][()], self.image_res).astype(np.uint8)
+            batch_x[i, :, :, 0] = resize_image(h5_file["sim_results"]["image"][()], self.image_res).astype(np.uint8)
 
             idx_find = self.original_categories_list.index(h5_file.attrs["category"])
             batch_y[i, idx_find] = 1
@@ -208,7 +208,7 @@ class h5RabaniDataGenerator(Sequence):
     @staticmethod
     def speckle_noise(batch_x, perc_noise, perc_std, randomness="elementwise", num_uniques=None):
         if randomness == "elementwise":
-            assert batch_x.ndim == 2
+            assert batch_x.ndim == 4
             p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
             rand_mask = np.zeros(batch_x.shape)
             for i, p in enumerate(p_all):
@@ -240,49 +240,32 @@ class h5RabaniDataGenerator(Sequence):
         return batch_x
 
 
-def train_classifier(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
+def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize, network_type):
     # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, network_type="classifier", batch_size=batch_size,
+    train_generator = h5RabaniDataGenerator(train_datadir, network_type=network_type, batch_size=batch_size,
                                             is_train=True, imsize=imsize,
                                             output_parameters_list=y_params, output_categories_list=y_cats)
-    test_generator = h5RabaniDataGenerator(test_datadir, network_type="classifier", batch_size=batch_size,
+    test_generator = h5RabaniDataGenerator(test_datadir, network_type=network_type, batch_size=batch_size,
                                            is_train=False, imsize=imsize,
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
-    input_shape = (train_generator.image_res, train_generator.image_res, 1)
-    model = get_model("VGG", input_shape, len(y_cats), Adam())
+    if network_type == "classifier":
+        model = get_model("VGG", (imsize, imsize, 1), len(y_cats), Adam())
+    elif network_type == "autoencoder":
+        model = autoencoder((imsize, imsize, 1), optimiser=Adam())
+    else:
+        raise ValueError("network_type must be one of ['classifier', 'autoencoder']")
+
     # early_stopping = EarlyStopping(monitor="val_loss", patience=10)
     model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
 
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__()//10,
+                        steps_per_epoch=train_generator.__len__() // 10,
                         validation_steps=test_generator.__len__(),
                         class_weight=train_generator.class_weights_dict,
-                        epochs=epochs,
-                        max_queue_size=100,
-                        callbacks=[model_checkpoint])
-
-    return model
-
-
-def train_autoencoder(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_size, epochs, imsize):
-    # Set up generators
-    train_generator = h5RabaniDataGenerator(train_datadir, network_type="autoencoder", batch_size=batch_size,
-                                            is_train=True, imsize=imsize,
-                                            output_parameters_list=y_params, output_categories_list=y_cats)
-    test_generator = h5RabaniDataGenerator(test_datadir, network_type="autoencoder", batch_size=batch_size,
-                                           is_train=False, imsize=imsize,
-                                           output_parameters_list=y_params, output_categories_list=y_cats)
-    model = autoencoder((imsize, imsize, 1), optimiser=Adam())
-    model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
-
-    model.fit_generator(generator=train_generator,
-                        validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__(),
-                        validation_steps=test_generator.__len__(),
                         epochs=epochs,
                         max_queue_size=100,
                         callbacks=[model_checkpoint])
@@ -312,10 +295,11 @@ if __name__ == '__main__':
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
-    trained_model = train_classifier(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
-                                     test_datadir=testing_data_dir,
-                                     y_params=original_parameters, y_cats=original_categories, batch_size=128, imsize=200,
-                                     epochs=10)
+    trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
+                                test_datadir=testing_data_dir,
+                                y_params=original_parameters, y_cats=original_categories, batch_size=128,
+                                imsize=200, epochs=20, network_type="classifier")
+
     # trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
     #                                   test_datadir=testing_data_dir,
     #                                   y_params=original_parameters, y_cats=original_categories, batch_size=128,

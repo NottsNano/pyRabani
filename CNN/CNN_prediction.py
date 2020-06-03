@@ -60,11 +60,11 @@ class ImageClassifier:
         return cnn_arr
 
     def cnn_classify(self, perc_noise=0.05, perc_std=0.001):
-        # noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr, perc_noise, perc_std,
-        #                                                   randomness="batchwise",
-        #                                                   num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0])))
+        noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr, perc_noise, perc_std,
+                                                          randomness="batchwise",
+                                                          num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0])))
 
-        self.cnn_preds = self.cnn_model.predict(self.cnn_arr)
+        self.cnn_preds = self.cnn_model.predict(noisy_array)
         self.cnn_majority_preds = np.mean(self.cnn_preds, axis=0)
 
     def euler_classify(self):

@@ -9,7 +9,7 @@ from skimage import measure
 from tensorflow.python.keras.models import load_model
 from CNN.CNN_prediction import ImageClassifier
 from Analysis.get_stats import all_preds_histogram, all_preds_percentage
-from Analysis.plot_rabani import show_image
+from Analysis.plot_rabani import show_image, cmap_rabani
 
 
 class FileFilter:
@@ -149,7 +149,8 @@ class FileFilter:
             if self.fail_reasons:
                 plt.savefig(f"{savedir}/fail/{filename}.png", dpi=300)
             else:
-                plt.savefig(f"{savedir}/{self.CNN_classification}/{filename}.png", dpi=300)
+                plt.savefig(f"{savedir}/{self.CNN_classification}/filtering_{filename}.png", dpi=300)
+                plt.imsave(f"{savedir}/{self.CNN_classification}/image_{filename}.png", binarized_data, cmap=cmap_rabani)
 
     def _add_fail_reason(self, fail_str):
         if not self.fail_reasons:

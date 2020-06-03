@@ -42,29 +42,23 @@ def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
     return img_classifier
 
 
-def power_resize(image, newsize):
-    """Enlarge image by a factor of ^2"""
+def resize_image(image, newsize):
+    """Enlarge image"""
+    assert image.shape[0] <= newsize, f"New size ({newsize}) must be larger than original size ({image.shape[0]})"
     if image.shape[0] != newsize:
         num_tiles = newsize / image.shape[0]
         if num_tiles % 1 == 0:
+            # Resize 2^n
             new_image = np.repeat(np.repeat(image, int(num_tiles), axis=0), int(num_tiles), axis=1)
         else:
-            warnings.warn(
-                f"Scaling is not ^2 (Requested {image.shape[0]} -> {newsize}). Using sklearn nearest-neighbour")
-            new_image = nn_resize(image, newsize)
+            # Resize by nn-interpolation
+            new_image = (resize(image, (newsize, newsize), order=0) * 255 // 2).astype(int)
+
+            # Fix aliasing making NP -> L
+            if np.all(np.unique(image) == [0, 2]):
+                new_image[new_image == 1] = 2
     else:
         new_image = image
-
-    return new_image
-
-
-def nn_resize(image, newsize):
-    """Resize image by any amount, with nearest-neighbour interpolation"""
-    new_image = (resize(image, (newsize, newsize), order=0) * 255 // 2).astype(int)
-
-    # Fix aliasing making NP -> L
-    if np.all(np.unique(image) == [0, 2]):
-        new_image[new_image == 1] = 2
 
     return new_image
 

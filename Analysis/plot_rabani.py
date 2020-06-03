@@ -11,7 +11,11 @@ from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 
-from CNN.utils import power_resize, remove_least_common_level
+from CNN.utils import resize_image, remove_least_common_level
+
+cmap_rabani = colors.ListedColormap(["black", "white", "orange"])
+boundaries = [0, 0.5, 1]
+norm = colors.BoundaryNorm(boundaries, cmap_rabani.N, clip=True)
 
 
 def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
@@ -58,7 +62,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
         y_ind = np.searchsorted(y_vals, img_file.attrs[yaxis])
 
         bin_img = remove_least_common_level(img_file["sim_results"]["image"][()])
-        img = power_resize(bin_img, img_res)
+        img = resize_image(bin_img, img_res)
 
         big_img_arr[(y_ind * img_res):((y_ind + 1) * img_res), (x_ind * img_res):((x_ind + 1) * img_res)] = np.flipud(
             img)
@@ -80,10 +84,6 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
         eulers_cmp[y_ind, x_ind] = reg["euler_number"] / np.sum(img_file['sim_results']["image"][()] == 2)
 
     # Plot
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-
     num_tick_skip = len(y_vals) // np.min((num_axis_ticks, len(y_vals)))
 
     x_labels = [f"{x_val:.2f}" for x_val in x_vals]
@@ -96,7 +96,7 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
 
     # Sample grid
     fig1, ax1 = plt.subplots()
-    plt.imshow(big_img_arr, cmap=cmap, origin="lower")
+    plt.imshow(big_img_arr, cmap=cmap_rabani, origin="lower")
     if categories:
         cmap_pred = get_cmap("viridis", len(categories))
         cax1 = plt.imshow(preds_arr, cmap=cmap_pred, origin="lower", alpha=0.6)
@@ -151,9 +151,6 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5), 
     to eventually determine training labels"""
     # Setup and parse input
     files = os.listdir(root_dir)
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
     fig, axs = plt.subplots(1, len(categories), sharex=True, sharey=True)
 
@@ -172,7 +169,7 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5), 
 
             if trained_model:
                 bin_img = remove_least_common_level(img_file["sim_results"]["image"][()])
-                img = power_resize(bin_img, img_res)
+                img = resize_image(bin_img, img_res)
                 img_category = categories[np.argmax(trained_model.predict(np.expand_dims(np.expand_dims(img, 0), -1)))]
             else:
                 img_category = img_file.attrs["category"]
@@ -190,10 +187,10 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5), 
 
                 # Plot
                 big_img[plot_j * img_res:(plot_j + 1) * img_res,
-                plot_i * img_res:(plot_i + 1) * img_res] = power_resize(
+                plot_i * img_res:(plot_i + 1) * img_res] = resize_image(
                     img_file["sim_results"]["image"][()], img_res)
 
-        axs[plot_num].imshow(big_img, cmap=cmap)
+        axs[plot_num].imshow(big_img, cmap=cmap_rabani)
 
         axs[plot_num].set_xticks(np.arange(0, img_res * plot_config[1], img_res))
         axs[plot_num].set_yticks(np.arange(0, img_res * plot_config[0], img_res))
@@ -214,13 +211,10 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
     x, y = img_generator.__getitem__(None)
     axis_res = int(np.sqrt(num_imgs))
 
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
     plt.figure()
     for i in range(axis_res ** 2):
         plt.subplot(axis_res, axis_res, i + 1)
-        plt.imshow(x[i, :, :, 0], cmap=cmap)
+        plt.imshow(x[i, :, :, 0], cmap=cmap_rabani)
         plt.axis("off")
 
         if model:
@@ -240,13 +234,9 @@ def show_image(img, axis=None, title=None):
     img[0, 1] = 1
     img[0, 2] = 2
 
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-
     if not axis:
         fig, axis = plt.subplots(1, 1)
-    axis.imshow(img, cmap=cmap)
+    axis.imshow(img, cmap=cmap_rabani)
     axis.axis("off")
 
     if title:
@@ -258,11 +248,6 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
     from Filters.screening import FileFilter
 
     def _plot_preds(pred, true):
-        # Make colormap
-        cmap = colors.ListedColormap(["black", "white", "orange"])
-        boundaries = [0, 0.5, 1]
-        norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-
         # Binarise
         true = np.round(true)
         pred = np.round(pred)
@@ -277,7 +262,7 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
 
         fig, ax = plt.subplots(1, 1)
         fig.suptitle(f"Mean error: {np.mean(mse) :.2f}")
-        ax.imshow(img, cmap=cmap)
+        ax.imshow(img, cmap=cmap_rabani)
         ax.axis("off")
 
         # Show mse for each image
@@ -329,7 +314,8 @@ if __name__ == '__main__':
     dir = "Data/Simulated_Images/Test"
     model = load_model("Data/Trained_Networks/2020-05-29--10-48/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
-    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=200, trained_model=model, categories=cats)
+    big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=200, trained_model=model,
+                                  categories=cats)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=200, trained_model=model)
 
     x, y = show_random_selection_of_images(dir, 25,
