@@ -138,7 +138,7 @@ def PR_one_vs_all(majority_pred, truth, cats, title=None, axis=None):
 
 if __name__ == '__main__':
     from CNN.CNN_prediction import validation_pred_generator
-    from Rabani_Generator.plot_rabani import show_random_selection_of_images
+    from Analysis.plot_rabani import show_random_selection_of_images
 
     trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
 

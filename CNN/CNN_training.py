@@ -11,8 +11,7 @@ from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 from CNN.get_model import get_model, autoencoder
-from CNN.get_stats import plot_model_history
-from Rabani_Generator.plot_rabani import visualise_autoencoder_preds
+from Analysis.get_stats import plot_model_history
 from CNN.utils import power_resize, remove_least_common_level, normalise
 
 

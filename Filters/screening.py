@@ -8,8 +8,8 @@ from scipy import stats, ndimage, signal
 from skimage import measure
 from tensorflow.python.keras.models import load_model
 from CNN.CNN_prediction import ImageClassifier
-from CNN.get_stats import all_preds_histogram, all_preds_percentage
-from Rabani_Generator.plot_rabani import show_image
+from Analysis.get_stats import all_preds_histogram, all_preds_percentage
+from Analysis.plot_rabani import show_image
 
 
 class FileFilter:
@@ -337,7 +337,7 @@ class FileFilter:
 
 if __name__ == '__main__':
     category_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--10-48/model.h5")
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-03--16-29/model.h5")
     # denoising_model = load_model(
     #     "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-19--19-36/model.h5")
 

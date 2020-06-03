@@ -5,9 +5,9 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 
-from CNN.get_stats import plot_confusion_matrix, ROC_one_vs_all, PR_one_vs_all
+from Analysis.get_stats import plot_confusion_matrix, ROC_one_vs_all, PR_one_vs_all
 from Filters.screening import FileFilter
-from Rabani_Generator.plot_rabani import show_image
+from Analysis.plot_rabani import show_image
 
 
 def load_and_parse(manual_file, automated_file):

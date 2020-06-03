@@ -12,8 +12,8 @@ def make_pd_nans_identical(df, replacement_value=None):
 def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
     """Progressively add noise to an image and classifying it"""
 
-    from Rabani_Generator.plot_rabani import show_image
-    from CNN.get_stats import all_preds_histogram
+    from Analysis.plot_rabani import show_image
+    from Analysis.get_stats import all_preds_histogram
     fig, axes = plt.subplots(1, 2)
     fig.tight_layout(pad=3)
     img = img.copy()
