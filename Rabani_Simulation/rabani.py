@@ -31,7 +31,7 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L, MCS_max, early_stop):
     perc_similarities = np.random.random((4,))
     perc_similarities_std = np.std(perc_similarities)
     m = 1
-    for m in range(MCS_max):
+    for m in range(MCS_max+1):
         # random position arrays for the evaporation/condensation loop
         x = np.ceil(L * np.random.random((N,))) - 1
         y = np.ceil(L * np.random.random((N,))) - 1
@@ -302,7 +302,7 @@ def _run_rabani_sweep(params):
 
 
 if __name__ == '__main__':
-    for MCS in np.linspace(100, 2000, 5):
-        img, num_steps = rabani_single(kT=0.35, mu=3.2, MR=3, C=0.2, e_nl=1.5,
-                                       e_nn=2, L=128, MCS_max=MCS, early_stop=False)
-        show_image(img)
+    # for MCS in np.linspace(100, 2000, 5):
+    img, num_steps = rabani_single(kT=0.3, mu=2.55, MR=1, C=0.3, e_nl=1.5,
+                               e_nn=2, L=128, MCS_max=600, early_stop=False)
+    show_image(img)

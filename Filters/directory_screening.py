@@ -8,7 +8,7 @@ from Filters.screening import FileFilter
 from CNN.utils import make_pd_nans_identical
 
 IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"# "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"
-CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-03--11-42/model.h5"
+CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-10--12-22/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
 SEARCH_RECURSIVE = True
 

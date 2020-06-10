@@ -196,17 +196,17 @@ class RabaniSweeper:
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        # elif -0.00025 <= region["euler_number"] / np.sum(img == nano_num):
+        # else:# -0.00025 <= region["euler_number"] / np.sum(img == nano_num):
         #     # Cell/Worm if starting to form
         #     cat = "cellular"
-        elif 1 == 1:  # -0.01 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
-            # Labyrinth
+        # elif -0.01 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
+        #     # Labyrinth
+        #     cat = "labyrinth"
+        else:# region["euler_number"] / np.sum(img == nano_num) <= -0.03:
+            # Island
             cat = "labyrinth"
-        # elif region["euler_number"] / np.sum(img == nano_num) <= -0.03:
-        #     # Island
-        #     cat = "island"
-        else:
-            cat = "none"
+        # else:
+        #     cat = "none"
 
         return region, cat
 
@@ -219,21 +219,25 @@ class RabaniSweeper:
 
 
 if __name__ == '__main__':
-    root_dir = "Data/Simulated_Images/Train"
+    root_dir = "Data/Simulated_Images/NewTrain"
 
-    total_image_reps = 50
+    total_image_reps = 6
 
-    parameters = {"kT": 0.35,
-                  "mu": 2.8,
-                  "MR": 3,
+    parameters = {"kT": [0.3, 0.35],
+                  "mu": [2.9, 3.0],
+                  "MR": [1, 3],
                   "C": 0.4,
                   "e_nl": 1.5,
                   "e_nn": 2,
-                  "L": [100, 200],
-                  "MCS_max": [100, 2000]}
+                  "L": [128, 200],
+                  "MCS_max": [300, 1500]}
 
-    axis_res = {"L": 5,
-                "MCS_max": 10}
+    axis_res = {"kT": 5,
+                "mu": 5,
+                "MR": 3,
+                "L": 5,
+                "MCS_max": 5
+                }
 
     rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,

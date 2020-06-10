@@ -17,7 +17,7 @@ from CNN.utils import resize_image, remove_least_common_level, normalise
 
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, simulated_image_dir, network_type, batch_size, output_parameters_list, output_categories_list,
-                 is_train, imsize=None, horizontal_flip=True, vertical_flip=True, x_noise=None, circshift=True,
+                 is_train, imsize=None, horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True,
                  randomise_levels=False):
         """
         A keras data generator class for rabani simulations stored as h5 files in a directory
@@ -29,7 +29,7 @@ class h5RabaniDataGenerator(Sequence):
         batch_size : int
             Number of items to return every time __getitem__() is called
         network_type : str
-            The calling network type. Must be one of ["classifier", "atoencoder"]
+            The calling network type. Must be one of ["classifier", "autoencoder"]
         is_train : bool
             Boolean describing if the class is generating data for training or for testing.
             If True, no augmentations will be applied
@@ -288,8 +288,8 @@ def save_model(model, root_dir):
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/Train"  # "/media/mltest1/Dat Storage/pyRabani_Images"
-    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/Test"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTrain"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-25/13-59"
 
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
