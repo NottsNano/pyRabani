@@ -1,5 +1,5 @@
 # Finds and processes ibws in eu_test, offers a median of differences row, phase-boundary,
-# 1st phase and median aligner, applies a polynomial background subtraction, then runs two different threshold methods
+# 1st phase and median aligner
 # Something of a playground used to test new methods on diverse images, the results folders are a little packed and lots
 # of this is uncommented or ungraceful, but this is the coding equivalent of a man drawer
 
@@ -81,84 +81,12 @@ sav_loc = r'thres_img/eu_tests/res3/' + file_name.replace('.ibw', '')
 
 plt.rc('font', size=4)  # Set the fonts in graphs to 4
 
-raw_shaped_data_Trace_Array = normalise(shaped_data_Trace_Array)
-
-## Median Alignment approach # ###
-# Align every median in the normalised array to be equal by finding the difference between the 1st and i-th row's
-# medians, and then offset all the data in that row by the same amount in order to equate them
-
-aligned_medi_data_Trace_Array = normalise(shaped_data_Trace_Array)
-
-i0_medi = np.median(aligned_medi_data_Trace_Array[0, :])
-print('Median for row 1 found to be ' + str(i0_medi))
-
-for i in range(1, row_num):
-    i_medi = np.median(aligned_medi_data_Trace_Array[i, :])
-    # print('Median for row ' + str(i + 1) + ' found to be ' + str(i_medi))
-    medi_offset = i0_medi - i_medi
-    aligned_medi_data_Trace_Array[i, :] += medi_offset
-
-
-## # Median of Differences Alignment approach # ##
-
-def line_align(row1, row2):
-    diff = row1 - row2
-    bins = np.linspace(np.min(diff), np.max(diff), 1000)
-    binned_indices = np.digitize(diff, bins, right=True)
-    np.sort(binned_indices)
-    median_index = np.median(binned_indices)
-    return bins[int(median_index)]
-
-# Phase components commented out to speed up code
-
-row_fit_data_Trace_Array = normalise(shaped_data_Trace_Array)
-# row_fit_data_Trace_Array[1, :] = row_fit_data_Trace_Array[1, :] - np.mean(row_fit_data_Trace_Array[1, :])
-#
-aligned_med_data_Trace_Array = row_fit_data_Trace_Array
-# aligned_med_phase_Trace_Array = shaped_phase_Trace_Array
-
-for i in range(1, row_num):
-    row_iless1 = aligned_med_data_Trace_Array[i - 1, :]
-    row_i = aligned_med_data_Trace_Array[i, :]
-    Offset = line_align(row_iless1, row_i)
-    aligned_med_data_Trace_Array[i, :] = aligned_med_data_Trace_Array[i, :] + Offset
-
-    # row_iless1 = aligned_med_phase_Trace_Array[i - 1, :]
-    # row_i = aligned_med_phase_Trace_Array[i, :]
-    # Offset = line_align(row_iless1, row_i)
-    # aligned_med_phase_Trace_Array[i, :] = aligned_med_phase_Trace_Array[i, :] + Offset
-
-# ## APPLY IMAGE MASK ## #
-# Before running the GMM-based aligners, apply an image mask that truncates data outside pixel intensity mean +- 3
-# standard deviations to those limits accordingly, using the MoD aligned image as a base
-# The resulting offset array is then applied to the MoD aligned image.
-
-# # Plot the returned values from each row for each threshold method
-# plt.figure()
-
-unmasked_shaped_data_Trace_Array = aligned_med_data_Trace_Array
-# print(np.max(unmasked_shaped_data_Trace_Array))
-# print(np.min(unmasked_shaped_data_Trace_Array))
-
-img_mean = np.mean(unmasked_shaped_data_Trace_Array)
-img_std = np.std(unmasked_shaped_data_Trace_Array)
-img_upper_mask = img_mean + 3*img_std
-img_lower_mask = img_mean - 3*img_std
-
-upper_masked = np.where(unmasked_shaped_data_Trace_Array < img_upper_mask, unmasked_shaped_data_Trace_Array, img_upper_mask)
-lower_masked = np.where(upper_masked > img_lower_mask, upper_masked, img_lower_mask) # A memory leak occurs on this line so the GMM aligners don't function
-
-# print(np.max(masked_shaped_data_Trace_Array))
-# print(np.min(masked_shaped_data_Trace_Array))
-
-masked_shaped_data_Trace_Array = lower_masked
-
 ## # Phase-Boundary Alighnement approach # ##
 # Using a 2 population gaussian mixture model, the threshold required to most effectively binarise each row is
 # calculated.  The difference between threshold of the 1st and i-th row is used to offset the data in that row such that
 # they're equal and hence aligned.
 
-aligned_boundary_data_Trace_Array = masked_shaped_data_Trace_Array
+aligned_boundary_data_Trace_Array = normalise(shaped_data_Trace_Array)
 
 # aligned_boundary_data_Trace_Array[0, :] -= np.mean(aligned_boundary_data_Trace_Array[0, :])
 
@@ -183,24 +111,18 @@ def BimodalMixtureThreshold(img_array, pdf_point):
 i0_thres = BimodalMixtureThreshold(aligned_boundary_data_Trace_Array[0, :], 20000)
 print('Boundary for row 1 found at ' + str(i0_thres))
 
-i_thres_arr = np.zeros(row_num)
-i_thres_arr[0] = i0_thres
-
 for i in range(1, row_num):
     i_thres = BimodalMixtureThreshold(aligned_boundary_data_Trace_Array[i, :], 20000)
     print('Boundary for row ' + str(i + 1) + ' found at ' + str(i_thres))
-    i_thres_arr[i] = i_thres
     thres_offset = i0_thres - i_thres
     aligned_boundary_data_Trace_Array[i, :] += thres_offset
-
-
 
 ## # 1st Phase (Background) Alignment Approach # ##
 # Using a 2 population gaussian mixture model, the pixel intensity representative height of the Si background layer is
 # calculated.  The difference between threshold of the 1st and i-th row is used to offset the data in that row such that
 # they're equal and hence aligned.
 
-aligned_bg_data_Trace_Array = masked_shaped_data_Trace_Array
+aligned_bg_data_Trace_Array = normalise(shaped_data_Trace_Array)
 
 # aligned_boundary_data_Trace_Array[0, :] -= np.mean(aligned_boundary_data_Trace_Array[0, :])
 
@@ -223,96 +145,84 @@ def BimodalMixtureBackground(img_array, pdf_point):
 i0_bg = BimodalMixtureBackground(aligned_bg_data_Trace_Array[0, :], 20000)
 print('Background for row 1 found at ' + str(i0_bg))
 
-i_bg_arr = np.zeros(row_num)
-i_bg_arr[0] = i0_bg
-
 for i in range(1, row_num):
     i_bg = BimodalMixtureBackground(aligned_bg_data_Trace_Array[i, :], 20000)
     print('Background for row ' + str(i + 1) + ' found at ' + str(i_bg))
-    i_bg_arr[i] = i_bg
     bg_offset = i0_bg - i_bg
     aligned_bg_data_Trace_Array[i, :] += bg_offset
 
 
+## Median Alignment approach # ###
+# Align every median in the normalised array to be equal by finding the difference between the 1st and i-th row's
+# medians, and then offset all the data in that row by the same amount in order to equate them
 
+aligned_medi_data_Trace_Array = normalise(shaped_data_Trace_Array)
 
-
-# ## EXPERIMENTAL WEIGHTED ALIGNED ## #
-# Uses the 2 nearest rows (i+1 and i-1) in the mixture model for finding the background, locally weighting the GMM
-
-# In the case of the last of first row, use 0,1,2 and row_num-2, row_num-1 and row_num respectively
-
-# aligned_mod_weighted_bg_data_Trace_Array = aligned_med_data_Trace_Array
-aligned_mod_weighted_bg_data_Trace_Array = masked_shaped_data_Trace_Array
-
-i0_w_bg = BimodalMixtureBackground(aligned_mod_weighted_bg_data_Trace_Array[0:2, :], 20000)
-print('Background for row 1 found at ' + str(i0_w_bg))
-i_w_bg_arr = np.zeros(row_num)
-i_w_bg_arr[0] = i0_w_bg
+i0_medi = np.median(aligned_medi_data_Trace_Array[0, :])
+print('Median for row 1 found to be ' + str(i0_medi))
 
 for i in range(1, row_num):
-    if i == row_num-1:
-        i_w_bg = BimodalMixtureBackground(aligned_mod_weighted_bg_data_Trace_Array[i-2:row_num, :], 20000)
-    else:
-        i_w_bg = BimodalMixtureBackground(aligned_mod_weighted_bg_data_Trace_Array[i-1:i+2, :], 20000)
+    i_medi = np.median(aligned_medi_data_Trace_Array[i, :])
+    print('Median for row ' + str(i + 1) + ' found to be ' + str(i_medi))
+    medi_offset = i0_medi - i_medi
+    aligned_medi_data_Trace_Array[i, :] += medi_offset
 
-    print('Background for row ' + str(i + 1) + ' found at ' + str(i_w_bg))
-    i_w_bg_arr[i] = i_w_bg
-    w_bg_offset = i0_bg - i_w_bg
-    aligned_mod_weighted_bg_data_Trace_Array[i, :] += w_bg_offset
+## # Median of Differences Alignment approach # ##
 
+def line_align(row1, row2):
+    diff = row1 - row2
+    bins = np.linspace(np.min(diff), np.max(diff), 1000)
+    binned_indices = np.digitize(diff, bins, right=True)
+    np.sort(binned_indices)
+    median_index = np.median(binned_indices)
+    return bins[int(median_index)]
+
+
+# Phase components commented out to speed up code
+
+row_fit_data_Trace_Array = shaped_data_Trace_Array
+row_fit_data_Trace_Array[1, :] = shaped_data_Trace_Array[1, :] - np.mean(shaped_data_Trace_Array[1, :])
+
+aligned_med_data_Trace_Array = row_fit_data_Trace_Array
+# aligned_med_phase_Trace_Array = shaped_phase_Trace_Array
+
+for i in range(1, row_num):
+    row_iless1 = aligned_med_data_Trace_Array[i - 1, :]
+    row_i = aligned_med_data_Trace_Array[i, :]
+    Offset = line_align(row_iless1, row_i)
+    aligned_med_data_Trace_Array[i, :] = aligned_med_data_Trace_Array[i, :] + Offset
+
+    # row_iless1 = aligned_med_phase_Trace_Array[i - 1, :]
+    # row_i = aligned_med_phase_Trace_Array[i, :]
+    # Offset = line_align(row_iless1, row_i)
+    # aligned_med_phase_Trace_Array[i, :] = aligned_med_phase_Trace_Array[i, :] + Offset
 
 # Save the resulting images of each method to their own figure in svg format
-plt.figure()
-plt.subplot(2, 6, 1)
-plt.imshow(raw_shaped_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
+
+plt.subplot(1, 5, 1)
+plt.imshow(shaped_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
 plt.title('Raw')
 
-plt.subplot(2, 6, 2)
+plt.subplot(1, 5, 2)
 plt.imshow(aligned_med_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
 plt.title('Median of Differences Aligned')
 
-plt.subplot(2, 6, 8)
-plt.imshow(masked_shaped_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
-           cmap='RdGy')
-plt.title('Masked MoD Aligned')
-
-
-plt.subplot(2, 6, 3)
+plt.subplot(1, 5, 3)
 plt.imshow(aligned_medi_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
 plt.title('Median Aligned')
 
-plt.subplot(2, 6, 4)
+plt.subplot(1, 5, 4)
 plt.imshow(aligned_boundary_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
 plt.title('Boundary Aligned')
 
-plt.subplot(2, 6, 10)
-plt.plot(i_thres_arr, range(0, row_num), linewidth=0.5)  # y, x
-plt.ylim(row_num-1, 0)
-
-plt.subplot(2, 6, 5)
+plt.subplot(1, 5, 5)
 plt.imshow(aligned_bg_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
            cmap='RdGy')
 plt.title('Background Aligned')
-
-plt.subplot(2, 6, 11)
-plt.plot(i_bg_arr, range(0, row_num), linewidth=0.5)  # y, x
-plt.ylim(row_num-1, 0)
-#plt.subplot(1,6,2)
-
-plt.subplot(2, 6, 6)
-plt.imshow(aligned_mod_weighted_bg_data_Trace_Array, extent=(0, row_num, 0, row_num), origin='lower',
-           cmap='RdGy')
-plt.title('Weighted Aligned')
-
-plt.subplot(2, 6, 12)
-plt.plot(i_w_bg_arr, range(0, row_num), linewidth=0.5)  # y, x
-plt.ylim(row_num-1, 0)
-#plt.subplot(1,6,2)
 
 plt.savefig(sav_loc + 'ALIGNERS.svg')
 
