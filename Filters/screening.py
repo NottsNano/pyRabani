@@ -26,14 +26,15 @@ class FileFilter:
         self.filepath = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    def assess_file(self, filepath, cnn_model=None, denoising_model=None, assess_euler=True, plot=False, savedir=None):
+    def assess_file(self, filepath, category_model=None, denoising_model=None, assess_euler=True, plot=False,
+                    savedir=None):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
         ----------
         filepath : str
             Path linking to a .ibw file to assess
-        cnn_model : object of type tensorflow.category_model
+        category_model : object of type tensorflow.category_model
             Optional. Tensorflow category_model containing categories FileFilter.cats.
             If None (default), only preprocessing will take place
         denoising_model : None or object of type tensorflow.category_model
@@ -79,17 +80,17 @@ class FileFilter:
 
             if not self.fail_reasons:
                 if denoising_model and category_model:
-                    assert cnn_model.input_shape == denoising_model.input_shape, \
+                    assert category_model.input_shape == denoising_model.input_shape, \
                         "Classifier and denoiser must have consistent input shape"
 
                 if denoising_model:
-                    assessment_arr = self._wrap_image_to_tensorflow(self.binarized_data, cnn_model.input_shape[1])
+                    assessment_arr = self._wrap_image_to_tensorflow(self.binarized_data, category_model.input_shape[1])
                     assessment_arr = self._denoise(assessment_arr, denoising_model)
                 else:
                     assessment_arr = self.binarized_data
 
                 if category_model:
-                    self.image_classifier = ImageClassifier(assessment_arr, cnn_model)
+                    self.image_classifier = ImageClassifier(assessment_arr, category_model)
                     self._CNN_classify()
 
                     if assess_euler:
@@ -97,7 +98,6 @@ class FileFilter:
         except:
             self.image_classifier = None
             self._add_fail_reason("Unexpected error")
-            return None
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, self.binarized_data, binarized_data_for_plotting, savedir)
@@ -145,9 +145,9 @@ class FileFilter:
             all_preds_percentage(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 2])
             axs[1, 1].set_title('Network Predictions')
             axs[1, 2].set_title('Network Predictions')
-        if self.image_classifier is not None:
-            all_preds_percentage(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
-            axs[1, 3].set_title('Euler Predictions')
+            if self.image_classifier.euler_preds is not None:
+                all_preds_percentage(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
+                axs[1, 3].set_title('Euler Predictions')
 
         if savedir:
             filename = os.path.basename(self.filepath)[:-4]
@@ -343,43 +343,42 @@ class FileFilter:
 
 
 if __name__ == '__main__':
-    category_model = load_model(
+    cat_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-10--12-22/model.h5")  # 2020-06-04--13-48/model.h5")
-    denoising_model = load_model(
+    denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/Si_d10_ring5_05mgmL_0003.ibw",
-        category_model, denoising_model, plot=True)
-    print(test_filter.fail_reasons)
+        cat_model, denoise_model, assess_euler=False, plot=True)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-        category_model, denoising_model, plot=True)
+        cat_model, denoise_model, assess_euler=False, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-        category_model, denoising_model, plot=True)
+        cat_model, denoise_model, assess_euler=False, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
-        category_model, denoising_model, plot=True)
+        cat_model, denoise_model, assess_euler=False, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
-        category_model, denoising_model, plot=True)
+        cat_model, denoise_model, assess_euler=False, plot=True)
     print(test_filter.fail_reasons)
 
     test_filter = FileFilter()
     test_filter.assess_file(
         "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
-        category_model, denoising_model, plot=True)
+        cat_model, denoise_model, assess_euler=False, plot=True)
     print(test_filter.fail_reasons)

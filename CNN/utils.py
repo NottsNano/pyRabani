@@ -1,5 +1,3 @@
-import warnings
-
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.transform import resize
@@ -83,9 +81,9 @@ def remove_least_common_level(image):
 
     return image
 
+
 def normalise(image):
     image -= image.min()
     image /= image.max()
 
     return image
-

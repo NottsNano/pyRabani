@@ -15,8 +15,8 @@ class ImageClassifier:
     Parameters
     ----------
     img : ndarray
-        Either a single 2D image of size larger than the cnn_model, or a single image of identical size
-         to the cnn_model and windowed and wrapped to 4D
+        Either a single 2D image of size larger than the category_model, or a single image of identical size
+         to the category_model and windowed and wrapped to 4D
     window_stride : int or None
         The stride length to jump by when sub-sampling img to form an image. Default 4
     cnn_model : object of type tensorflow.category_model
