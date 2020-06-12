@@ -20,6 +20,8 @@ norm = colors.BoundaryNorm(boundaries, cmap_rabani.N, clip=True)
 
 def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
     """Plot two variables against another, and optionally the CNN predictions"""
+
+    from CNN.CNN_training import h5RabaniDataGenerator
     files = os.listdir(root_dir)
 
     # Find axis details to allow for preallocation
@@ -72,7 +74,9 @@ def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None
             assert categories, "Need categories if also inputting a model"
         if categories:
             if trained_model:
-                pred = np.argmax(trained_model.predict(np.expand_dims(np.expand_dims(img, 0), -1)))
+                img = np.float64(img)
+                shaped = h5RabaniDataGenerator._patch_binarisation(np.expand_dims(np.expand_dims(img, 0), -1))
+                pred = np.argmax(trained_model.predict(shaped))
             else:
                 pred = cats.index(img_file.attrs["category"])
 
@@ -221,7 +225,7 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
             pred = model.predict(np.expand_dims(np.expand_dims(x[i, :, :, 0], 0), 3))
             cat = y_cats[np.argmax(pred[0, :])]
         else:
-            cat = (y_cats[np.argmax(y[i, :])])
+            cat = y_cats[np.argmax(y[i, :])]
 
         plt.title(cat)
 
@@ -311,8 +315,8 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
 
 
 if __name__ == '__main__':
-    dir = "Data/Simulated_Images/Test"
-    model = load_model("Data/Trained_Networks/2020-05-29--10-48/model.h5")
+    dir = "Data/Simulated_Images/2020-06-12/11-06"
+    model = load_model("Data/Trained_Networks/2020-06-12--13-07/model.h5")
     cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
     big_img, eul = dualscale_plot(xaxis="mu", yaxis="kT", root_dir=dir, img_res=200, trained_model=model,
                                   categories=cats)
@@ -320,5 +324,4 @@ if __name__ == '__main__':
 
     x, y = show_random_selection_of_images(dir, 25,
                                            ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"],
-                                           200,
-                                           model=model)
+                                           200, model=model)

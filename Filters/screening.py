@@ -27,7 +27,7 @@ class FileFilter:
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     def assess_file(self, filepath, category_model=None, denoising_model=None, assess_euler=True, plot=False,
-                    savedir=None):
+                    savedir=None, filetype="ibw"):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
@@ -45,6 +45,9 @@ class FileFilter:
             Optional. If we should plot the results of preprocessing/assessment. Default False
         savedir : None or str
             Optional. If a string, save the plot to the given directory. Default None
+        filetype : str
+            Optional. Must be one of ["ibw", "tiff"]. If "tiff", do no preprocessing and go straight to denoising.
+            Default "ibw"
 
         Examples
         --------
@@ -52,57 +55,68 @@ class FileFilter:
         >>> filterer.assess_file()
         """
 
-        data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = img_classifier = img_classifier_euler = None
+        data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = \
+            img_classifier = img_classifier_euler = assessment_arr = None
         self.filepath = filepath
 
+        # Load and preprocess
         try:
-            h5_file = self._load_ibw_file(filepath)
+            if filetype == "ibw":
+                h5_file = self._load_ibw_file(filepath)
 
-            if not self.fail_reasons:
-                data, phase = self._parse_ibw_file(h5_file)
+                if not self.fail_reasons:
+                    data, phase = self._parse_ibw_file(h5_file)
 
-            if not self.fail_reasons:
-                norm_data = self._normalize_data(data)
+                if not self.fail_reasons:
+                    norm_data = self._normalize_data(data)
 
-            if not self.fail_reasons:
-                median_data = self._median_align(norm_data)
-                self._is_image_noisy(median_data)
+                if not self.fail_reasons:
+                    median_data = self._median_align(norm_data)
+                    self._is_image_noisy(median_data)
 
-            if not self.fail_reasons:
-                flattened_data = self._poly_plane_flatten(median_data)
+                if not self.fail_reasons:
+                    flattened_data = self._poly_plane_flatten(median_data)
 
-            if not self.fail_reasons:
-                flattened_data = self._normalize_data(flattened_data)
-                self.binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
+                if not self.fail_reasons:
+                    flattened_data = self._normalize_data(flattened_data)
+                    binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
 
-            if not self.fail_reasons:
-                self._are_lines_properly_binarised(self.binarized_data)
+                if not self.fail_reasons:
+                    self._are_lines_properly_binarised(binarized_data)
 
-            if not self.fail_reasons:
-                if denoising_model and category_model:
-                    assert category_model.input_shape == denoising_model.input_shape, \
-                        "Classifier and denoiser must have consistent input shape"
+            elif filetype == "tiff":
+                pass
+                #binarized_data = ... TODO
 
-                if denoising_model:
-                    assessment_arr = self._wrap_image_to_tensorflow(self.binarized_data, category_model.input_shape[1])
-                    assessment_arr = self._denoise(assessment_arr, denoising_model)
-                else:
-                    assessment_arr = self.binarized_data
-
-                if category_model:
-                    self.image_classifier = ImageClassifier(assessment_arr, category_model)
-                    self._CNN_classify()
-
-                    if assess_euler:
-                        self._euler_classify()
         except:
-            self.image_classifier = None
             self._add_fail_reason("Unexpected error")
 
+        # Classify if still possible
+        if not self.fail_reasons:
+            if denoising_model and category_model:
+                assert category_model.input_shape == denoising_model.input_shape, \
+                    "Classifier and denoiser must have consistent input shape"
+
+            if denoising_model:
+                wrapped_arr = self._wrap_image_to_tensorflow(binarized_data, category_model.input_shape[1])
+                assessment_arr = self._denoise(wrapped_arr, denoising_model)
+            else:
+                assessment_arr = binarized_data
+
+            if category_model:
+                self.image_classifier = ImageClassifier(assessment_arr, category_model)
+                self._CNN_classify()
+
+                if assess_euler:
+                    self._euler_classify()
+
         if plot or savedir:
-            self._plot(data, median_data, flattened_data, self.binarized_data, binarized_data_for_plotting, savedir)
+            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
+            if filetype == "tiff":
+                self._plot_denoising(binarized_data, assessment_arr)
+
             if not plot:
-                plt.close()
+                plt.close("all")
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
               binarized_data=None, binarized_data_for_plotting=None,
@@ -152,11 +166,23 @@ class FileFilter:
         if savedir:
             filename = os.path.basename(self.filepath)[:-4]
             if self.fail_reasons:
-                plt.savefig(f"{savedir}/fail/stats_{filename}.png", dpi=300)
+                fig.savefig(f"{savedir}/fail/stats_{filename}.png", dpi=300)
             else:
-                plt.savefig(f"{savedir}/{self.CNN_classification}/stats_{filename}.png", dpi=300)
+                fig.savefig(f"{savedir}/{self.CNN_classification}/stats_{filename}.png", dpi=300)
                 plt.imsave(f"{savedir}/{self.CNN_classification}/image_{filename}.png", binarized_data,
                            cmap=cmap_rabani)
+
+    def _plot_denoising(self, orig_image, denoised_image, savedir=None):
+        fig, axs = plt.subplots(1, 2)
+        show_image(orig_image, axs[1], "Original")
+        show_image(denoised_image, axs[2], "Denoised")
+
+        if savedir:
+            filename = os.path.basename(self.filepath)[:-4]
+            if self.fail_reasons:
+                fig.savefig(f"{savedir}/fail/denoise_{filename}.png", dpi=300)
+            else:
+                fig.savefig(f"{savedir}/{self.CNN_classification}/denoise_{filename}.png", dpi=300)
 
     def _add_fail_reason(self, fail_str):
         if not self.fail_reasons:
@@ -344,7 +370,7 @@ class FileFilter:
 
 if __name__ == '__main__':
     cat_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-10--12-22/model.h5")  # 2020-06-04--13-48/model.h5")
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-12--13-07/model.h5")  # 2020-06-04--13-48/model.h5")
     denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 

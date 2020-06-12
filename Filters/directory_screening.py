@@ -7,10 +7,11 @@ from tqdm import tqdm
 from Filters.screening import FileFilter
 from CNN.utils import make_pd_nans_identical
 
-IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"# "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"
-CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-10--12-22/model.h5"
+IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Bad_Images"#
+CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-11--12-12/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
-ASSESS_EULER = True
+OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_NewNewModel"
+ASSESS_EULER = False
 SEARCH_RECURSIVE = True
 
 # Load models
@@ -29,14 +30,15 @@ for i, file in enumerate(all_files):
     t.set_description(f"...{file[-25:]}")
 
     filterer = FileFilter()
-    filterer.assess_file(filepath=file, category_model=cnn_model, assess_euler=ASSESS_EULER, savedir="/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_NewModel/Filtered")
+    filterer.assess_file(filepath=file, category_model=cnn_model,
+                         assess_euler=ASSESS_EULER, savedir=f"{OUTPUT_DIR}/Filtered")
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
     df_summary.loc[i, ["Size (m)"]] = [filterer.image_size]
     df_summary.loc[i, ["Fail Reasons"]] = [filterer.fail_reasons]
 
-    if filterer.image_classifier:
+    if not filterer.fail_reasons:
         if cnn_model:
             df_summary.loc[i, ["CNN Classification"]] = [filterer.CNN_classification]
             df_summary.loc[i, ["CNN Mean"]] = [filterer.image_classifier.cnn_preds.mean(axis=0)]
@@ -51,4 +53,4 @@ for i, file in enumerate(all_files):
     t.update(1)
 
 df_summary = make_pd_nans_identical(df_summary)
-df_summary.to_csv("/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_NewModel/classification.csv", index=False)
+df_summary.to_csv(f"{OUTPUT_DIR}/classifications.csv", index=False)

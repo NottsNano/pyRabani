@@ -288,7 +288,7 @@ def save_model(model, root_dir):
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTrain"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTrainCombined"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-25/13-59"
 
@@ -298,7 +298,7 @@ if __name__ == '__main__':
     trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
                                 test_datadir=testing_data_dir,
                                 y_params=original_parameters, y_cats=original_categories, batch_size=128,
-                                imsize=200, epochs=20, network_type="classifier")
+                                imsize=200, epochs=9, network_type="classifier")
 
     # trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
     #                                   test_datadir=testing_data_dir,
