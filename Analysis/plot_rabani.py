@@ -234,9 +234,9 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
 
 def show_image(img, axis=None, title=None):
     """Show a binarized image"""
-    img[0, 0] = 0
-    img[0, 1] = 1
-    img[0, 2] = 2
+    # img[0, 0] = 0
+    # img[0, 1] = 1
+    # img[0, 2] = 2
 
     if not axis:
         fig, axis = plt.subplots(1, 1)

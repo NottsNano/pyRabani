@@ -27,7 +27,7 @@ class FileFilter:
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     def assess_file(self, filepath, category_model=None, denoising_model=None, assess_euler=True, plot=False,
-                    savedir=None, filetype="ibw"):
+                    savedir=None):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
@@ -45,9 +45,6 @@ class FileFilter:
             Optional. If we should plot the results of preprocessing/assessment. Default False
         savedir : None or str
             Optional. If a string, save the plot to the given directory. Default None
-        filetype : str
-            Optional. Must be one of ["ibw", "tiff"]. If "tiff", do no preprocessing and go straight to denoising.
-            Default "ibw"
 
         Examples
         --------
@@ -55,11 +52,27 @@ class FileFilter:
         >>> filterer.assess_file()
         """
 
-        data = norm_data = phase = median_data = flattened_data = binarized_data_for_plotting = binarized_data = \
-            img_classifier = img_classifier_euler = assessment_arr = None
         self.filepath = filepath
 
-        # Load and preprocess
+        data, phase, norm_data, median_data, \
+        flattened_data, binarized_data, assessment_arr, binarized_data_for_plotting = self._load_and_preprocess(
+            filepath)
+
+        if not self.fail_reasons:
+            assessment_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
+
+        if plot or savedir:
+            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
+            # if denoising_model and (assessment_arr is not None):
+            #     self._plot_denoising(binarized_data, assessment_arr)
+            if not plot:
+                plt.close("all")
+
+    def _load_and_preprocess(self, filepath):
+        data = norm_data = phase = median_data = flattened_data = \
+            binarized_data_for_plotting = binarized_data = assessment_arr = None
+
+        filetype = os.path.splitext(filepath)[1][1:]
         try:
             if filetype == "ibw":
                 h5_file = self._load_ibw_file(filepath)
@@ -86,37 +99,33 @@ class FileFilter:
 
             elif filetype == "tiff":
                 pass
-                #binarized_data = ... TODO
+                # binarized_data = ... TODO
 
         except:
             self._add_fail_reason("Unexpected error")
 
-        # Classify if still possible
-        if not self.fail_reasons:
-            if denoising_model and category_model:
-                assert category_model.input_shape == denoising_model.input_shape, \
-                    "Classifier and denoiser must have consistent input shape"
+        return data, phase, norm_data, median_data, flattened_data, \
+               binarized_data, assessment_arr, binarized_data_for_plotting
 
-            if denoising_model:
-                wrapped_arr = self._wrap_image_to_tensorflow(binarized_data, category_model.input_shape[1])
-                assessment_arr = self._denoise(wrapped_arr, denoising_model)
-            else:
-                assessment_arr = binarized_data
+    def _classify(self, arr, denoising_model, category_model, assess_euler):
+        if denoising_model and category_model:
+            assert category_model.input_shape == denoising_model.input_shape, \
+                "Classifier and denoiser must have consistent input shape"
 
-            if category_model:
-                self.image_classifier = ImageClassifier(assessment_arr, category_model)
-                self._CNN_classify()
+        if denoising_model:
+            wrapped_arr = self._wrap_image_to_tensorflow(arr, category_model.input_shape[1])
+            assessment_arr = self._denoise(wrapped_arr, denoising_model)
+        else:
+            assessment_arr = arr
 
-                if assess_euler:
-                    self._euler_classify()
+        if category_model:
+            self.image_classifier = ImageClassifier(assessment_arr, category_model)
+            self._CNN_classify()
 
-        if plot or savedir:
-            self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
-            if filetype == "tiff":
-                self._plot_denoising(binarized_data, assessment_arr)
+            if assess_euler:
+                self._euler_classify()
 
-            if not plot:
-                plt.close("all")
+        return assessment_arr
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
               binarized_data=None, binarized_data_for_plotting=None,
@@ -174,8 +183,11 @@ class FileFilter:
 
     def _plot_denoising(self, orig_image, denoised_image, savedir=None):
         fig, axs = plt.subplots(1, 2)
-        show_image(orig_image, axs[1], "Original")
-        show_image(denoised_image, axs[2], "Denoised")
+        fig.suptitle(f"{os.path.basename(self.filepath)} - {self.fail_reasons}", fontsize=5)
+
+        show_image(orig_image[:self.image_classifier.network_img_size, :self.image_classifier.network_img_size],
+                   axs[0], "Original")
+        show_image(denoised_image[0, :, :, 0], axs[1], "Denoised")
 
         if savedir:
             filename = os.path.basename(self.filepath)[:-4]
@@ -238,8 +250,8 @@ class FileFilter:
         is_noisy_solid = (np.sum(is_row_solid) / self.image_res) >= 0.05
 
         # Do >5% of rows have mean not within 80% of the value of the mean of the image?
-        is_row_outlier = np.logical_or((np.mean(arr) * 0.2) >= np.mean(arr, 1),
-                                       np.mean(arr, 1) >= (np.mean(arr) * 1.8))
+        is_row_outlier = np.logical_or((np.mean(arr) * 0.05) >= np.mean(arr, 1),
+                                       np.mean(arr, 1) >= (np.mean(arr) * 1.95))
 
         is_noisy_outlier = (np.sum(is_row_outlier) / self.image_res) >= 0.05
 
@@ -370,7 +382,7 @@ class FileFilter:
 
 if __name__ == '__main__':
     cat_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-12--13-07/model.h5")  # 2020-06-04--13-48/model.h5")
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")  # 2020-06-04--13-48/model.h5")
     denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 
