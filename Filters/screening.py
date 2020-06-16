@@ -63,8 +63,8 @@ class FileFilter:
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
-            # if denoising_model and (assessment_arr is not None):
-            #     self._plot_denoising(binarized_data, assessment_arr)
+            if denoising_model and (assessment_arr is not None):
+                self._plot_denoising(binarized_data, assessment_arr)
             if not plot:
                 plt.close("all")
 
@@ -144,7 +144,7 @@ class FileFilter:
             axs[0, 1].set_title('Median Aligned')
             axs[0, 1].axis("off")
         if flattened_data is not None:
-            axs[0, 2].imshow(flattened_data, extent=(0, self.image_res, 0, self.image_res), origin='lower', cmap='RdGy')
+            axs[0, 2].imshow(np.flipud(flattened_data), extent=(0, self.image_res, 0, self.image_res), origin='lower', cmap='RdGy')
             axs[0, 2].set_title('Planar Flattened')
             axs[0, 2].axis("off")
         if binarized_data_for_plotting is not None:
@@ -359,9 +359,9 @@ class FileFilter:
             self._add_fail_reason("CNN not confident enough")
         if np.any(np.std(self.image_classifier.cnn_preds, axis=0) > 0.1):
             self._add_fail_reason("CNN distributions too broad")
-        if np.sum(self.image_classifier.cnn_preds[:, max_class] >= 0.9999) > (0.98 * len(
-                self.image_classifier.cnn_preds)):
-            self._add_fail_reason("CNN overfit")
+        # if np.sum(self.image_classifier.cnn_preds[:, max_class] >= 0.9999) > (0.98 * len(
+        #         self.image_classifier.cnn_preds)):
+        #     self._add_fail_reason("CNN overfit")
 
         self.CNN_classification = self.cats[max_class]
 

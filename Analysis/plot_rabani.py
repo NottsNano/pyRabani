@@ -1,9 +1,12 @@
 import glob
 import os
 import warnings
+from ast import literal_eval
 
 import h5py
 import numpy as np
+import pandas as pd
+import seaborn as sns
 from matplotlib import colors, pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.ticker import MultipleLocator
@@ -233,10 +236,17 @@ def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=
 
 
 def show_image(img, axis=None, title=None):
-    """Show a binarized image"""
-    # img[0, 0] = 0
-    # img[0, 1] = 1
-    # img[0, 2] = 2
+    """Show a binarized image
+
+    Parameters
+    ----------
+    img : ndarray
+        The image to plot
+    axis : object of type matplotlib.pyplot.axis.axes, Optional
+        If specified, the axis to plot the image to. If None (default), make a new figure
+    title : str, Optional
+        The title of the figure. Default None.
+    """
 
     if not axis:
         fig, axis = plt.subplots(1, 1)
@@ -247,22 +257,55 @@ def show_image(img, axis=None, title=None):
         axis.set_title(title)
 
 
-def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_datadir, imsize=128):
+def visualise_autoencoder_preds(model, *datadirs):
+    """Show effect of denoising images
+
+    Parameters
+    ----------
+    model : object of type tf.model
+        Tensorflow model used for denoising
+    datadirs : list of str
+        List containing every directory containing files (e.g. "good" images, "bad" images, simulated images) to test
+    """
     from CNN.CNN_prediction import validation_pred_generator
     from Filters.screening import FileFilter
 
-    def _plot_preds(pred, true):
-        # Binarise
-        true = np.round(true)
-        pred = np.round(pred)
+    # For each provided directory
+    imsize = model.input_shape[1]
+    for datadir in datadirs:
+        is_ibw = len(glob.glob(f"{datadir}/*.ibw")) == 0
+
+        if is_ibw:  # If real files, preprocess
+            truth = np.zeros((len(glob.glob(f"{datadir}/*.ibw")), imsize, imsize, 1))
+            for i, file in enumerate(glob.glob(f"{datadir}/*.ibw")):
+                filterer = FileFilter()
+                _, _, _, _, _, binarized_data, _, _ = filterer._load_and_preprocess(file)
+
+                if binarized_data is not None:
+                    truth[i, :, :, 0] = binarized_data[:imsize, :imsize]
+                else:
+                    warnings.warn(f"Failed to preprocess {file}")
+        else:  # If simulated files, use datagen
+            preds, truth = validation_pred_generator(model=model,
+                                                     validation_datadir=datadir,
+                                                     network_type="autoencoder", y_params=["kT", "mu"],
+                                                     y_cats=["liquid", "hole", "cellular", "labyrinth", "island"],
+                                                     batch_size=10, imsize=imsize, steps=1)
+
+        # Predict
+        preds = model.predict(truth)
+
+        # Ensure binarisation
+        truth = np.round(truth)
+        preds = np.round(preds)
 
         # Calculate mse
-        mse = np.squeeze(((pred - true) ** 2).mean(axis=(1, 2)))
+        mse = np.squeeze(((preds - truth) ** 2).mean(axis=(1, 2)))
 
         # Plot stacks of images
-        pred = np.reshape(pred, (-1, pred.shape[1]))
-        true = np.reshape(true, (-1, true.shape[1]))
-        img = np.concatenate((true, pred), axis=1)
+        pred = np.reshape(preds, (-1, preds.shape[1]))
+        true = np.reshape(truth, (-1, truth.shape[1]))
+        img = np.concatenate((truth, preds), axis=1)
 
         fig, ax = plt.subplots(1, 1)
         fig.suptitle(f"Mean error: {np.mean(mse) :.2f}")
@@ -275,43 +318,62 @@ def visualise_autoencoder_preds(model, simulated_datadir, good_datadir, bad_data
         for i, j in enumerate(mse):
             ax.text((imsize * 2.5), (i * imsize) + (imsize // 2), f"mse = {j:.2f}")
 
-    # Get simulated predictions
-    preds, truth = validation_pred_generator(model=model,
-                                             validation_datadir=simulated_datadir,
-                                             network_type="autoencoder", y_params=["kT", "mu"],
-                                             y_cats=["liquid", "hole", "cellular", "labyrinth", "island"],
-                                             batch_size=10, imsize=imsize, steps=1)
-    _plot_preds(preds, truth)
 
-    # Get predictions of "good" and "bad" real data
-    datadirs = [good_datadir, bad_datadir]
-    for datadir in datadirs:
-        truth = np.zeros((len(glob.glob(f"{datadir}/*.ibw")), imsize, imsize, 1))
-        for i, file in enumerate(glob.glob(f"{datadir}/*.ibw")):
-            filterer = FileFilter()
-            h5_file = filterer._load_ibw_file(file)
-            data, phase = filterer._parse_ibw_file(h5_file)
+def plot_fail_reason_distribution(summary_csv):
+    """Plot a bar chart showing the different reasons for failing. Some images can have multiple fail reasons!
 
-            norm_data = filterer._normalize_data(data)
-            phase = filterer._normalize_data(phase)
+    Parameters
+    ----------
+    summary_csv : str
+        Path to a csv file containing classifications
+    """
 
-            median_data = filterer._median_align(norm_data)
-            median_phase = filterer._median_align(phase)
-            filterer._is_image_noisy(median_data)
-            filterer._is_image_noisy(median_phase)
+    # Read in and extract failure reasons
+    df_summary = pd.read_csv(summary_csv)
+    df_summary["Fail Reasons"] = df_summary["Fail Reasons"].fillna("['None']")
+    df_summary["Fail Reasons"] = df_summary["Fail Reasons"].apply(literal_eval)
 
-            flattened_data = filterer._poly_plane_flatten(median_data)
+    fail_reasons = [item for sublist in df_summary["Fail Reasons"] for item in sublist]
 
-            flattened_data = filterer._normalize_data(flattened_data)
-            binarized_data, _ = filterer._binarise(flattened_data)
+    sns.countplot(fail_reasons)
 
-            if binarized_data is not None:
-                truth[i, :, :, 0] = binarized_data[:imsize, :imsize]
-            else:
-                warnings.warn(f"Failed to preprocess {file}")
 
-        preds = model.predict(truth)
-        _plot_preds(preds, truth)
+def plot_random_classified_images(summary_csv, category=None, max_ims=25):
+    """Plot a random selection of CNN classified images
+
+    Parameters
+    ----------
+    summary_csv : str
+        Path to a csv file containing classifications
+    category : str or None, Optional
+        If specified, only plot classifications of this category. Default None
+    max_ims : int, Optional
+        The maximum number of images to plot. Default 25
+
+    See Also
+    --------
+    Filters.directory_screening
+    """
+    from Filters.screening import FileFilter
+
+    # Read in file
+    df_summary = pd.read_csv(summary_csv)
+    df_classified = df_summary[pd.isnull(df_summary["Fail Reasons"])]
+
+    # Only consider category if specified
+    if category:
+        df_classified = df_classified[df_classified["CNN Classification"] == category]
+
+    # Randomly plot up to max_ims binarized files
+    ax_res = int(np.sqrt(max_ims))
+    fig, ax = plt.subplots(ax_res, ax_res, sharex=True, sharey=True)
+    ax = np.reshape(ax, -1)
+
+    for i, file in enumerate(df_classified["File Path"].sample(max_ims)):
+        filterer = FileFilter()
+        _, _, _, _, _, binarized_data, _, _ = filterer._load_and_preprocess(file)
+
+        show_image(binarized_data, axis=ax[i])
 
 
 if __name__ == '__main__':
