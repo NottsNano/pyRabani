@@ -7,10 +7,10 @@ from tqdm import tqdm
 from Filters.screening import FileFilter
 from CNN.utils import make_pd_nans_identical
 
-IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Bad_Images"#
-CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-11--12-12/model.h5"
+IMAGE_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Bad_Images" #"/media/mltest1/Dat Storage/Manu AFM CD Box" #
+CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
-OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_NewNewModel"
+OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_TweakedModel"
 ASSESS_EULER = False
 SEARCH_RECURSIVE = True
 
@@ -31,7 +31,7 @@ for i, file in enumerate(all_files):
 
     filterer = FileFilter()
     filterer.assess_file(filepath=file, category_model=cnn_model,
-                         assess_euler=ASSESS_EULER, savedir=f"{OUTPUT_DIR}/Filtered")
+                         assess_euler=ASSESS_EULER)#, savedir=f"{OUTPUT_DIR}/Filtered")
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
@@ -53,4 +53,4 @@ for i, file in enumerate(all_files):
     t.update(1)
 
 df_summary = make_pd_nans_identical(df_summary)
-df_summary.to_csv(f"{OUTPUT_DIR}/classifications.csv", index=False)
+df_summary.to_csv(f"{OUTPUT_DIR}/classifications_bad.csv", index=False)

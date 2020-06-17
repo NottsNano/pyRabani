@@ -138,7 +138,7 @@ def PR_one_vs_all(majority_pred, truth, cats, title=None, axis=None):
 
 if __name__ == '__main__':
     from CNN.CNN_prediction import validation_pred_generator
-    from Analysis.plot_rabani import show_random_selection_of_images
+    from Analysis.plot_rabani import plot_random_simulated_images
 
     trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
 
@@ -157,8 +157,8 @@ if __name__ == '__main__':
     y_preds_arg = np.argmax(y_preds, axis=1)
     y_truth_arg = np.argmax(y_truth, axis=1)
 
-    show_random_selection_of_images(validation_data_dir, num_imgs=25, y_params=params,
-                                    y_cats=cats, imsize=256)
+    plot_random_simulated_images(validation_data_dir, num_imgs=25, y_params=params,
+                                 y_cats=cats, imsize=256)
 
     plot_confusion_matrix(y_truth_arg, y_preds_arg, cats)
     print(metrics.classification_report(y_truth_arg, y_preds_arg, target_names=cats))

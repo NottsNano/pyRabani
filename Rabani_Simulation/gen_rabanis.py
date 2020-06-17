@@ -56,7 +56,7 @@ class RabaniSweeper:
         self.params = None
         self.sweep_cnt = 1
 
-        self._dir_base = f"{self.root_dir}"  # /{self.start_date}/{self.start_time}"
+        self._dir_base = f"{self.root_dir}/{self.start_date}/{self.start_time}"
         self._file_base = f"{self._dir_base}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}"
         self.make_storage_folder(self._dir_base)
 
@@ -196,17 +196,17 @@ class RabaniSweeper:
             else:
                 # Liquid if dominant category is water (==1)
                 cat = "liquid"
-        # else:# -0.00025 <= region["euler_number"] / np.sum(img == nano_num):
-        #     # Cell/Worm if starting to form
-        #     cat = "cellular"
-        # elif -0.01 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
-        #     # Labyrinth
-        #     cat = "labyrinth"
-        else:# region["euler_number"] / np.sum(img == nano_num) <= -0.03:
+        elif -0.00025 <= region["euler_number"] / np.sum(img == nano_num):
+            # Cell/Worm if starting to form
+            cat = "cellular"
+        elif -0.01 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
+            # Labyrinth
+            cat = "labyrinth"
+        elif region["euler_number"] / np.sum(img == nano_num) <= -0.03:
             # Island
             cat = "labyrinth"
-        # else:
-        #     cat = "none"
+        else:
+            cat = "none"
 
         return region, cat
 
@@ -219,27 +219,24 @@ class RabaniSweeper:
 
 
 if __name__ == '__main__':
-    root_dir = "Data/Simulated_Images/NewTrain"
+    root_dir = "Data/Simulated_Images"
 
-    total_image_reps = 6
+    total_image_reps = 1
 
-    parameters = {"kT": [0.3, 0.35],
-                  "mu": [2.9, 3.0],
-                  "MR": [1, 3],
+    parameters = {"kT": [0.01, 0.35],
+                  "mu": [2.35, 3.5],
+                  "MR": 1,
                   "C": 0.4,
                   "e_nl": 1.5,
                   "e_nn": 2,
-                  "L": [128, 200],
-                  "MCS_max": [300, 1500]}
+                  "L": 128,
+                  "MCS_max": 5000}
 
-    axis_res = {"kT": 5,
-                "mu": 5,
-                "MR": 3,
-                "L": 5,
-                "MCS_max": 5
+    axis_res = {"kT": 25,
+                "mu": 25
                 }
 
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)

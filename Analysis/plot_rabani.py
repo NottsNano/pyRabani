@@ -206,12 +206,12 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5), 
         axs[plot_num].title.set_text(f"{category}")
 
 
-def show_random_selection_of_images(datadir, num_imgs, y_params, y_cats, imsize=128, model=None):
+def plot_random_simulated_images(datadir, num_imgs, y_params, y_cats, imsize=128, model=None):
     """Show a random selection of simulated images, with categories chosen by simulation/CNN prediction"""
     from CNN.CNN_training import h5RabaniDataGenerator
 
     img_generator = h5RabaniDataGenerator(datadir, network_type="classifier", batch_size=num_imgs, is_train=False,
-                                          imsize=imsize,
+                                          imsize=imsize, force_binarisation=False,
                                           output_parameters_list=y_params, output_categories_list=y_cats)
     img_generator.is_validation_set = True
 
@@ -335,7 +335,9 @@ def plot_fail_reason_distribution(summary_csv):
 
     fail_reasons = [item for sublist in df_summary["Fail Reasons"] for item in sublist]
 
-    sns.countplot(fail_reasons)
+    plt.figure()
+    chart = sns.countplot(fail_reasons)
+    chart.set_xticklabels(chart.get_xticklabels(), rotation=45, horizontalalignment='right')
 
 
 def plot_random_classified_images(summary_csv, category=None, max_ims=25):
@@ -354,6 +356,7 @@ def plot_random_classified_images(summary_csv, category=None, max_ims=25):
     --------
     Filters.directory_screening
     """
+
     from Filters.screening import FileFilter
 
     # Read in file
@@ -369,11 +372,12 @@ def plot_random_classified_images(summary_csv, category=None, max_ims=25):
     fig, ax = plt.subplots(ax_res, ax_res, sharex=True, sharey=True)
     ax = np.reshape(ax, -1)
 
+    max_ims = np.min((max_ims, len(df_classified)))
     for i, file in enumerate(df_classified["File Path"].sample(max_ims)):
         filterer = FileFilter()
         _, _, _, _, _, binarized_data, _, _ = filterer._load_and_preprocess(file)
 
-        show_image(binarized_data, axis=ax[i])
+        show_image(binarized_data, axis=ax[i], title=file.split("/")[-1])
 
 
 if __name__ == '__main__':
@@ -384,6 +388,6 @@ if __name__ == '__main__':
                                   categories=cats)
     plot_threshold_selection(root_dir=dir, categories=cats, img_res=200, trained_model=model)
 
-    x, y = show_random_selection_of_images(dir, 25,
-                                           ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"],
-                                           200, model=model)
+    x, y = plot_random_simulated_images(dir, 25,
+                                        ["kT", "mu"], ["liquid", "hole", "cellular", "labyrinth", "island"],
+                                        200, model=model)

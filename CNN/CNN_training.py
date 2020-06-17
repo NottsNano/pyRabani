@@ -9,6 +9,7 @@ from sklearn.utils import class_weight
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import ModelCheckpoint
+from tensorflow.python.keras.models import load_model
 
 from Analysis.get_stats import plot_model_history
 from CNN.get_model import get_model, autoencoder
@@ -18,7 +19,7 @@ from CNN.utils import resize_image, remove_least_common_level, normalise
 class h5RabaniDataGenerator(Sequence):
     def __init__(self, simulated_image_dir, network_type, batch_size, output_parameters_list, output_categories_list,
                  is_train, imsize=None, horizontal_flip=True, vertical_flip=True, x_noise=0.005, circshift=True,
-                 randomise_levels=False):
+                 randomise_levels=False, force_binarisation=True):
         """
         A keras data generator class for rabani simulations stored as h5 files in a directory
 
@@ -47,6 +48,8 @@ class h5RabaniDataGenerator(Sequence):
             Unused for now. Used for prediction of specific rabani simulated parameters
         output_categories_list : iterable of str
             Categories to be predicted by the network if network_structure == "classifier"
+        force_binarisation : bool
+            If we should force the image to be binarised or not
         """
 
         self.root_dir = simulated_image_dir
@@ -64,6 +67,7 @@ class h5RabaniDataGenerator(Sequence):
         self.xnoise = x_noise
         self.circshift = circshift
         self.randomise_levels = randomise_levels
+        self.force_binarisation = force_binarisation
 
         self.class_weights_dict = None
         self.__reset_file_iterator__()
@@ -149,19 +153,20 @@ class h5RabaniDataGenerator(Sequence):
         if self.is_training_set:
             batch_x = self._augment(batch_x)
 
+        if self.force_binarisation:
+            batch_x = self._patch_binarisation(batch_x)
+
         self._batches_counter += 1
         if self._batches_counter >= self.__len__() and self.is_training_set is False:
             self.__reset_file_iterator__()
 
         if self.network_type is "classifier":
-            batch_x = self._patch_binarisation(batch_x)
             if self.is_validation_set:
                 self.y_true[self._batches_counter * self.batch_size:(self._batches_counter + 1) * self.batch_size,
                 :] = batch_y
 
             return batch_x, batch_y
         elif self.network_type is "autoencoder":
-            batch_x = self._patch_binarisation(batch_x)
             noisy_x = self.speckle_noise(batch_x, perc_noise=0.4, perc_std=0.005)
 
             if self.is_validation_set:
@@ -250,15 +255,16 @@ def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
-    if network_type == "classifier":
-        model = get_model("VGG", (imsize, imsize, 1), len(y_cats), Adam())
-    elif network_type == "autoencoder":
-        model = autoencoder((imsize, imsize, 1), optimiser=Adam())
-    else:
-        raise ValueError("network_type must be one of ['classifier', 'autoencoder']")
+    # if network_type == "classifier":
+    #     model = get_model("VGG", (imsize, imsize, 1), len(y_cats), Adam())
+    # elif network_type == "autoencoder":
+    #     model = autoencoder((imsize, imsize, 1), optimiser=Adam())
+    # else:
+    #     raise ValueError("network_type must be one of ['classifier', 'autoencoder']")
+    model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--10-48/model.h5")
 
     # early_stopping = EarlyStopping(monitor="val_loss", patience=10)
-    model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
+    # model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
 
     # Train
     model.fit_generator(generator=train_generator,
@@ -267,8 +273,7 @@ def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_
                         validation_steps=test_generator.__len__(),
                         class_weight=train_generator.class_weights_dict,
                         epochs=epochs,
-                        max_queue_size=100,
-                        callbacks=[model_checkpoint])
+                        max_queue_size=100)
 
     return model
 
@@ -298,7 +303,7 @@ if __name__ == '__main__':
     trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
                                 test_datadir=testing_data_dir,
                                 y_params=original_parameters, y_cats=original_categories, batch_size=128,
-                                imsize=200, epochs=9, network_type="classifier")
+                                imsize=200, epochs=5, network_type="classifier")
 
     # trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
     #                                   test_datadir=testing_data_dir,

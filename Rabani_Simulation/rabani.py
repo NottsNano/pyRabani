@@ -303,6 +303,6 @@ def _run_rabani_sweep(params):
 
 if __name__ == '__main__':
     # for MCS in np.linspace(100, 2000, 5):
-    img, num_steps = rabani_single(kT=0.3, mu=2.55, MR=1, C=0.3, e_nl=1.5,
-                               e_nn=2, L=128, MCS_max=600, early_stop=False)
+    img, num_steps = rabani_single(kT=0.35, mu=3, MR=1, C=0.4, e_nl=1.5,
+                               e_nn=2, L=128, MCS_max=300, early_stop=False)
     show_image(img)
