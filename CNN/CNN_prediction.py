@@ -1,6 +1,7 @@
 import itertools
 
 import numpy as np
+from scipy.stats import mode
 from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_training import h5RabaniDataGenerator
@@ -58,6 +59,27 @@ class ImageClassifier:
                                   (jump_j * stride): (jump_j * stride) + network_img_size]
 
         return cnn_arr
+
+    @staticmethod
+    def _unwrap_image_from_tensorflow(imgs, output_img_size):
+        # Deduce how image was windowed to tensorflow shape
+        imgs = imgs.astype(int)
+        num_jumps = int(np.sqrt(len(imgs)))
+        network_img_size = imgs.shape[1]
+        stride = (output_img_size - network_img_size) // num_jumps
+        jump_idx = itertools.product(np.arange(num_jumps), np.arange(num_jumps))
+
+        # Spread all wrapped images over new size
+        big_arr = np.zeros((len(imgs), output_img_size, output_img_size))
+        big_arr[:] = np.nan
+        for i, (jump_i, jump_j) in enumerate(jump_idx):
+            big_arr[i,
+            (jump_i * stride): (jump_i * stride) + network_img_size,
+            (jump_j * stride): (jump_j * stride) + network_img_size] = imgs[i,:,:,0]
+
+        voted_arr = np.nanmean(big_arr, axis=0).round()
+
+        return voted_arr
 
     def cnn_classify(self, perc_noise=0.05, perc_std=0.001):
         noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr, perc_noise, perc_std,

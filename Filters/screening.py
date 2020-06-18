@@ -59,12 +59,12 @@ class FileFilter:
             filepath)
 
         if not self.fail_reasons:
-            assessment_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
+            assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
-            if denoising_model and (assessment_arr is not None):
-                self._plot_denoising(binarized_data, assessment_arr)
+            # if denoising_model and (assessment_arr is not None):
+            #     self._plot_denoising(binarized_data, denoised_arr, savedir)
             if not plot:
                 plt.close("all")
 
@@ -97,9 +97,8 @@ class FileFilter:
                 if not self.fail_reasons:
                     self._are_lines_properly_binarised(binarized_data)
 
-            elif filetype == "tiff":
-                pass
-                # binarized_data = ... TODO
+            elif filetype == "png":
+                binarized_data = self._load_image_file(filepath)
 
         except:
             self._add_fail_reason("Unexpected error")
@@ -115,8 +114,10 @@ class FileFilter:
         if denoising_model:
             wrapped_arr = self._wrap_image_to_tensorflow(arr, category_model.input_shape[1])
             assessment_arr = self._denoise(wrapped_arr, denoising_model)
+            denoised_arr = ImageClassifier._unwrap_image_from_tensorflow(assessment_arr, self.image_res)
         else:
             assessment_arr = arr
+            denoised_arr = None
 
         if category_model:
             self.image_classifier = ImageClassifier(assessment_arr, category_model)
@@ -125,7 +126,7 @@ class FileFilter:
             if assess_euler:
                 self._euler_classify()
 
-        return assessment_arr
+        return assessment_arr, denoised_arr
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
               binarized_data=None, binarized_data_for_plotting=None,
@@ -144,7 +145,8 @@ class FileFilter:
             axs[0, 1].set_title('Median Aligned')
             axs[0, 1].axis("off")
         if flattened_data is not None:
-            axs[0, 2].imshow(np.flipud(flattened_data), extent=(0, self.image_res, 0, self.image_res), origin='lower', cmap='RdGy')
+            axs[0, 2].imshow(np.flipud(flattened_data), extent=(0, self.image_res, 0, self.image_res), origin='lower',
+                             cmap='RdGy')
             axs[0, 2].set_title('Planar Flattened')
             axs[0, 2].axis("off")
         if binarized_data_for_plotting is not None:
@@ -185,22 +187,30 @@ class FileFilter:
         fig, axs = plt.subplots(1, 2)
         fig.suptitle(f"{os.path.basename(self.filepath)} - {self.fail_reasons}", fontsize=5)
 
-        show_image(orig_image[:self.image_classifier.network_img_size, :self.image_classifier.network_img_size],
-                   axs[0], "Original")
-        show_image(denoised_image[0, :, :, 0], axs[1], "Denoised")
+        show_image(orig_image, axs[0], "Original")
+        # show_image(denoised_image[0, :, :, 0], axs[1], "Denoised Subsection")
+        show_image(denoised_image, axs[1], "Majority Vote")
 
         if savedir:
             filename = os.path.basename(self.filepath)[:-4]
-            if self.fail_reasons:
-                fig.savefig(f"{savedir}/fail/denoise_{filename}.png", dpi=300)
-            else:
-                fig.savefig(f"{savedir}/{self.CNN_classification}/denoise_{filename}.png", dpi=300)
+            # if self.fail_reasons:
+            fig.savefig(f"{savedir}/denoised/denoise_{filename}.png", dpi=300)
+            # else:
+            #     fig.savefig(f"{savedir}/{self.CNN_classification}/denoise_{filename}.png", dpi=300)
 
     def _add_fail_reason(self, fail_str):
         if not self.fail_reasons:
             self.fail_reasons = [fail_str]
         else:
             self.fail_reasons += [fail_str]
+
+    def _load_image_file(self, filepath):
+        try:
+            binarized_data = plt.imread(filepath)
+            self.image_res = len(binarized_data)
+            return binarized_data
+        except:
+            self._add_fail_reason("Corrupt file")
 
     def _load_ibw_file(self, filepath):
         try:
@@ -391,9 +401,14 @@ if __name__ == '__main__':
     #     "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
     #     cat_model, denoise_model, assess_euler=False, plot=True)
 
+    # test_filter = FileFilter()
+    # test_filter.assess_file(
+    #     "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
+    #     cat_model, denoise_model, assess_euler=False, plot=True)
+
     test_filter = FileFilter()
     test_filter.assess_file(
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
+        "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
         cat_model, denoise_model, assess_euler=False, plot=True)
 
     # test_filter = FileFilter()
