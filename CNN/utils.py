@@ -28,6 +28,43 @@ def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, saved
             plt.savefig(f"{savedir}/img_{i}.png")
 
 
+def adding_noise_euler_test(num_steps, perc_noise, save=True):
+    from Rabani_Simulation.rabani import rabani_single
+    from CNN.CNN_training import h5RabaniDataGenerator
+    from Analysis.plot_rabani import show_image
+    from skimage import measure
+    from matplotlib.ticker import PercentFormatter
+
+    # Gen rabani
+    img, _ = rabani_single(kT=0.12, mu=2.9, MR=1, C=0.3, e_nl=1.5, e_nn=2, L=200, MCS_max=5000, early_stop=True)
+
+    # Set up figure
+    fig, axs = plt.subplots(1, 2)
+    lims = [-0.00025, -0.001, -0.01, -0.03, -0.04]
+    axs[1].set_xlim(0, num_steps * perc_noise)
+    axs[1].set_ylim(lims[-1], 0)
+    for lim in lims:
+        axs[1].axhline(lim, color='k', linestyle='--')
+    axs[1].set_xlabel("Percentage Speckle Noise")
+    axs[1].xaxis.set_major_formatter(PercentFormatter(xmax=1))
+    axs[1].set_ylabel("Euler Number")
+
+    # Continuously calculate Euler number while adding speckle noise
+    for i in range(num_steps):
+        region = (measure.regionprops((img != 0) + 1)[0])
+        euler_num = region["euler_number"] / np.sum(img == 2)
+        axs[1].plot(i * perc_noise, euler_num, 'rx')
+
+        show_image(img, axis=axs[0])
+
+        img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std=None, randomness="batchwise",
+                                                  num_uniques=4, scaling=False)
+        del region
+
+        if save:
+            plt.savefig(f"/home/mltest1/tmp/pycharm_project_883/Data/Plots/euler_noise_comp/{i}.png")
+
+
 def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
     from CNN.CNN_training import h5RabaniDataGenerator
     from CNN.CNN_prediction import ImageClassifier

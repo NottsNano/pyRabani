@@ -211,7 +211,7 @@ class h5RabaniDataGenerator(Sequence):
         return tmp_x
 
     @staticmethod
-    def speckle_noise(batch_x, perc_noise, perc_std, randomness="elementwise", num_uniques=None):
+    def speckle_noise(batch_x, perc_noise, perc_std, randomness="elementwise", num_uniques=None, scaling=True):
         if randomness == "elementwise":
             assert batch_x.ndim == 4
             p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
@@ -228,7 +228,11 @@ class h5RabaniDataGenerator(Sequence):
 
         if not num_uniques:  # calling np.unique on massive 4d arrays is insanely slow!!
             num_uniques = len(np.unique(batch_x))
-        rand_arr = (num_uniques - 1) * np.random.randint(0, num_uniques - 1, size=batch_x.shape)
+
+        rand_arr = np.random.randint(0, num_uniques - 1, size=batch_x.shape)
+        if scaling:
+            rand_arr *= (num_uniques - 1)
+
         batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
 
         return batch_x

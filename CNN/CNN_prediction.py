@@ -94,7 +94,7 @@ class ImageClassifier:
         self.euler_preds = np.zeros((len(self.cnn_arr), len(cats)))
 
         for i, img in enumerate(self.cnn_arr):
-            _, pred = RabaniSweeper.calculate_stats(img=img[:, :, 0], image_res=self.network_img_size, liquid_num=2,
+            _, pred = RabaniSweeper.calculate_stats(img=img[:, :, 0], image_res=self.network_img_size, liquid_num=1,
                                                     substrate_num=0, nano_num=1)
             self.euler_preds[i, cats.index(pred)] = 1
         self.euler_majority_preds = np.mean(self.euler_preds, axis=0)
