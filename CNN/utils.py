@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.transform import resize
@@ -26,6 +28,41 @@ def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, saved
 
         if savedir:
             plt.savefig(f"{savedir}/img_{i}.png")
+
+
+def minkowski_stability_test(filepath, window_size):
+    from Filters.screening import FileFilter
+    from skimage import measure
+    from Analysis.plot_rabani import show_image
+
+    filterer = FileFilter()
+    _, _, _, _, _, data, _, _ = filterer._load_and_preprocess(filepath=filepath)
+    wrapped_arr = filterer._wrap_image_to_tensorflow(data, window_size, zigzag=True)
+
+    fig, axs = plt.subplots(1, 4)
+    lims = [-0.00025, -0.001, -0.01, -0.03, -0.04]
+    for lim in lims:
+        axs[1].axhline(lim, color='k', linestyle='--')
+
+    axs[2].set_ylim(0, 1)
+    axs[3].set_ylim(50, 250)
+
+    axs[1].set_xlabel("Subimage Number")
+    axs[2].set_xlabel("Subimage Number")
+    axs[3].set_xlabel("Subimage Number")
+    axs[1].set_ylabel("Normalised Euler Number")
+    axs[2].set_ylabel("Eccentricity")
+    axs[3].set_ylabel("Equivalent Diameter")
+
+    show_image(data, axis=axs[0])
+    for i, img in enumerate(wrapped_arr):
+        region = measure.regionprops((img[:, :, 0] != 0) + 1)[1]
+        euler_num = region["euler_number"] / np.sum(img == 1)
+        eccentricity = region["eccentricity"]
+        equivalent_diameter = region["equivalent_diameter"]
+        axs[1].plot(i, euler_num, 'rx')
+        axs[2].plot(i, eccentricity, 'rx')
+        axs[3].plot(i, equivalent_diameter, 'rx')
 
 
 def adding_noise_euler_test(num_steps, perc_noise, save=True):
@@ -75,6 +112,40 @@ def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
     img_classifier.cnn_classify()
 
     return img_classifier
+
+
+def zigzag_product(iterable_1, iterable_2):
+    """
+    Zigzag along two iterables to avoid discontinuities when indexing windows
+
+    Parameters
+    ----------
+    iterable_1 : iterable
+    iterable_2 : iterable
+
+    Examples
+    --------
+    Without zigzagging
+    >>> list(itertools.product([1,2,3],[1,2,3]))
+    [(1,1), (1,2), (1,3), (2,1), (2,2), (2,3), (3,1), (3,2), (3,3)]
+
+    With zigzagging
+    >>> zigzag_product([1,2,3],[1,2,3])
+    [(1,1), (1,2), (1,3), (2,3), (2,2), (2,1), (3,1), (3,2), (3,3)]
+    """
+
+    assert len(iterable_1) == len(iterable_2)
+    window_length = len(iterable_1)
+
+    iterated = list(itertools.product(iterable_1, iterable_2))
+    new_iterated = []
+    for cnt, i in enumerate(range(0, len(iterated), window_length)):
+        if cnt % 2 == 1:
+            new_iterated += list(reversed(iterated[i:i + window_length]))
+        else:
+            new_iterated += iterated[i:i + window_length]
+
+    return new_iterated
 
 
 def resize_image(image, newsize):

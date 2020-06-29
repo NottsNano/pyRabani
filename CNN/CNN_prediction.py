@@ -6,7 +6,7 @@ from tensorflow.python.keras.models import load_model
 
 from CNN.CNN_training import h5RabaniDataGenerator
 from Rabani_Simulation.gen_rabanis import RabaniSweeper
-from CNN.utils import adding_noise_test
+from CNN.utils import adding_noise_test, zigzag_product
 
 
 class ImageClassifier:
@@ -46,11 +46,15 @@ class ImageClassifier:
         self.euler_majority_preds = None
 
     @staticmethod
-    def _wrap_image_to_tensorflow(img, network_img_size, stride):
+    def _wrap_image_to_tensorflow(img, network_img_size, stride, zigzag=False):
         """Subsamples an image to turn it into a tensorflow-compatible shape"""
         # Figure out how many "windows" to make
         num_jumps = int((len(img) - network_img_size) / stride)
-        jump_idx = itertools.product(np.arange(num_jumps), np.arange(num_jumps))
+
+        if zigzag:
+            jump_idx = zigzag_product(np.arange(num_jumps), np.arange(num_jumps))
+        else:
+            jump_idx = itertools.product(np.arange(num_jumps), np.arange(num_jumps))
 
         # Copy each window out
         cnn_arr = np.zeros((num_jumps ** 2, network_img_size, network_img_size, 1))
@@ -61,13 +65,17 @@ class ImageClassifier:
         return cnn_arr
 
     @staticmethod
-    def _unwrap_image_from_tensorflow(imgs, output_img_size):
+    def _unwrap_image_from_tensorflow(imgs, output_img_size, zigzag=False):
         # Deduce how image was windowed to tensorflow shape
         imgs = imgs.astype(int)
         num_jumps = int(np.sqrt(len(imgs)))
         network_img_size = imgs.shape[1]
         stride = (output_img_size - network_img_size) // num_jumps
-        jump_idx = itertools.product(np.arange(num_jumps), np.arange(num_jumps))
+
+        if zigzag:
+            jump_idx = zigzag_product(np.arange(num_jumps), np.arange(num_jumps))
+        else:
+            jump_idx = itertools.product(np.arange(num_jumps), np.arange(num_jumps))
 
         # Spread all wrapped images over new size
         big_arr = np.zeros((len(imgs), output_img_size, output_img_size))
