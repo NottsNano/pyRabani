@@ -6,6 +6,7 @@ import pycroscopy as scope
 from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
 from skimage import measure
+import skimage.filters
 from tensorflow.python.keras.models import load_model
 
 from Analysis.get_stats import all_preds_histogram, all_preds_percentage
@@ -26,25 +27,27 @@ class FileFilter:
         self.filepath = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
-    def assess_file(self, filepath, category_model=None, denoising_model=None, assess_euler=True, plot=False,
-                    savedir=None):
+    def assess_file(self, filepath, threshold_method="mixture", category_model=None, denoising_model=None, assess_euler=True, plot=False,
+                    savedir=None, **kwargs):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
         ----------
         filepath : str
             Path linking to a .ibw file to assess
-        category_model : object of type tensorflow.category_model
-            Optional. Tensorflow category_model containing categories FileFilter.cats.
+        threshold_method : str, optional
+            Method to threshold ibw files with. Must be "mixture" (default), or a threshold method in skimage.filters
+        category_model : object of type tensorflow.category_model, optional
+            Tensorflow category_model containing categories FileFilter.cats.
             If None (default), only preprocessing will take place
-        denoising_model : None or object of type tensorflow.category_model
-            Optional. Tensorflow category_model to perform denoising. Default None
-        assess_euler : bool
-            Optional. If the normalised Euler characteristic should be assessed or not. Default True
-        plot : bool
-            Optional. If we should plot the results of preprocessing/assessment. Default False
-        savedir : None or str
-            Optional. If a string, save the plot to the given directory. Default None
+        denoising_model : None or object of type tensorflow.category_model, optional
+            Tensorflow category_model to perform denoising. Default None
+        assess_euler : bool, optional
+            If the normalised Euler characteristic should be assessed or not. Default True
+        plot : bool, optional
+            If we should plot the results of preprocessing/assessment. Default False
+        savedir : None or str, optional
+            If a string, save the plot to the given directory. Default None
 
         Examples
         --------
@@ -53,22 +56,22 @@ class FileFilter:
         """
 
         self.filepath = filepath
-
+        denoised_arr = None
         data, phase, norm_data, median_data, \
         flattened_data, binarized_data, assessment_arr, binarized_data_for_plotting = self._load_and_preprocess(
-            filepath)
+            filepath, threshold_method, **kwargs)
 
         if not self.fail_reasons:
             assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
-            # if denoising_model and (assessment_arr is not None):
-            #     self._plot_denoising(binarized_data, denoised_arr, savedir)
+            if denoising_model and (denoised_arr is not None):
+                self._plot_denoising(binarized_data, denoised_arr, savedir)
             if not plot:
                 plt.close("all")
 
-    def _load_and_preprocess(self, filepath):
+    def _load_and_preprocess(self, filepath, threshold_method, **kwargs):
         data = norm_data = phase = median_data = flattened_data = \
             binarized_data_for_plotting = binarized_data = assessment_arr = None
 
@@ -82,19 +85,11 @@ class FileFilter:
 
                 if not self.fail_reasons:
                     norm_data = self._normalize_data(data)
-
-                if not self.fail_reasons:
                     median_data = self._median_align(norm_data)
                     self._is_image_noisy(median_data)
-
-                if not self.fail_reasons:
                     flattened_data = self._poly_plane_flatten(median_data)
-
-                if not self.fail_reasons:
                     flattened_data = self._normalize_data(flattened_data)
-                    binarized_data, binarized_data_for_plotting = self._binarise(flattened_data)
-
-                if not self.fail_reasons:
+                    binarized_data = self._binarise(method=threshold_method, arr=flattened_data, **kwargs)
                     self._are_lines_properly_binarised(binarized_data)
 
             elif filetype == "png":
@@ -119,12 +114,13 @@ class FileFilter:
             assessment_arr = arr
             denoised_arr = None
 
+        self.image_classifier = ImageClassifier(assessment_arr, category_model)
+
         if category_model:
-            self.image_classifier = ImageClassifier(assessment_arr, category_model)
             self._CNN_classify()
 
-            if assess_euler:
-                self._euler_classify()
+        if assess_euler:
+            self._euler_classify()
 
         return assessment_arr, denoised_arr
 
@@ -166,10 +162,11 @@ class FileFilter:
             show_image(binarized_data, axis=axs[0, 3])
             axs[0, 3].set_title('Binarized')
         if self.image_classifier is not None:
-            all_preds_histogram(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 1])
-            all_preds_percentage(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 2])
-            axs[1, 1].set_title('Network Predictions')
-            axs[1, 2].set_title('Network Predictions')
+            if self.image_classifier.cnn_preds is not None:
+                all_preds_histogram(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 1])
+                all_preds_percentage(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 2])
+                axs[1, 1].set_title('Network Predictions')
+                axs[1, 2].set_title('Network Predictions')
             if self.image_classifier.euler_preds is not None:
                 all_preds_percentage(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
                 axs[1, 3].set_title('Euler Predictions')
@@ -324,7 +321,15 @@ class FileFilter:
 
         return arr + yv + xv
 
-    def _binarise(self, arr, nbins=1000, gauss_sigma=10):
+    def _binarise(self, method, arr, **kwargs):
+        if method == "mixture":
+            binarised = self._binarise_mixture_model(arr, **kwargs)
+        else:
+            threshes = eval(f"skimage.filters.threshold_{method}(arr, **kwargs)")
+            binarised = arr > threshes
+        return binarised
+
+    def _binarise_mixture_model(self, arr, nbins=1000, gauss_sigma=10):
         threshes = np.linspace(0, 1, nbins)
         pix = np.zeros((nbins,))
         for i, t in enumerate(threshes):
@@ -341,8 +346,12 @@ class FileFilter:
             return arr > threshes[troughs[len(troughs) - 1]], (threshes, pix, pix_gauss_grad, peaks, troughs)
 
     def _are_lines_properly_binarised(self, arr):
-        unique_lines = np.unique(arr, axis=0)
-        are_lines_improperly_binarised = len(unique_lines) < self.image_res - 20
+        axis_improperly_binarised = 0
+        for axis in [0, 1]:
+            unique_lines = np.unique(arr, axis=axis)
+            axis_improperly_binarised += len(unique_lines) < self.image_res - 20
+
+        are_lines_improperly_binarised = axis_improperly_binarised > 0
         if are_lines_improperly_binarised:
             self._add_fail_reason("Corrupt binarisation")
 
@@ -353,8 +362,8 @@ class FileFilter:
         self.normalised_euler = region["euler_number"] / np.sum(arr != 0)
 
     @staticmethod
-    def _wrap_image_to_tensorflow(img, network_img_size, jump_size=8):
-        return ImageClassifier._wrap_image_to_tensorflow(img, network_img_size, jump_size)
+    def _wrap_image_to_tensorflow(img, network_img_size, jump_size=8, zigzag=False):
+        return ImageClassifier._wrap_image_to_tensorflow(img, network_img_size, jump_size, zigzag)
 
     def _denoise(self, arr, denoising_model):
         return np.round(denoising_model.predict(arr))
@@ -391,10 +400,10 @@ class FileFilter:
 
 
 if __name__ == '__main__':
-    cat_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")  # 2020-06-04--13-48/model.h5")
-    denoise_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
+    # cat_model = load_model(
+    #     "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")  # 2020-06-04--13-48/model.h5")
+    # denoise_model = load_model(
+    #     "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 
     # test_filter = FileFilter()
     # test_filter.assess_file(
@@ -406,22 +415,22 @@ if __name__ == '__main__':
     #     "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
     #     cat_model, denoise_model, assess_euler=False, plot=True)
 
+    # test_filter = FileFilter()
+    # test_filter.assess_file(
+    #     "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
+    #     None, None, assess_euler=True, plot=True)
+
     test_filter = FileFilter()
     test_filter.assess_file(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
-        cat_model, denoise_model, assess_euler=False, plot=True)
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw","otsu",
+        None, None, assess_euler=True, plot=True, nbins=1000)
+    print(test_filter.fail_reasons)
 
-    # test_filter = FileFilter()
-    # test_filter.assess_file(
-    #     "Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-    #     cat_model, denoise_model, assess_euler=False, plot=True)
-    # print(test_filter.fail_reasons)
-    #
-    # test_filter = FileFilter()
-    # test_filter.assess_file(
-    #     "Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-    #     cat_model, denoise_model, assess_euler=False, plot=True)
-    # print(test_filter.fail_reasons)
+    test_filter = FileFilter()
+    test_filter.assess_file(
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw", "otsu",
+        None, None, assess_euler=True, plot=True, nbins=1000)
+    print(test_filter.fail_reasons)
     #
     # test_filter = FileFilter()
     # test_filter.assess_file(

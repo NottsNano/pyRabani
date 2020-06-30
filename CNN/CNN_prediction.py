@@ -7,6 +7,7 @@ from tensorflow.python.keras.models import load_model
 from CNN.CNN_training import h5RabaniDataGenerator
 from Rabani_Simulation.gen_rabanis import RabaniSweeper
 from CNN.utils import adding_noise_test, zigzag_product
+import warnings
 
 
 class ImageClassifier:
@@ -31,6 +32,9 @@ class ImageClassifier:
 
         if self.cnn_model:
             self.network_img_size = self.cnn_model.input_shape[1]
+        else:
+            warnings.warn("No CNN input. Setting window size to 200")
+            self.network_img_size = 200
 
         self.jump = window_stride
 
