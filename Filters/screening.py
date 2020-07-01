@@ -6,6 +6,7 @@ import pycroscopy as scope
 import skimage
 from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
+from tensorflow.python.keras.models import load_model
 
 from Analysis.get_stats import all_preds_histogram, all_preds_percentage
 from Analysis.plot_rabani import show_image, cmap_rabani
@@ -57,11 +58,17 @@ class FileFilter:
 
         self.filepath = filepath
         denoised_arr = None
-        data, phase, norm_data, median_data, \
-        flattened_data, binarized_data, assessment_arr, binarized_data_for_plotting = self._load_and_preprocess(
-            filepath, threshold_method, **kwargs)
 
-        assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
+        try:
+            data, phase, norm_data, median_data, \
+            flattened_data, binarized_data, assessment_arr, binarized_data_for_plotting = self._load_and_preprocess(
+                filepath, threshold_method, **kwargs)
+        except:
+            self._add_fail_reason("Unexpected error")
+            return None
+
+        if not self.fail_reasons:
+            assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
@@ -75,29 +82,26 @@ class FileFilter:
             binarized_data_for_plotting = binarized_data = assessment_arr = None
 
         filetype = os.path.splitext(filepath)[1][1:]
-        try:
-            if filetype == "ibw":
-                h5_file = self._load_ibw_file(filepath)
 
-                if not self.fail_reasons:
-                    data, phase = self._parse_ibw_file(h5_file)
-                    self._is_scan_complete(data)
+        if filetype == "ibw":
+            h5_file = self._load_ibw_file(filepath)
 
-                if not self.fail_reasons:
-                    norm_data = self._normalize_data(data)
-                    median_data = self._median_align(norm_data)
-                    self._is_image_noisy(median_data)
-                    flattened_data = self._poly_plane_flatten(median_data)
-                    flattened_data = self._normalize_data(flattened_data)
-                    binarized_data = self._binarise(method=threshold_method, arr=flattened_data, **kwargs)
-                    if binarized_data is not None:
-                        self._are_lines_properly_binarised(binarized_data)
+            if not self.fail_reasons:
+                data, phase = self._parse_ibw_file(h5_file)
+                self._is_scan_complete(data)
 
-            elif filetype == "png":
-                binarized_data = self._load_image_file(filepath)
+            if not self.fail_reasons:
+                norm_data = self._normalize_data(data)
+                median_data = self._median_align(norm_data)
+                self._is_image_noisy(median_data)
+                flattened_data = self._poly_plane_flatten(median_data)
+                flattened_data = self._normalize_data(flattened_data)
+                binarized_data = self._binarise(method=threshold_method, arr=flattened_data, **kwargs)
+                if binarized_data is not None:
+                    self._are_lines_properly_binarised(binarized_data)
 
-        except:
-            self._add_fail_reason("Unexpected error")
+        elif filetype == "png":
+            binarized_data = self._load_image_file(filepath)
 
         return data, phase, norm_data, median_data, flattened_data, \
                binarized_data, assessment_arr, binarized_data_for_plotting
@@ -108,22 +112,21 @@ class FileFilter:
                 "Classifier and denoiser must have consistent input shape"
 
         if denoising_model:
+            arr = self._wrap_image_to_tensorflow(arr, denoising_model.input_shape[1])
             assessment_arr = self._denoise(arr, denoising_model)
-            denoised_arr = None#ImageClassifier._unwrap_image_from_tensorflow(assessment_arr, self.image_res)
+            denoised_arr = None  # ImageClassifier._unwrap_image_from_tensorflow(assessment_arr, self.image_res)
         else:
             assessment_arr = arr
             denoised_arr = None
 
-        if assessment_arr is not None:
-            self.image_classifier = ImageClassifier(assessment_arr,
-                                                    category_model)  # Out of place, needed for denoising
-            self._is_image_homogenous(self.image_classifier.cnn_arr)
+        self.image_classifier = ImageClassifier(assessment_arr,  category_model)
+        self._is_image_homogenous(self.image_classifier.cnn_arr)
 
-            if category_model:
-                self._CNN_classify()
+        if category_model:
+            self._CNN_classify()
 
-            if assess_euler:
-                self._euler_classify()
+        if assess_euler:
+            self._euler_classify()
 
         return assessment_arr, denoised_arr
 
@@ -355,10 +358,11 @@ class FileFilter:
             return np.array(arr > threshes[troughs[len(troughs) - 1]]), (threshes, pix, pix_gauss_grad, peaks, troughs)
 
     def _are_lines_properly_binarised(self, arr):
+        """Are more than 80% of the lines in each axis unique?"""
         axis_improperly_binarised = 0
         for axis in [0, 1]:
             unique_lines = np.unique(arr, axis=axis)
-            axis_improperly_binarised += len(unique_lines) < self.image_res - 20
+            axis_improperly_binarised += (np.max(unique_lines.shape) < (0.8 * self.image_res))
 
         are_lines_improperly_binarised = axis_improperly_binarised > 0
         if are_lines_improperly_binarised:
@@ -372,7 +376,7 @@ class FileFilter:
         equiv_diameters = np.zeros(len(wrapped_arr))
 
         for i, img in enumerate(wrapped_arr[:, :, :, 0]):
-            region = skimage.measure.regionprops((img != 0) + 1, coordinates='xy')[-1]
+            region = skimage.measure.regionprops((img != 0) + 1)[-1]
             euler_nums[i] = region["euler_number"] / np.sum(img == 1)
             eccentricities[i] = region["eccentricity"]
             equiv_diameters[i] = region["equivalent_diameter"]
@@ -387,7 +391,7 @@ class FileFilter:
             self._add_fail_reason("Equiv. Diameter Too Varied")
 
     def _get_normalised_euler(self, arr):
-        region = (skimage.measure.regionprops((arr != 0) + 1, coordinates='xy')[0])
+        region = (skimage.measure.regionprops((arr != 0) + 1)[0])
         self.normalised_euler = region["euler_number"] / np.sum(arr != 0)
 
     @staticmethod
@@ -429,14 +433,14 @@ class FileFilter:
 
 
 if __name__ == '__main__':
-    # cat_model = load_model(
-    #     "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")  # 2020-06-04--13-48/model.h5")
-    # denoise_model = load_model(
-    #     "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
+    cat_model = load_model(
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")
+    denoise_model = load_model(
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 
     ims = [
-        "D:/Datasets/Manu AFM/CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
-        "D:/Datasets/Manu AFM/CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
         "Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
         "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
         "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
@@ -448,5 +452,5 @@ if __name__ == '__main__':
         test_filter = FileFilter()
         test_filter.assess_file(
             im, "otsu",
-            None, None, assess_euler=True, plot=True, nbins=1000)
+            cat_model, denoise_model, assess_euler=False, plot=True, nbins=1000)
         print(test_filter.fail_reasons)

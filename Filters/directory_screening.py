@@ -38,7 +38,7 @@ for i, file in enumerate(all_files):
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
     df_summary.loc[i, ["Size (m)"]] = [filterer.image_size]
     df_summary.loc[i, ["Fail Reasons"]] = [filterer.fail_reasons]
-    df_summary.loc[i, ["Manual Classification"]] = [file.split("\\")[-2]]
+    # df_summary.loc[i, ["Manual Classification"]] = [file.split("\\")[-2]]
 
     if filterer.CNN_classification:
         df_summary.loc[i, ["CNN Classification"]] = [filterer.CNN_classification]
