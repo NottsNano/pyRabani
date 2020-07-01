@@ -7,11 +7,11 @@ from tqdm import tqdm
 from Filters.screening import FileFilter
 from CNN.utils import make_pd_nans_identical
 
-IMAGE_DIR = "../Data/Steff_Images/Unet"#"/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
+IMAGE_DIR = "../Data/Classification_Performance_Images/Bad_Images"#"/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
 OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images/Unet"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_TweakedModelDenoising"
-ASSESS_EULER = True
+ASSESS_EULER = False
 SEARCH_RECURSIVE = True
 
 # Load models
@@ -24,14 +24,15 @@ df_summary = pd.DataFrame(
              "Euler Classification", "Euler Mean", "Euler std", "Manual Classification"])
 
 # Filter every ibw file in the directory, and build up a dataframe
-all_files = [f for f in glob.glob(f"{IMAGE_DIR}/**/*.png", recursive=SEARCH_RECURSIVE)][:3]
+all_files = [f for f in glob.glob(f"{IMAGE_DIR}/**/*.ibw", recursive=SEARCH_RECURSIVE)]
+
 t = tqdm(total=len(all_files), smoothing=True)
 for i, file in enumerate(all_files):
     t.set_description(f"...{file[-25:]}")
 
     filterer = FileFilter()
-    filterer.assess_file(filepath=file, category_model=cnn_model, denoising_model=denoiser_model,
-                         assess_euler=ASSESS_EULER)#, savedir=f"{OUTPUT_DIR}/Filtered")
+    filterer.assess_file(filepath=file, threshold_method="otsu", category_model=cnn_model, denoising_model=denoiser_model,
+                         assess_euler=ASSESS_EULER, nbins=1000)#, savedir=f"{OUTPUT_DIR}/Filtered")
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]

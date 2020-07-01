@@ -1,8 +1,12 @@
+import glob
 import itertools
+import os
 
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.transform import resize
+from tqdm import tqdm
+import pandas as pd
 
 
 def make_pd_nans_identical(df, replacement_value=None):
@@ -100,6 +104,24 @@ def adding_noise_euler_test(num_steps, perc_noise, save=True):
 
         if save:
             plt.savefig(f"/home/mltest1/tmp/pycharm_project_883/Data/Plots/euler_noise_comp/{i}.png")
+
+
+def pick_random_images(dir, n_ims):
+    from Filters.screening import FileFilter
+
+    df_summary = pd.DataFrame(columns=["File Name", "Classification"])
+    all_files = [f for f in glob.glob(f"{dir}/**/*.ibw", recursive=True)]
+    rand_files = np.random.choice(all_files, n_ims)
+
+    for i, filepath in enumerate(tqdm(rand_files)):
+        filterer = FileFilter()
+        _, _, _, _, flattened_data, _, _, _ = filterer._load_and_preprocess(filepath=filepath, threshold_method="otsu")
+
+        if flattened_data is not None:
+            plt.imsave(f"Data/Random_Images/{os.path.basename(filepath)}.png", flattened_data, cmap="RdGy")
+            df_summary.loc[i, ["File Name"]] = [os.path.basename(filepath)]
+
+    return df_summary
 
 
 def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
