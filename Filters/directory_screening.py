@@ -7,16 +7,16 @@ from tqdm import tqdm
 from Filters.screening import FileFilter
 from CNN.utils import make_pd_nans_identical
 
-IMAGE_DIR = "../Data/Classification_Performance_Images/Bad_Images"#"/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
+IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
-OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images/Unet"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_TweakedModelDenoising"
+OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_FixedCode"
 ASSESS_EULER = False
 SEARCH_RECURSIVE = True
 
 # Load models
-cnn_model = None#load_model(CNN_DIR)
-denoiser_model = None#load_model(DENOISER_DIR)
+cnn_model = load_model(CNN_DIR)
+denoiser_model = load_model(DENOISER_DIR)
 
 df_summary = pd.DataFrame(
     columns=["File Path", "Resolution", "Size (m)", "Fail Reasons",
@@ -31,8 +31,8 @@ for i, file in enumerate(all_files):
     t.set_description(f"...{file[-25:]}")
 
     filterer = FileFilter()
-    filterer.assess_file(filepath=file, threshold_method="otsu", category_model=cnn_model, denoising_model=denoiser_model,
-                         assess_euler=ASSESS_EULER, nbins=1000)#, savedir=f"{OUTPUT_DIR}/Filtered")
+    filterer.assess_file(filepath=file, threshold_method="multiotsu", category_model=cnn_model, denoising_model=denoiser_model,
+                         assess_euler=ASSESS_EULER, nbins=1000, savedir=f"{OUTPUT_DIR}/Filtered")
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
@@ -54,4 +54,4 @@ for i, file in enumerate(all_files):
     t.update(1)
 
 df_summary = make_pd_nans_identical(df_summary)
-# df_summary.to_csv(f"{OUTPUT_DIR}/classifications_euler.csv", index=False)
+df_summary.to_csv(f"{OUTPUT_DIR}/classifications.csv", index=False)

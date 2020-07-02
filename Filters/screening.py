@@ -63,12 +63,13 @@ class FileFilter:
             data, phase, norm_data, median_data, \
             flattened_data, binarized_data, assessment_arr, binarized_data_for_plotting = self._load_and_preprocess(
                 filepath, threshold_method, **kwargs)
+
+            if not self.fail_reasons:
+                assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
+
         except:
             self._add_fail_reason("Unexpected error")
             return None
-
-        if not self.fail_reasons:
-            assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
 
         if plot or savedir:
             self._plot(data, median_data, flattened_data, binarized_data, binarized_data_for_plotting, savedir)
@@ -119,7 +120,7 @@ class FileFilter:
             assessment_arr = arr
             denoised_arr = None
 
-        self.image_classifier = ImageClassifier(assessment_arr,  category_model)
+        self.image_classifier = ImageClassifier(assessment_arr, category_model)
         self._is_image_homogenous(self.image_classifier.cnn_arr)
 
         if category_model:
@@ -209,7 +210,7 @@ class FileFilter:
     def _load_image_file(self, filepath):
         try:
             binarized_data = plt.imread(filepath)
-            self.image_res = len(binarized_data)
+            self.image_res = int(len(binarized_data))
             return binarized_data
         except:
             self._add_fail_reason("Corrupt file")
@@ -338,7 +339,10 @@ class FileFilter:
             binarised = self._binarise_mixture_model(arr, **kwargs)
         else:
             threshes = eval(f"skimage.filters.threshold_{method}(arr, **kwargs)")
+            if type(threshes) is not float:     # Some thresholds return multiple levels - reduce to 2
+                threshes = threshes[0]
             binarised = arr > threshes
+
         return binarised
 
     def _binarise_mixture_model(self, arr, nbins=1000, gauss_sigma=10):
@@ -451,6 +455,6 @@ if __name__ == '__main__':
     for im in ims:
         test_filter = FileFilter()
         test_filter.assess_file(
-            im, "otsu",
+            im, "multiotsu",
             cat_model, denoise_model, assess_euler=False, plot=True, nbins=1000)
         print(test_filter.fail_reasons)
