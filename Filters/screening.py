@@ -339,7 +339,7 @@ class FileFilter:
             binarised = self._binarise_mixture_model(arr, **kwargs)
         else:
             threshes = eval(f"skimage.filters.threshold_{method}(arr, **kwargs)")
-            if type(threshes) is not float:     # Some thresholds return multiple levels - reduce to 2
+            if type(threshes) is np.ndarray:     # Some thresholds return multiple levels - reduce to 2
                 threshes = threshes[0]
             binarised = arr > threshes
 
@@ -458,3 +458,4 @@ if __name__ == '__main__':
             im, "multiotsu",
             cat_model, denoise_model, assess_euler=False, plot=True, nbins=1000)
         print(test_filter.fail_reasons)
+
