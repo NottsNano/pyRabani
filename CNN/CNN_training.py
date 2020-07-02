@@ -229,11 +229,12 @@ class h5RabaniDataGenerator(Sequence):
         if not num_uniques:  # calling np.unique on massive 4d arrays is insanely slow!!
             num_uniques = len(np.unique(batch_x))
 
-        rand_arr = np.random.randint(0, num_uniques - 1, size=batch_x.shape)
-        if scaling:
-            rand_arr *= (num_uniques - 1)
+        if num_uniques > 1:     # Ignore if array is single-valued
+            rand_arr = np.random.randint(0, num_uniques - 1, size=batch_x.shape)
+            if scaling:
+                rand_arr *= (num_uniques - 1)
 
-        batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
+            batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
 
         return batch_x
 
