@@ -27,8 +27,7 @@ class FileFilter:
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
 
     def assess_file(self, filepath, threshold_method, category_model=None, denoising_model=None,
-                    assess_euler=True, plot=False,
-                    savedir=None, **kwargs):
+                    assess_euler=True, plot=False, savedir=None, **kwargs):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
@@ -60,12 +59,12 @@ class FileFilter:
         denoised_arr = None
 
         try:
-            data, phase, norm_data, median_data, \
-            flattened_data, binarized_data, assessment_arr, binarized_data_for_plotting = self._load_and_preprocess(
-                filepath, threshold_method, **kwargs)
+            data, phase, norm_data, median_data, flattened_data, binarized_data, assessment_arr, \
+            binarized_data_for_plotting = self._load_and_preprocess(filepath, threshold_method, **kwargs)
 
             if not self.fail_reasons:
-                assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model, category_model, assess_euler)
+                assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model,
+                                                              category_model, assess_euler)
 
         except:
             self._add_fail_reason("Unexpected error")
@@ -339,7 +338,7 @@ class FileFilter:
             binarised = self._binarise_mixture_model(arr, **kwargs)
         else:
             threshes = eval(f"skimage.filters.threshold_{method}(arr, **kwargs)")
-            if type(threshes) is np.ndarray:     # Some thresholds return multiple levels - reduce to 2
+            if type(threshes) is np.ndarray:  # Some thresholds return multiple levels - reduce to 2
                 threshes = threshes[0]
             binarised = arr > threshes
 
@@ -362,17 +361,18 @@ class FileFilter:
             return np.array(arr > threshes[troughs[len(troughs) - 1]]), (threshes, pix, pix_gauss_grad, peaks, troughs)
 
     def _are_lines_properly_binarised(self, arr):
-        """Are more than 80% of the lines in each axis unique?"""
+        """Are more than 80% of the lines in each axis not identical?"""
         axis_improperly_binarised = 0
         for axis in [0, 1]:
-            unique_lines = np.unique(arr, axis=axis)
-            axis_improperly_binarised += (np.max(unique_lines.shape) < (0.8 * self.image_res))
+            _, num_cnts = np.unique(arr, axis=axis, return_counts=True)
+            num_lines_identical = num_cnts.max()
+            axis_improperly_binarised += (num_lines_identical >= (0.8 * self.image_res))
 
-        are_lines_improperly_binarised = axis_improperly_binarised > 0
-        if are_lines_improperly_binarised:
-            self._add_fail_reason("Corrupt binarisation")
+        are_lines_properly_binarised = axis_improperly_binarised == 0
+        if not are_lines_properly_binarised:
+            self._add_fail_reason("Flat binarisation")
 
-        return not are_lines_improperly_binarised
+        return are_lines_properly_binarised
 
     def _is_image_homogenous(self, wrapped_arr):
         euler_nums = np.zeros(len(wrapped_arr))
@@ -438,19 +438,23 @@ class FileFilter:
 
 if __name__ == '__main__':
     cat_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-03--10-12/model.h5")
     denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 
-    ims = [
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
-        "Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw"]
+    # ims = [
+    #     "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
+    #     "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
+    #     "Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
+    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
+    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
+    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
+    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
+    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw"]
+
+    ims = ["/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 1/08-Data8_140606/060601 AFM SiO2 C8+xs thiol conc Ci4 ring 5mm/C8_Ci4_02th_R5_0006.ibw",
+           "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/A3-Data EPV 2/061116 AFM - electrical measurements - SiO2 C8 and C12 +0.1thiol ring 5mm with contacts/C8_01th_r5_21_0001.ibw",
+           "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/16-Data 16/070503 AFM - wetting experiment - C8 (110407) solutions 0.5mg.mL-1 - spin/C8_SiO2_benzene_0000.ibw"]
 
     for im in ims:
         test_filter = FileFilter()
@@ -458,4 +462,3 @@ if __name__ == '__main__':
             im, "multiotsu",
             cat_model, denoise_model, assess_euler=False, plot=True, nbins=1000)
         print(test_filter.fail_reasons)
-
