@@ -3,10 +3,10 @@ import itertools
 import os
 
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 from skimage.transform import resize
 from tqdm import tqdm
-import pandas as pd
 
 
 def make_pd_nans_identical(df, replacement_value=None):
@@ -34,39 +34,113 @@ def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, saved
             plt.savefig(f"{savedir}/img_{i}.png")
 
 
-def minkowski_stability_test(filepath, window_size):
+def everything_test(filepath, window_size, num_steps, perc_noise):
+    from Filters.screening import FileFilter
+    from skimage import measure
+    from Analysis.plot_rabani import show_image
+    from CNN.CNN_training import h5RabaniDataGenerator
+    from matplotlib.ticker import PercentFormatter
+    from tqdm import tqdm
+
+    # Load in file
+    filterer = FileFilter()
+    _, _, _, _, _, data, _, _ = filterer._load_and_preprocess(filepath=filepath, threshold_method="multiotsu",
+                                                              nbins=1000)
+    wrapped_arr = filterer._wrap_image_to_tensorflow(data, window_size, zigzag=True)
+    wrapped_arr_for_noise = wrapped_arr.copy()
+
+    # Calculate stats as function of window num
+    euler_nums = np.zeros(len(wrapped_arr))
+    perimeters = np.zeros(len(wrapped_arr))
+    for i, img in enumerate(tqdm(wrapped_arr)):
+        region = measure.regionprops((img[:, :, 0] != 0) + 1)[1]
+        euler_nums[i] = region["euler_number"] / np.sum(img == 1)
+        perimeters[i] = region["perimeter"] / np.sum(img == 1)
+
+    # Calculate stats as function of noise
+    euler_nums_noise = np.zeros(num_steps)
+    perimeters_noise = np.zeros(num_steps)
+    euler_nums_noise_std = np.zeros(num_steps)
+    perimeters_noise_std = np.zeros(num_steps)
+    for i in tqdm(range(num_steps)):
+        euler_nums_noise_step = np.zeros(len(wrapped_arr))
+        perimeters_noise_step = np.zeros(len(wrapped_arr))
+        for j, img in enumerate(wrapped_arr_for_noise):
+            region = measure.regionprops((img[:, :, 0] != 0) + 1)[1]
+            euler_nums_noise_step[j] = region["euler_number"] / np.sum(img == 1)
+            perimeters_noise_step[j] = region["perimeter"] / np.sum(img == 1)
+
+        euler_nums_noise[i] = np.mean(euler_nums_noise_step)
+        euler_nums_noise_std[i] = np.std(euler_nums_noise_step)
+        perimeters_noise[i] = np.mean(perimeters_noise_step)
+        perimeters_noise_std[i] = np.std(perimeters_noise_step)
+
+        wrapped_arr_for_noise = h5RabaniDataGenerator.speckle_noise(wrapped_arr_for_noise, perc_noise, perc_std=None,
+                                                                    num_uniques=2, randomness="batchwise_flip",
+                                                                    scaling=False)
+
+    # Plot
+    fig, axs = plt.subplots(1, 5, figsize=(1400 / 96, 500 / 96))
+
+    [ax.set_xlabel("Subimage Number") for ax in axs[1:3]]
+    [ax.set_xlabel("% Speckle Noise") for ax in axs[3:]]
+    [ax.xaxis.set_major_formatter(PercentFormatter(xmax=1)) for ax in axs[3:]]
+
+    [ax.set_ylabel("Normalised Euler Number") for ax in axs[1::2]]
+    [ax.set_ylabel("Normalised Perimeter") for ax in axs[2::2]]
+
+    lims = [-0.00025, -0.001, -0.01, -0.03, -0.04]
+    for ax in axs[1::2]:
+        for lim in lims:
+            ax.axhline(lim, color='k', linestyle='--')
+
+    show_image(data, axis=axs[0])
+    axs[1].plot(euler_nums)
+    axs[2].plot(perimeters)
+    axs[3].errorbar(np.arange(num_steps) * perc_noise, euler_nums_noise, euler_nums_noise_std)
+    axs[4].errorbar(np.arange(num_steps) * perc_noise, perimeters_noise, perimeters_noise_std)
+
+    plt.tight_layout()
+
+
+def minkowski_stability_test(filepath, window_size, save):
     from Filters.screening import FileFilter
     from skimage import measure
     from Analysis.plot_rabani import show_image
 
     filterer = FileFilter()
-    _, _, _, _, _, data, _, _ = filterer._load_and_preprocess(filepath=filepath)
+    _, _, _, _, _, data, _, _ = filterer._load_and_preprocess(filepath=filepath, threshold_method="multiotsu",
+                                                              nbins=1000)
     wrapped_arr = filterer._wrap_image_to_tensorflow(data, window_size, zigzag=True)
 
-    fig, axs = plt.subplots(1, 4)
+    fig, axs = plt.subplots(1, 3, figsize=(1000 / 96, 480 / 96))
     lims = [-0.00025, -0.001, -0.01, -0.03, -0.04]
     for lim in lims:
         axs[1].axhline(lim, color='k', linestyle='--')
 
     axs[2].set_ylim(0, 1)
-    axs[3].set_ylim(50, 250)
+    # axs[3].set_ylim(50, 250)
 
     axs[1].set_xlabel("Subimage Number")
     axs[2].set_xlabel("Subimage Number")
-    axs[3].set_xlabel("Subimage Number")
+
     axs[1].set_ylabel("Normalised Euler Number")
-    axs[2].set_ylabel("Eccentricity")
-    axs[3].set_ylabel("Equivalent Diameter")
+    axs[2].set_ylabel("Normalised Perimeter")
 
     show_image(data, axis=axs[0])
     for i, img in enumerate(wrapped_arr):
-        region = measure.regionprops((img[:, :, 0] != 0) + 1)[1]
+        region = measure.regionprops((img[:, :, 0] != 0) + 1)[0]
         euler_num = region["euler_number"] / np.sum(img == 1)
-        eccentricity = region["eccentricity"]
-        equivalent_diameter = region["equivalent_diameter"]
+        eccentricity = region["perimeter"] / np.sum(img == 1)
         axs[1].plot(i, euler_num, 'rx')
         axs[2].plot(i, eccentricity, 'rx')
-        axs[3].plot(i, equivalent_diameter, 'rx')
+
+    plt.tight_layout()
+
+    if save:
+        savedir = '/'.join(filepath.split('/')[-2:])
+        plt.savefig(f"/home/mltest1/tmp/pycharm_project_883/Data/Plots/minkowski_stability/{savedir}")
+        plt.close()
 
 
 def adding_noise_euler_test(num_steps, perc_noise, save=True):
