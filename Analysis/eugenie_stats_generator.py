@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from CNN.CNN_training import h5RabaniDataGenerator
 
-datadir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest"
+datadir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/TrainFinal"
 batch_size = 128
 
 y_params = ["kT", "mu"]
@@ -31,17 +31,16 @@ for i in tqdm(range(img_generator.__len__())):
         label_img_inv = label(closing(x_inv[j, :, :, 0], square(3)))
 
         # Get stats
-        H0 = label_img.max()
-        H1 = label_img_inv.max()
-
-        tot_perimeter = 0
-        if H0 > H1:
-            average_particle_size = np.sum(label_img > 0)
-        else:
-            average_particle_size = np.sum(label_img_inv > 0)
-
         tot_area = np.sum(label_img > 0)
 
+        H0 = label_img.max()
+        H1 = label_img_inv.max()
+        if H0 > H1:
+            average_particle_size = np.sum(label_img > 0) / H0
+        else:
+            average_particle_size = np.sum(label_img_inv > 0) / H1
+
+        tot_perimeter = 0
         for region, region_inv in zip(regionprops(label_img), regionprops(label_img_inv)):
             tot_perimeter += region["perimeter"] + region_inv["perimeter"]
 
@@ -59,4 +58,4 @@ for i in tqdm(range(img_generator.__len__())):
         df_summary.loc[num_img, "SIH0"] = SIH0
         df_summary.loc[num_img, "SIH1"] = SIH1
 
-df_summary.to_csv("/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_test.csv")
+df_summary.to_csv("/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_train.csv")
