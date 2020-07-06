@@ -10,7 +10,7 @@ from tensorflow.python.keras.models import load_model
 
 from Analysis.get_stats import all_preds_histogram, all_preds_percentage
 from Analysis.plot_rabani import show_image, cmap_rabani
-from CNN.CNN_prediction import ImageClassifier
+from Classify.prediction import ImageClassifier
 
 
 class FileFilter:
@@ -438,23 +438,22 @@ class FileFilter:
 
 if __name__ == '__main__':
     cat_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-03--10-12/model.h5")
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-03--21-04/model.h5")
     denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 
-    # ims = [
-    #     "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
-    #     "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
-    #     "Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
-    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
-    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
-    #     "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw"]
-
-    ims = ["/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 1/08-Data8_140606/060601 AFM SiO2 C8+xs thiol conc Ci4 ring 5mm/C8_Ci4_02th_R5_0006.ibw",
-           "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/A3-Data EPV 2/061116 AFM - electrical measurements - SiO2 C8 and C12 +0.1thiol ring 5mm with contacts/C8_01th_r5_21_0001.ibw",
-           "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/16-Data 16/070503 AFM - wetting experiment - C8 (110407) solutions 0.5mg.mL-1 - spin/C8_SiO2_benzene_0000.ibw"]
+    ims = [
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
+        "Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 1/08-Data8_140606/060601 AFM SiO2 C8+xs thiol conc Ci4 ring 5mm/C8_Ci4_02th_R5_0006.ibw",
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/A3-Data EPV 2/061116 AFM - electrical measurements - SiO2 C8 and C12 +0.1thiol ring 5mm with contacts/C8_01th_r5_21_0001.ibw",
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/16-Data 16/070503 AFM - wetting experiment - C8 (110407) solutions 0.5mg.mL-1 - spin/C8_SiO2_benzene_0000.ibw"]
 
     for im in ims:
         test_filter = FileFilter()

@@ -5,12 +5,12 @@ from tensorflow.python.keras.models import load_model
 from tqdm import tqdm
 
 from Filters.screening import FileFilter
-from CNN.utils import make_pd_nans_identical
+from Classify.utils import make_pd_nans_identical
 
 IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
-OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_FixedCode"
+OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_AnotherAnotherTweak"
 ASSESS_EULER = False
 SEARCH_RECURSIVE = True
 

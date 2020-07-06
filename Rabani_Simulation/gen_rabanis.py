@@ -8,10 +8,9 @@ from itertools import product
 import h5py
 import numpy as np
 import paramiko
-from scipy.stats import mode
-from skimage import measure
 from tqdm import tqdm
 
+from Analysis.get_stats import calculate_stats
 from Rabani_Simulation.rabani import _run_rabani_sweep
 
 
@@ -57,7 +56,7 @@ class RabaniSweeper:
         self.sweep_cnt = 1
 
         self._dir_base = f"{self.root_dir}/{self.start_date}/{self.start_time}"
-        self._file_base = f"{self._dir_base}/rabanis--{platform.node()}--{self.start_date}--{self.start_time}"
+        self._file_base = f"{self._dir_base}"  # /rabanis--{platform.node()}--{self.start_date}--{self.start_time}"
         self.make_storage_folder(self._dir_base)
 
     def setup_ssh(self):
@@ -150,7 +149,7 @@ class RabaniSweeper:
                 f"{self._file_base}--{self.sweep_cnt}.h5",
                 "a")
 
-            region, cat = self.calculate_stats(img, params[rep, 6])
+            region, cat = calculate_stats(img, params[rep, 6])
 
             master_file.attrs["kT"] = params[rep, 0]
             master_file.attrs["mu"] = params[rep, 1]
@@ -183,33 +182,6 @@ class RabaniSweeper:
 
             self.sweep_cnt += 1
 
-    @staticmethod
-    def calculate_stats(img, image_res, substrate_num=0, liquid_num=1, nano_num=2):
-        # Region Properties
-        region = (measure.regionprops((img != 0) + 1)[0])
-
-        # Broadly estimate category
-        if int(mode(img, axis=None).mode) == liquid_num:
-            if np.sum(img == substrate_num) / image_res ** 2 >= 0.02:
-                # Hole if dominant category is water and also has an amount of substrate
-                cat = "hole"
-            else:
-                # Liquid if dominant category is water (==1)
-                cat = "liquid"
-        elif -0.00025 <= region["euler_number"] / np.sum(img == nano_num):
-            # Cell/Worm if starting to form
-            cat = "cellular"
-        elif -0.01 <= region["euler_number"] / np.sum(img == nano_num) < -0.001:
-            # Labyrinth
-            cat = "labyrinth"
-        elif region["euler_number"] / np.sum(img == nano_num) <= -0.03:
-            # Island
-            cat = "labyrinth"
-        else:
-            cat = "none"
-
-        return region, cat
-
     def network_rabanis(self):
         if not self.ssh:
             self.setup_ssh()
@@ -219,24 +191,25 @@ class RabaniSweeper:
 
 
 if __name__ == '__main__':
-    root_dir = "Data/Simulated_Images"
+    root_dir = "Data/Simulated_Images/TrainFinal"
 
-    total_image_reps = 1
+    total_image_reps = 15
 
-    parameters = {"kT": [0.01, 0.35],
-                  "mu": [2.35, 3.5],
+    parameters = {"kT": 0.35,
+                  "mu": [3.2, 3.8],
                   "MR": 1,
-                  "C": 0.4,
+                  "C": 0.3,
                   "e_nl": 1.5,
                   "e_nn": 2,
-                  "L": 128,
-                  "MCS_max": 5000}
+                  "L": [32, 128],
+                  "MCS_max": [800, 1200]}
 
-    axis_res = {"kT": 25,
-                "mu": 25
+    axis_res = {"mu": 5,
+                "L": 25,
+                "MCS_max": 5
                 }
 
-    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="visualise")
+    rabani_sweeper = RabaniSweeper(root_dir=root_dir, generate_mode="make_dataset")
     rabani_sweeper.call_rabani_sweep(params=parameters,
                                      axis_steps=axis_res,
                                      image_reps=total_image_reps)

@@ -38,7 +38,7 @@ def everything_test(filepath, window_size, num_steps, perc_noise):
     from Filters.screening import FileFilter
     from skimage import measure
     from Analysis.plot_rabani import show_image
-    from CNN.CNN_training import h5RabaniDataGenerator
+    from Classify.CNN_training import h5RabaniDataGenerator
     from matplotlib.ticker import PercentFormatter
     from tqdm import tqdm
 
@@ -145,7 +145,7 @@ def minkowski_stability_test(filepath, window_size, save):
 
 def adding_noise_euler_test(num_steps, perc_noise, save=True):
     from Rabani_Simulation.rabani import rabani_single
-    from CNN.CNN_training import h5RabaniDataGenerator
+    from Classify.CNN_training import h5RabaniDataGenerator
     from Analysis.plot_rabani import show_image
     from skimage import measure
     from matplotlib.ticker import PercentFormatter
@@ -199,8 +199,8 @@ def pick_random_images(dir, n_ims):
 
 
 def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
-    from CNN.CNN_training import h5RabaniDataGenerator
-    from CNN.CNN_prediction import ImageClassifier
+    from Classify.CNN_training import h5RabaniDataGenerator
+    from Classify.prediction import ImageClassifier
 
     img = img.copy()  # Do this because of immutability!
     img = h5RabaniDataGenerator.speckle_noise(img, perc_noise, perc_std)[0, :, :, 0]

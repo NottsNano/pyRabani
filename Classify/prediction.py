@@ -1,13 +1,12 @@
 import itertools
+import warnings
 
 import numpy as np
-from scipy.stats import mode
 from tensorflow.python.keras.models import load_model
 
-from CNN.CNN_training import h5RabaniDataGenerator
-from Rabani_Simulation.gen_rabanis import RabaniSweeper
-from CNN.utils import adding_noise_test, zigzag_product
-import warnings
+from Analysis.get_stats import calculate_stats, calculate_normalised_stats
+from Classify.CNN_training import h5RabaniDataGenerator
+from Classify.utils import adding_noise_test, zigzag_product
 
 
 class ImageClassifier:
@@ -16,19 +15,22 @@ class ImageClassifier:
 
     Parameters
     ----------
-    img : ndarray
+    img: ndarray
         Either a single 2D image of size larger than the category_model, or a single image of identical size
          to the category_model and windowed and wrapped to 4D
-    window_stride : int or None
+    window_stride: int or None
         The stride length to jump by when sub-sampling img to form an image. Default 4
-    cnn_model : object of type tensorflow.category_model
-        A trained tensorflow category_model
+    cnn_model: object of type tensorflow.category_model, optional
+        A trained tensorflow model. Required for CNN classifications
+    sklearn_model: object of type sklearn.classifier
+        A trained sklearn classifier. Required for stats classifications
     """
 
-    def __init__(self, img, cnn_model, window_stride=8):
+    def __init__(self, img, cnn_model=None, sklearn_model=None, window_stride=8):
         self.img_arr = img
 
         self.cnn_model = cnn_model
+        self.sklearn_model = sklearn_model
 
         if self.cnn_model:
             self.network_img_size = self.cnn_model.input_shape[1]
@@ -44,10 +46,9 @@ class ImageClassifier:
             self.cnn_arr = img
 
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
-        self.cnn_preds = None
-        self.cnn_majority_preds = None
-        self.euler_preds = None
-        self.euler_majority_preds = None
+        self.cnn_preds = self.cnn_majority_preds = None
+        self.euler_preds = self.euler_majority_preds = None
+        self.minkowski_preds = self.minkowski_majority_preds = None
 
     @staticmethod
     def _wrap_image_to_tensorflow(img, network_img_size, stride, zigzag=False):
@@ -87,7 +88,7 @@ class ImageClassifier:
         for i, (jump_i, jump_j) in enumerate(jump_idx):
             big_arr[i,
             (jump_i * stride): (jump_i * stride) + network_img_size,
-            (jump_j * stride): (jump_j * stride) + network_img_size] = imgs[i,:,:,0]
+            (jump_j * stride): (jump_j * stride) + network_img_size] = imgs[i, :, :, 0]
 
         voted_arr = np.nanmean(big_arr, axis=0).round()
 
@@ -96,20 +97,37 @@ class ImageClassifier:
     def cnn_classify(self, perc_noise=0.05, perc_std=0.001):
         noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr, perc_noise, perc_std,
                                                           randomness="batchwise",
-                                                          num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0]))+1)
+                                                          num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0])) + 1)
 
         self.cnn_preds = self.cnn_model.predict(noisy_array)
-        self.cnn_majority_preds = np.mean(self.cnn_preds, axis=0)
+        self.cnn_majority_preds = self._majority_preds(self.cnn_preds)
 
     def euler_classify(self):
         cats = self.cats + ["none"]
         self.euler_preds = np.zeros((len(self.cnn_arr), len(cats)))
 
         for i, img in enumerate(self.cnn_arr):
-            _, pred = RabaniSweeper.calculate_stats(img=img[:, :, 0], image_res=self.network_img_size, liquid_num=1,
-                                                    substrate_num=0, nano_num=1)
+            _, pred = calculate_stats(img=img[:, :, 0], image_res=self.network_img_size, liquid_num=1,
+                                      substrate_num=0, nano_num=1)
             self.euler_preds[i, cats.index(pred)] = 1
-        self.euler_majority_preds = np.mean(self.euler_preds, axis=0)
+        self.euler_majority_preds = self._majority_preds(self.euler_preds)
+
+    def minkowski_classify(self):
+        SIA = np.zeros(len(self.cnn_arr))
+        SIP = np.zeros(len(self.cnn_arr))
+        SIH0 = np.zeros(len(self.cnn_arr))
+        SIH1 = np.zeros(len(self.cnn_arr))
+
+        for i, img in enumerate(self.cnn_arr):
+            SIA[i], SIP[i], SIH0[i], SIH1[i] = calculate_normalised_stats(img[:, :, 0])
+
+        x = np.hstack((SIA, SIP, SIH0, SIH1))
+        self.minkowski_preds = self.sklearn_model.predict_proba(x)
+        self.minkowski_majority_preds = self._majority_preds(self.minkowski_preds)
+
+    @staticmethod
+    def _majority_preds(arr):
+        return np.mean(arr, axis=0)
 
 
 def validation_pred_generator(model, validation_datadir, network_type, y_params, y_cats, batch_size, imsize=128,

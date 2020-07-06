@@ -6,11 +6,14 @@ import h5py
 import numpy as np
 from scipy.stats import bernoulli
 from sklearn.utils import class_weight
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import Sequence
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
 
 from Analysis.get_stats import plot_model_history
-from CNN.utils import resize_image, remove_least_common_level, normalise
+from Classify.get_model import get_model, autoencoder
+from Classify.utils import resize_image, remove_least_common_level, normalise
 
 
 class h5RabaniDataGenerator(Sequence):
@@ -209,32 +212,28 @@ class h5RabaniDataGenerator(Sequence):
 
     @staticmethod
     def speckle_noise(batch_x, perc_noise, perc_std, randomness="elementwise", num_uniques=None, scaling=True):
-        if not num_uniques:  # Fix an obscure bug. Here be dragons!
+        if randomness == "elementwise":
+            assert batch_x.ndim == 4
+            p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
+            rand_mask = np.zeros(batch_x.shape)
+            for i, p in enumerate(p_all):
+                rand_mask[i, :, :, 0] = bernoulli.rvs(p=p, size=batch_x[0, :, :, 0].shape)
+        elif randomness == "batchwise":
+            # rand_mask = bernoulli.rvs(p=np.abs(np.random.normal(loc=perc_noise, scale=perc_std)), size=batch_x.shape)
+            rand_mask = np.zeros(batch_x.shape)
+            rand_vals = np.random.rand(*batch_x.shape)
+            rand_mask[rand_vals <= perc_noise] = 1
+        else:
+            raise ValueError("randomness must be one of ['elementwise', batchwise]")
+
+        if not num_uniques:  # calling np.unique on massive 4d arrays is insanely slow!!
             num_uniques = len(np.unique(batch_x))
 
-        if num_uniques > 1:  # Ignore if array is single-valued
-            if randomness == "elementwise":
-                assert batch_x.ndim == 4
-                p_all = np.abs(np.random.normal(loc=perc_noise, scale=perc_std, size=(len(batch_x),)))
-                rand_mask = np.zeros(batch_x.shape)
-                for i, p in enumerate(p_all):
-                    rand_mask[i, :, :, 0] = bernoulli.rvs(p=p, size=batch_x[0, :, :, 0].shape)
-            elif "batchwise" in randomness:
-                rand_mask = np.zeros(batch_x.shape)
-                rand_vals = np.random.rand(*batch_x.shape)
-                rand_mask[rand_vals <= perc_noise] = 1
-
-                if randomness == "batchwise_flip":
-                    assert num_uniques == 2
-                    batch_x[rand_mask == 1] = np.abs(1 - batch_x[rand_mask == 1])
-                    return batch_x
-
-            else:
-                raise ValueError("randomness must be one of ['elementwise', 'batchwise', 'batchwise_flip]")
-
-            rand_arr = np.random.randint(0, num_uniques, size=batch_x.shape)
+        if num_uniques > 1:     # Ignore if array is single-valued
+            rand_arr = np.random.randint(0, num_uniques - 1, size=batch_x.shape)
             if scaling:
                 rand_arr *= (num_uniques - 1)
+
             batch_x[rand_mask == 1] = rand_arr[rand_mask == 1]
 
         return batch_x
@@ -261,21 +260,21 @@ def train_model(model_dir, train_datadir, test_datadir, y_params, y_cats, batch_
                                            output_parameters_list=y_params, output_categories_list=y_cats)
 
     # Set up model
-    # if network_type == "classifier":
-    #     model = get_model("VGG", (imsize, imsize, 1), len(y_cats), Adam())
-    # elif network_type == "autoencoder":
-    #     model = autoencoder((imsize, imsize, 1), optimiser=Adam())
-    # else:
-    #     raise ValueError("network_type must be one of ['classifier', 'autoencoder']")
-    model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")
+    if network_type == "classifier":
+        model = get_model("VGG", (imsize, imsize, 1), len(y_cats), Adam())
+    elif network_type == "autoencoder":
+        model = autoencoder((imsize, imsize, 1), optimiser=Adam())
+    else:
+        raise ValueError("network_type must be one of ['classifier', 'autoencoder']")
+    model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--10-48/model.h5")
 
     # early_stopping = EarlyStopping(monitor="val_loss", patience=10)
-    # model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
+    model_checkpoint = ModelCheckpoint(get_model_storage_path(model_dir), monitor="val_loss", save_best_only=True)
 
     # Train
     model.fit_generator(generator=train_generator,
                         validation_data=test_generator,
-                        steps_per_epoch=train_generator.__len__(),
+                        steps_per_epoch=train_generator.__len__() // 10,
                         validation_steps=test_generator.__len__(),
                         class_weight=train_generator.class_weights_dict,
                         epochs=epochs,
@@ -299,7 +298,7 @@ def save_model(model, root_dir):
 
 if __name__ == '__main__':
     # Train
-    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTrainCombinedExtraIslands"  # "/media/mltest1/Dat Storage/pyRabani_Images"
+    training_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/TrainFinal"  # "/media/mltest1/Dat Storage/pyRabani_Images"
     testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest"  # "/home/mltest1/tmp/pycharm_project_883/Images/2020-03-09/16-51"
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-25/13-59"
 
@@ -309,7 +308,7 @@ if __name__ == '__main__':
     trained_model = train_model(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
                                 test_datadir=testing_data_dir,
                                 y_params=original_parameters, y_cats=original_categories, batch_size=128,
-                                imsize=200, epochs=5, network_type="classifier")
+                                imsize=200, epochs=8, network_type="classifier")
 
     # trained_model = train_autoencoder(model_dir="Data/Trained_Networks", train_datadir=training_data_dir,
     #                                   test_datadir=testing_data_dir,
