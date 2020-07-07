@@ -5,19 +5,21 @@ from tensorflow.python.keras.models import load_model
 from tqdm import tqdm
 
 from Filters.screening import FileFilter
+from Models.train_regression import load_sklearn_model
 from Models.utils import make_pd_nans_identical
 
-IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
+IMAGE_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#"/media/mltest1/Dat Storage/Manu AFM CD Box"  #
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
+MINKOWSKI_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-07--12-04/model.p"
 OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_AnotherAnotherTweak"
 ASSESS_EULER = False
-ASSESS_MINKOWSKI = False
 SEARCH_RECURSIVE = True
 
 # Load models
 cnn_model = load_model(CNN_DIR)
 denoiser_model = load_model(DENOISER_DIR)
+sklearn_model = load_sklearn_model(MINKOWSKI_DIR)
 
 df_summary = pd.DataFrame(
     columns=["File Path", "Resolution", "Size (m)", "Fail Reasons",
@@ -34,8 +36,9 @@ for i, file in enumerate(all_files):
     t.set_description(f"...{file[-25:]}")
 
     filterer = FileFilter()
-    filterer.assess_file(filepath=file, threshold_method="multiotsu", category_model=cnn_model, denoising_model=denoiser_model,
-                         assess_euler=ASSESS_EULER, nbins=1000, savedir=f"{OUTPUT_DIR}/Filtered")
+    filterer.assess_file(filepath=file, threshold_method="multiotsu",
+                         category_model=cnn_model, denoising_model=denoiser_model, minkowski_model=sklearn_model,
+                         assess_euler=ASSESS_EULER, nbins=1000)#, savedir=f"{OUTPUT_DIR}/Filtered"
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
@@ -53,13 +56,13 @@ for i, file in enumerate(all_files):
         df_summary.loc[i, ["Euler Mean"]] = [filterer.image_classifier.euler_preds.mean(axis=0)]
         df_summary.loc[i, ["Euler std"]] = [filterer.image_classifier.euler_preds.std(axis=0)]
 
-    if filterer.euler_classification:
-        df_summary.loc[i, ["Minkowski Classification"]] = [filterer.euler_classification]
-        df_summary.loc[i, ["Minkowski Mean"]] = [filterer.image_classifier.euler_preds.mean(axis=0)]
-        df_summary.loc[i, ["Minkowski std"]] = [filterer.image_classifier.euler_preds.std(axis=0)]
+    if filterer.minkowski_classification:
+        df_summary.loc[i, ["Minkowski Classification"]] = [filterer.minkowski_classification]
+        df_summary.loc[i, ["Minkowski Mean"]] = [filterer.image_classifier.minkowski_preds.mean(axis=0)]
+        df_summary.loc[i, ["Minkowski std"]] = [filterer.image_classifier.minkowski_preds.std(axis=0)]
 
-    del filterer    # Just to be safe!
+    del filterer  # Just to be safe!
     t.update(1)
 
 df_summary = make_pd_nans_identical(df_summary)
-df_summary.to_csv(f"{OUTPUT_DIR}/classifications.csv", index=False)
+# df_summary.to_csv(f"{OUTPUT_DIR}/bad_minkowski_classifications.csv", index=False)
