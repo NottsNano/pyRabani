@@ -184,7 +184,6 @@ class FileFilter:
                 preds_pie(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
                 axs[1, 3].set_title('Euler Predictions')
             if self.image_classifier.minkowski_preds is not None:
-                h, l = axs[1, 2].get_legend_handles_labels()
                 preds_histogram(self.image_classifier.minkowski_preds, self.minkowski_cats, axis=axs[2, 1])
                 preds_pie(self.image_classifier.minkowski_preds, self.minkowski_cats, axis=axs[2, 2])
                 axs[2, 1].set_title('Minkowski Predictions')

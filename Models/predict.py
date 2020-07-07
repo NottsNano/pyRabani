@@ -97,7 +97,7 @@ class ImageClassifier:
         return voted_arr
 
     def cnn_classify(self, perc_noise=0.05, perc_std=0.001):
-        noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr, perc_noise, perc_std,
+        noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr.copy(), perc_noise, perc_std,
                                                           randomness="batchwise",
                                                           num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0])) + 1)
 

@@ -44,8 +44,6 @@ def calculate_normalised_stats(img):
     label_img_inv = label(closing(img_inv, square(3)))
 
     # Get stats
-    tot_area = np.sum(label_img > 0)
-
     H0 = label_img.max()
     H1 = label_img_inv.max()
     if H0 > H1:
