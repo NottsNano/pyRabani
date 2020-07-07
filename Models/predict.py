@@ -99,7 +99,7 @@ class ImageClassifier:
     def cnn_classify(self, perc_noise=0.05, perc_std=0.001):
         noisy_array = h5RabaniDataGenerator.speckle_noise(self.cnn_arr.copy(), perc_noise, perc_std,
                                                           randomness="batchwise",
-                                                          num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0])) + 1)
+                                                          num_uniques=len(np.unique(self.cnn_arr[0, :, :, 0])))
 
         self.cnn_preds = self.cnn_model.predict(noisy_array)
         self.cnn_majority_preds = self._majority_preds(self.cnn_preds)
