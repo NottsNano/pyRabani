@@ -8,9 +8,10 @@ from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
 from tensorflow.python.keras.models import load_model
 
-from Analysis.get_stats import all_preds_histogram, all_preds_percentage
 from Analysis.plot_rabani import show_image, cmap_rabani
-from Classify.prediction import ImageClassifier
+from Models.predict import ImageClassifier
+from Models.test_model import preds_pie, preds_histogram
+from Models.train_regression import load_sklearn_model
 
 
 class FileFilter:
@@ -23,30 +24,35 @@ class FileFilter:
         self.fail_reasons = None
         self.CNN_classification = None
         self.euler_classification = None
+        self.minkowski_classification = None
         self.filepath = None
         self.cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
+        self.minkowski_cats = ['hole', 'cellular', 'labyrinth', 'island']
 
     def assess_file(self, filepath, threshold_method, category_model=None, denoising_model=None,
-                    assess_euler=True, plot=False, savedir=None, **kwargs):
+                    minkowski_model=None, assess_euler=False, plot=False, savedir=None, **kwargs):
         """Load, preprocess, classify and filter a single real image.
 
         Parameters
         ----------
-        filepath : str
+        filepath: str
             Path linking to a .ibw file to assess
-        threshold_method : str
+        threshold_method: str
             Method to threshold ibw files with. Must be "mixture", or
             a threshold method in skimage.filters (passing optional arguments as **kwargs)
-        category_model : object of type tensorflow.category_model, optional
+        category_model: object of type tensorflow.category_model, optional
             Tensorflow category_model containing categories FileFilter.cats.
             If None (default), only preprocessing will take place
-        denoising_model : None or object of type tensorflow.category_model, optional
+        denoising_model: object of type tensorflow.category_model, optional
             Tensorflow category_model to perform denoising. Default None
-        assess_euler : bool, optional
-            If the normalised Euler characteristic should be assessed or not. Default True
-        plot : bool, optional
+        minkowski_model: object of type sklearn.classifier, optional
+            Sklearn classifier. If None (default), don't do classification based
+            on minkowski stats
+        assess_euler: bool, optional
+            If the normalised Euler characteristic should be assessed or not. Default False
+        plot: bool, optional
             If we should plot the results of preprocessing/assessment. Default False
-        savedir : None or str, optional
+        savedir: None or str, optional
             If a string, save the plot to the given directory. Default None
 
         Examples
@@ -64,7 +70,7 @@ class FileFilter:
 
             if not self.fail_reasons:
                 assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model,
-                                                              category_model, assess_euler)
+                                                              category_model, assess_euler, minkowski_model)
 
         except:
             self._add_fail_reason("Unexpected error")
@@ -106,7 +112,7 @@ class FileFilter:
         return data, phase, norm_data, median_data, flattened_data, \
                binarized_data, assessment_arr, binarized_data_for_plotting
 
-    def _classify(self, arr, denoising_model, category_model, assess_euler):
+    def _classify(self, arr, denoising_model, category_model, assess_euler, minkowski_model):
         if denoising_model and category_model:
             assert category_model.input_shape == denoising_model.input_shape, \
                 "Classifier and denoiser must have consistent input shape"
@@ -119,7 +125,7 @@ class FileFilter:
             assessment_arr = arr
             denoised_arr = None
 
-        self.image_classifier = ImageClassifier(assessment_arr, category_model)
+        self.image_classifier = ImageClassifier(assessment_arr, category_model, minkowski_model)
         self._is_image_homogenous(self.image_classifier.cnn_arr)
 
         if category_model:
@@ -128,16 +134,18 @@ class FileFilter:
         if assess_euler:
             self._euler_classify()
 
+        if minkowski_model:
+            self._minkowski_classify()
+
         return assessment_arr, denoised_arr
 
     def _plot(self, data=None, median_data=None, flattened_data=None,
               binarized_data=None, binarized_data_for_plotting=None,
               savedir=None):
 
-        fig, axs = plt.subplots(2, 4)
-        fig.tight_layout(pad=3)
+        fig, axs = plt.subplots(3, 4)
         fig.suptitle(f"{os.path.basename(self.filepath)} - {self.fail_reasons}", fontsize=5)
-
+        fig.tight_layout(pad=3)
         if data is not None:
             axs[0, 0].imshow(data, cmap='RdGy')
             axs[0, 0].set_title('Original Image')
@@ -164,17 +172,23 @@ class FileFilter:
             axs[1, 0].set_ylabel('Pixels')
             axs[1, 0].set_title('Thresholding Levels')
         if binarized_data is not None:
-            show_image(binarized_data, axis=axs[0, 3])
+            show_image(binarized_data.astype(int), axis=axs[0, 3])
             axs[0, 3].set_title('Binarized')
         if self.image_classifier is not None:
             if self.image_classifier.cnn_preds is not None:
-                all_preds_histogram(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 1])
-                all_preds_percentage(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 2])
+                preds_histogram(self.image_classifier.cnn_preds[:, 1:], self.minkowski_cats, axis=axs[1, 1])
+                preds_pie(self.image_classifier.cnn_preds[:, 1:], self.minkowski_cats, axis=axs[1, 2])
                 axs[1, 1].set_title('Network Predictions')
                 axs[1, 2].set_title('Network Predictions')
             if self.image_classifier.euler_preds is not None:
-                all_preds_percentage(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
+                preds_pie(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
                 axs[1, 3].set_title('Euler Predictions')
+            if self.image_classifier.minkowski_preds is not None:
+                h, l = axs[1, 2].get_legend_handles_labels()
+                preds_histogram(self.image_classifier.minkowski_preds, self.minkowski_cats, axis=axs[2, 1])
+                preds_pie(self.image_classifier.minkowski_preds, self.minkowski_cats, axis=axs[2, 2])
+                axs[2, 1].set_title('Minkowski Predictions')
+                axs[2, 2].set_title('Minkowski Predictions')
 
         if savedir:
             filename = os.path.basename(self.filepath)[:-4]
@@ -209,6 +223,8 @@ class FileFilter:
     def _load_image_file(self, filepath):
         try:
             binarized_data = plt.imread(filepath)
+            if binarized_data.ndim == 3:
+                binarized_data = binarized_data[:, :, 0]
             self.image_res = int(len(binarized_data))
             return binarized_data
         except:
@@ -435,10 +451,23 @@ class FileFilter:
         cats = self.cats + ["none"]
         self.euler_classification = cats[max_class]
 
+    def _minkowski_classify(self):
+        self.image_classifier.minkowski_classify()
+
+        max_class = int(np.argmax(self.image_classifier.minkowski_majority_preds))
+        if np.max(self.image_classifier.minkowski_majority_preds) < 0.8:
+            self._add_fail_reason("Minkowski not confident enough")
+        if np.any(np.std(self.image_classifier.minkowski_preds, axis=0) > 0.1):
+            self._add_fail_reason("Minkowski distributions too broad")
+
+        self.minkowski_classification = self.minkowski_cats[max_class]
+
 
 if __name__ == '__main__':
     cat_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-03--21-04/model.h5")
+    sklearn_model = load_sklearn_model(
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-07--12-04/model.p")
     denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
 
@@ -453,11 +482,14 @@ if __name__ == '__main__':
         "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
         "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 1/08-Data8_140606/060601 AFM SiO2 C8+xs thiol conc Ci4 ring 5mm/C8_Ci4_02th_R5_0006.ibw",
         "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/A3-Data EPV 2/061116 AFM - electrical measurements - SiO2 C8 and C12 +0.1thiol ring 5mm with contacts/C8_01th_r5_21_0001.ibw",
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/16-Data 16/070503 AFM - wetting experiment - C8 (110407) solutions 0.5mg.mL-1 - spin/C8_SiO2_benzene_0000.ibw"]
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/16-Data 16/070503 AFM - wetting experiment - C8 (110407) solutions 0.5mg.mL-1 - spin/C8_SiO2_benzene_0000.ibw",
+        "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images_For_Denoising/Otsu/cellular/image_C12_Ci4_1up_b_0002HtTM0.png"]
+
+    ims = ["/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images_For_Denoising/Otsu/cellular/image_C12_Ci4_1up_b_0002HtTM0.png"]
 
     for im in ims:
         test_filter = FileFilter()
         test_filter.assess_file(
-            im, "multiotsu",
-            cat_model, denoise_model, assess_euler=False, plot=True, nbins=1000)
-        print(test_filter.fail_reasons)
+            filepath=im, threshold_method="multiotsu", category_model=cat_model, denoising_model=denoise_model,
+            minkowski_model=sklearn_model, assess_euler=False, plot=True, nbins=1000)
+        print(test_filter.CNN_classification, test_filter.minkowski_classification)

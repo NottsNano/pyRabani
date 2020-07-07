@@ -5,7 +5,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 
-from Analysis.get_stats import plot_confusion_matrix, ROC_one_vs_all, PR_one_vs_all
+from Models.test_model import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
 from Filters.screening import FileFilter
 from Analysis.plot_rabani import show_image
 
@@ -148,10 +148,10 @@ if __name__ == '__main__':
     pred_cnn, pred_euler, truth = _classifications_to_matrix(dframe_failing_filtered)
     stats_filtering(dframe_multilabel_filtered)
 
-    plot_confusion_matrix(y_truth=_onehot_encode(truth), y_pred=_onehot_encode(pred_cnn),
-                          cats=CATS, title="CNN Preds")
-    plot_confusion_matrix(y_truth=_onehot_encode(truth), y_pred=_onehot_encode(pred_euler),
-                          cats=CATS, title="Euler Preds")
+    confusion_matrix(y_truth=_onehot_encode(truth), y_pred=_onehot_encode(pred_cnn),
+                     cats=CATS, title="CNN Preds")
+    confusion_matrix(y_truth=_onehot_encode(truth), y_pred=_onehot_encode(pred_euler),
+                     cats=CATS, title="Euler Preds")
 
     ROC_one_vs_all(pred_cnn, truth, cats=CATS, title="CNN ROC")
     ROC_one_vs_all(pred_euler, truth, cats=CATS, title="Euler ROC")

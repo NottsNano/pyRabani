@@ -14,7 +14,7 @@ from skimage import measure
 from skimage.filters import gaussian
 from tensorflow.python.keras.models import load_model
 
-from Classify.utils import resize_image, remove_least_common_level
+from Models.utils import resize_image, remove_least_common_level
 
 cmap_rabani = colors.ListedColormap(["black", "white", "orange"])
 boundaries = [0, 0.5, 1]
@@ -24,7 +24,7 @@ norm = colors.BoundaryNorm(boundaries, cmap_rabani.N, clip=True)
 def dualscale_plot(xaxis, yaxis, root_dir, num_axis_ticks=15, trained_model=None, categories=None, img_res=None):
     """Plot two variables against another, and optionally the CNN predictions"""
 
-    from Classify.CNN_training import h5RabaniDataGenerator
+    from Models.train_CNN import h5RabaniDataGenerator
     files = os.listdir(root_dir)
 
     # Find axis details to allow for preallocation
@@ -208,7 +208,7 @@ def plot_threshold_selection(root_dir, categories, img_res, plot_config=(5, 5), 
 
 def plot_random_simulated_images(datadir, num_imgs, y_params, y_cats, imsize=128, model=None):
     """Show a random selection of simulated images, with categories chosen by simulation/CNN prediction"""
-    from Classify.CNN_training import h5RabaniDataGenerator
+    from Models.train_CNN import h5RabaniDataGenerator
 
     img_generator = h5RabaniDataGenerator(datadir, network_type="classifier", batch_size=num_imgs, is_train=False,
                                           imsize=imsize, force_binarisation=False,
@@ -267,7 +267,7 @@ def visualise_autoencoder_preds(model, *datadirs):
     datadirs : list of str
         List containing every directory containing files (e.g. "good" images, "bad" images, simulated images) to test
     """
-    from Classify.prediction import validation_pred_generator
+    from Models.predict import validation_pred_generator
     from Filters.screening import FileFilter
 
     # For each provided directory

@@ -2,11 +2,13 @@ import itertools
 import warnings
 
 import numpy as np
+from sklearn.preprocessing import minmax_scale
 from tensorflow.python.keras.models import load_model
 
 from Analysis.get_stats import calculate_stats, calculate_normalised_stats
-from Classify.CNN_training import h5RabaniDataGenerator
-from Classify.utils import adding_noise_test, zigzag_product
+from Models.test_model import test_classifier
+from Models.train_CNN import h5RabaniDataGenerator
+from Models.utils import zigzag_product
 
 
 class ImageClassifier:
@@ -113,15 +115,16 @@ class ImageClassifier:
         self.euler_majority_preds = self._majority_preds(self.euler_preds)
 
     def minkowski_classify(self):
-        SIA = np.zeros(len(self.cnn_arr))
-        SIP = np.zeros(len(self.cnn_arr))
-        SIH0 = np.zeros(len(self.cnn_arr))
-        SIH1 = np.zeros(len(self.cnn_arr))
+        SIA = np.zeros((len(self.cnn_arr), 1))
+        SIP = np.zeros((len(self.cnn_arr), 1))
+        SIH0 = np.zeros((len(self.cnn_arr), 1))
+        SIH1 = np.zeros((len(self.cnn_arr), 1))
 
         for i, img in enumerate(self.cnn_arr):
             SIA[i], SIP[i], SIH0[i], SIH1[i] = calculate_normalised_stats(img[:, :, 0])
 
         x = np.hstack((SIA, SIP, SIH0, SIH1))
+
         self.minkowski_preds = self.sklearn_model.predict_proba(x)
         self.minkowski_majority_preds = self._majority_preds(self.minkowski_preds)
 
@@ -135,7 +138,7 @@ def validation_pred_generator(model, validation_datadir, network_type, y_params,
     """Prediction generator for simulated validation data"""
     validation_generator = h5RabaniDataGenerator(validation_datadir, network_type=network_type, batch_size=batch_size,
                                                  is_train=False, imsize=imsize, output_parameters_list=y_params,
-                                                 output_categories_list=y_cats)
+                                                 output_categories_list=y_cats, force_binarisation=True)
     validation_generator.is_validation_set = True
 
     if not steps:
@@ -147,30 +150,21 @@ def validation_pred_generator(model, validation_datadir, network_type, y_params,
     elif network_type == "autoencoder":
         validation_preds = model.predict_generator(validation_generator, steps=steps)[:steps * batch_size, :, :, :]
         validation_truth = validation_generator.x_true[:steps * batch_size, :, :, :]
+    else:
+        raise ValueError("Network type must be 'classifier' or 'autoencoder")
 
     return validation_preds, validation_truth
 
 
 if __name__ == '__main__':
-    from Filters.alignerwthreshold import tmp_img_loader
-
     trained_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
-    cats = ['liquid', 'hole', 'cellular', 'labyrinth', 'island']
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")
 
-    # Classify a real image
-    imgold = tmp_img_loader(
-        "/home/mltest1/tmp/pycharm_project_883/Images/Parsed Dewetting 2020 for ML/RAW/DATA 3/Si_d8th_ring5_05mgmL_0002.ibw").astype(
-        int)
-    img = imgold.copy()
-    img[imgold == 1] = 0
-    img[imgold == 0] = 2
+    testing_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest"
+    original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
+    original_parameters = ["kT", "mu"]
 
-    # See effect of adding noise to image
-    adding_noise_test(img=img, cats=cats, model=trained_model, perc_noise=0.05, perc_std=0.001, noise_steps=1)
-    # img_classifier = ImageClassifier(img, trained_model)  # Do this because of immutability!
-    # img_classifier.wrap_image()
-    # img_classifier.validation_pred_image()
-    #
-    # show_image(img)
-    # all_preds_histogram(img_classifier.cnn_preds, cats)
+    y_preds, y_truth = validation_pred_generator(model=trained_model, validation_datadir=testing_data_dir,
+                                                 network_type="classifier", y_params=original_parameters,
+                                                 y_cats=original_categories, batch_size=128, imsize=200)
+    test_classifier(model=trained_model, y_true=y_truth, y_pred=y_preds, x_true=None, cats=original_categories)

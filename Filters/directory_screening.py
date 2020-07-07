@@ -5,13 +5,14 @@ from tensorflow.python.keras.models import load_model
 from tqdm import tqdm
 
 from Filters.screening import FileFilter
-from Classify.utils import make_pd_nans_identical
+from Models.utils import make_pd_nans_identical
 
 IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
 OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Filtered_All_AnotherAnotherTweak"
 ASSESS_EULER = False
+ASSESS_MINKOWSKI = False
 SEARCH_RECURSIVE = True
 
 # Load models
@@ -21,7 +22,9 @@ denoiser_model = load_model(DENOISER_DIR)
 df_summary = pd.DataFrame(
     columns=["File Path", "Resolution", "Size (m)", "Fail Reasons",
              "CNN Classification", "CNN Mean", "CNN std",
-             "Euler Classification", "Euler Mean", "Euler std", "Manual Classification"])
+             "Euler Classification", "Euler Mean", "Euler std",
+             "Minkowski Classification", "Minkowski Mean", "Minkowski std",
+             "Manual Classification"])
 
 # Filter every ibw file in the directory, and build up a dataframe
 all_files = [f for f in glob.glob(f"{IMAGE_DIR}/**/*.ibw", recursive=SEARCH_RECURSIVE)]
@@ -49,6 +52,11 @@ for i, file in enumerate(all_files):
         df_summary.loc[i, ["Euler Classification"]] = [filterer.euler_classification]
         df_summary.loc[i, ["Euler Mean"]] = [filterer.image_classifier.euler_preds.mean(axis=0)]
         df_summary.loc[i, ["Euler std"]] = [filterer.image_classifier.euler_preds.std(axis=0)]
+
+    if filterer.euler_classification:
+        df_summary.loc[i, ["Minkowski Classification"]] = [filterer.euler_classification]
+        df_summary.loc[i, ["Minkowski Mean"]] = [filterer.image_classifier.euler_preds.mean(axis=0)]
+        df_summary.loc[i, ["Minkowski std"]] = [filterer.image_classifier.euler_preds.std(axis=0)]
 
     del filterer    # Just to be safe!
     t.update(1)

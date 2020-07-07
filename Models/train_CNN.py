@@ -11,9 +11,9 @@ from tensorflow.keras.utils import Sequence
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
 
-from Analysis.get_stats import plot_model_history
-from Classify.get_model import get_model, autoencoder
-from Classify.utils import resize_image, remove_least_common_level, normalise
+from Models.test_model import plot_model_history
+from Models.get_CNN_model import get_model, autoencoder
+from Models.utils import resize_image, remove_least_common_level, normalise
 
 
 class h5RabaniDataGenerator(Sequence):
