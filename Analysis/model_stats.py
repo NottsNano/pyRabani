@@ -149,7 +149,7 @@ def PR_one_vs_all(y_preds, y_truth, cats, title=None, axis=None):
     return recall, prec, tholds, pr_auc
 
 
-def test_classifier(model, x_true, y_true, cats, y_pred=None):
+def test_classifier(model, x_true, y_true, cats, y_pred=None, average="weighted"):
     """Tests a classifier"""
 
     if "sklearn" in str(type(model)):
@@ -160,18 +160,25 @@ def test_classifier(model, x_true, y_true, cats, y_pred=None):
     else:
         raise ValueError("Model must be from sklearn or tensorflow")
 
+    # Ensure data structures are what we expect
+    y_pred = ind_to_onehot(y_pred)
+    y_true = ind_to_onehot(y_true)
     y_pred_arg = onehot_to_ind(y_pred)
     y_true_arg = onehot_to_ind(y_true)
 
     performance = {}
-    performance_funcs = [metrics.accuracy_score, metrics.balanced_accuracy_score,
-                 metrics.confusion_matrix, metrics.hamming_loss]
+    performance_funcs = [metrics.accuracy_score, metrics.balanced_accuracy_score, metrics.confusion_matrix,
+                         metrics.hamming_loss, metrics.matthews_corrcoef]
+    weighted_performance_funcs = [metrics.f1_score, metrics.precision_score,
+                                  metrics.recall_score, metrics.jaccard_score]
 
     for func in performance_funcs:
         performance[func.__name__] = func(y_pred=y_pred_arg, y_true=y_true_arg)
+    for func in weighted_performance_funcs:
+        performance[f"{func.__name__}_{average}"] = func(y_pred=y_pred_arg, y_true=y_true_arg, average=average)
 
     ROC_one_vs_all(y_preds=y_pred, y_truth=y_true, cats=cats)
     PR_one_vs_all(y_preds=y_pred, y_truth=y_true, cats=cats)
-    confusion_matrix(y_pred=y_pred_arg, y_truth=y_true, cats=cats)
+    confusion_matrix(y_pred=y_pred_arg, y_truth=y_true_arg, cats=cats)
 
     return performance

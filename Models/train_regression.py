@@ -4,9 +4,10 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
-from Analysis.get_stats import calculate_normalised_stats
-from Models.test_model import test_classifier
-from Models.train_CNN import h5RabaniDataGenerator, get_model_storage_path
+from Analysis.image_stats import calculate_normalised_stats
+from Analysis.model_stats import test_classifier
+from Models.train_CNN import get_model_storage_path
+from Models.h5_iterator import h5RabaniDataGenerator
 
 
 def make_dataset(rabani_dir, output_dir=None, batch_size=128):
@@ -48,6 +49,13 @@ def make_dataset(rabani_dir, output_dir=None, batch_size=128):
             dframe.loc[num_img, "SIP"] = SIP
             dframe.loc[num_img, "SIH0"] = SIH0
             dframe.loc[num_img, "SIH1"] = SIH1
+
+            APS = SIA * (200**2)
+
+            dframe.loc[num_img, "APS"] = APS
+            dframe.loc[num_img, "H0"] = SIH0 / APS
+            dframe.loc[num_img, "H1"] = SIH1 / APS
+            dframe.loc[num_img, "Total Perimeter"] = SIP * np.sqrt(APS) * (SIH0 / APS)
 
     if output_dir:
         dframe.to_csv(output_dir)
@@ -125,4 +133,4 @@ if __name__ == '__main__':
     model = train_classifier(x_train, y_train, max_iter=1000)
     performance = test_classifier(model, x_test, y_test, cats=cats)
 
-    save_classifier("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks", model)
+    # save_classifier("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks", model)

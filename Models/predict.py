@@ -2,12 +2,12 @@ import itertools
 import warnings
 
 import numpy as np
-from sklearn.preprocessing import minmax_scale
 from tensorflow.python.keras.models import load_model
 
-from Analysis.get_stats import calculate_stats, calculate_normalised_stats
-from Models.test_model import test_classifier
-from Models.train_CNN import h5RabaniDataGenerator
+from Analysis.image_stats import calculate_stats, calculate_normalised_stats
+from Analysis.model_stats import test_classifier
+from Models.h5_iterator import h5RabaniDataGenerator
+from Models.train_CNN import validate_CNN
 from Models.utils import zigzag_product
 
 
@@ -133,29 +133,6 @@ class ImageClassifier:
         return np.mean(arr, axis=0)
 
 
-def validation_pred_generator(model, validation_datadir, network_type, y_params, y_cats, batch_size, imsize=128,
-                              steps=None):
-    """Prediction generator for simulated validation data"""
-    validation_generator = h5RabaniDataGenerator(validation_datadir, network_type=network_type, batch_size=batch_size,
-                                                 is_train=False, imsize=imsize, output_parameters_list=y_params,
-                                                 output_categories_list=y_cats, force_binarisation=True)
-    validation_generator.is_validation_set = True
-
-    if not steps:
-        steps = validation_generator.__len__()
-
-    if network_type == "classifier":
-        validation_preds = model.predict_generator(validation_generator, steps=steps)[:steps * batch_size, :]
-        validation_truth = validation_generator.y_true[:steps * batch_size, :]
-    elif network_type == "autoencoder":
-        validation_preds = model.predict_generator(validation_generator, steps=steps)[:steps * batch_size, :, :, :]
-        validation_truth = validation_generator.x_true[:steps * batch_size, :, :, :]
-    else:
-        raise ValueError("Network type must be 'classifier' or 'autoencoder")
-
-    return validation_preds, validation_truth
-
-
 if __name__ == '__main__':
     trained_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")
@@ -164,7 +141,7 @@ if __name__ == '__main__':
     original_categories = ["liquid", "hole", "cellular", "labyrinth", "island"]
     original_parameters = ["kT", "mu"]
 
-    y_preds, y_truth = validation_pred_generator(model=trained_model, validation_datadir=testing_data_dir,
-                                                 network_type="classifier", y_params=original_parameters,
-                                                 y_cats=original_categories, batch_size=128, imsize=200)
+    y_preds, y_truth = validate_CNN(model=trained_model, validation_datadir=testing_data_dir,
+                                    network_type="classifier", y_params=original_parameters,
+                                    y_cats=original_categories, batch_size=128, imsize=200)
     test_classifier(model=trained_model, y_true=y_truth, y_pred=y_preds, x_true=None, cats=original_categories)

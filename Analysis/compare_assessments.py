@@ -5,7 +5,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 
-from Models.test_model import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
+from Analysis.model_stats import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
 from Filters.screening import FileFilter
 from Analysis.plot_rabani import show_image
 

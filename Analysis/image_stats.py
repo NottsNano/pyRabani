@@ -6,7 +6,7 @@ from skimage.morphology import closing, square
 from sklearn import metrics
 from tensorflow.python.keras.models import load_model
 
-from Models.test_model import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
+from Analysis.model_stats import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
 
 
 def calculate_stats(img, image_res, substrate_num=0, liquid_num=1, nano_num=2):
@@ -39,9 +39,11 @@ def calculate_stats(img, image_res, substrate_num=0, liquid_num=1, nano_num=2):
 def calculate_normalised_stats(img):
     # Find unique sections
     img_inv = np.abs(1 - img)
-
     label_img = label(closing(img, square(3)))
     label_img_inv = label(closing(img_inv, square(3)))
+
+    # image_label_overlay = label2rgb(label_img, image=img, bg_label=0)
+    # image_label_overlay_inv = label2rgb(label_img_inv, image=img, bg_label=0)
 
     # Get stats
     H0 = label_img.max()
@@ -65,7 +67,7 @@ def calculate_normalised_stats(img):
 
 
 if __name__ == '__main__':
-    from Models.predict import validation_pred_generator
+    from Models.train_CNN import validate_CNN
     from Analysis.plot_rabani import plot_random_simulated_images
 
     trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
@@ -75,8 +77,8 @@ if __name__ == '__main__':
 
     # Predict simulated validation set
     validation_data_dir = "/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/2020-03-30/16-44"
-    y_preds, y_truth = validation_pred_generator(trained_model, validation_datadir=validation_data_dir,
-                                                 y_params=params, y_cats=cats, batch_size=100, imsize=128)
+    y_preds, y_truth = validate_CNN(trained_model, validation_datadir=validation_data_dir,
+                                    y_params=params, y_cats=cats, batch_size=100, imsize=128)
 
     # Calculate CNN_classification stats
     ROC_one_vs_all(y_preds, y_truth, cats)

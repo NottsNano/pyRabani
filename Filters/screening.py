@@ -10,7 +10,7 @@ from tensorflow.python.keras.models import load_model
 
 from Analysis.plot_rabani import show_image, cmap_rabani
 from Models.predict import ImageClassifier
-from Models.test_model import preds_pie, preds_histogram
+from Analysis.model_stats import preds_pie, preds_histogram
 from Models.train_regression import load_sklearn_model
 
 
@@ -464,31 +464,17 @@ class FileFilter:
 
 if __name__ == '__main__':
     cat_model = load_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-03--21-04/model.h5")
-    sklearn_model = load_sklearn_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-07--12-04/model.p")
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5")
     denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
+    sklearn_model = load_sklearn_model(
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-07--12-04/model.p")
 
-    ims = [
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A9-AFM data 01/060601 AFM SiO2 C8+excess thiol ring 5mm/C8_Ci4_01th_R5_0003.ibw",
-        "Data/Steff_Images_For_Denoising/Local mean/C10_01th_ring5_0007HtTM0.png",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0002.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/OH_0002.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/000TEST.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
-        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0005.ibw",
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 1/08-Data8_140606/060601 AFM SiO2 C8+xs thiol conc Ci4 ring 5mm/C8_Ci4_02th_R5_0006.ibw",
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/A3-Data EPV 2/061116 AFM - electrical measurements - SiO2 C8 and C12 +0.1thiol ring 5mm with contacts/C8_01th_r5_21_0001.ibw",
-        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/16-Data 16/070503 AFM - wetting experiment - C8 (110407) solutions 0.5mg.mL-1 - spin/C8_SiO2_benzene_0000.ibw",
-        "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images_For_Denoising/Otsu/cellular/image_C12_Ci4_1up_b_0002HtTM0.png"]
-
-    ims = ["/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images_For_Denoising/Otsu/cellular/image_C12_Ci4_1up_b_0002HtTM0.png"]
+    ims = ["/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/18-AFM Data 18/070822 - wetting experiment - AFM - C8 - CH2Cl2 - Si and SiO2 - ring 5mm (continue)/SiO2_d8_ring5_05mgmL_0012.ibw"]
 
     for im in ims:
         test_filter = FileFilter()
         test_filter.assess_file(
             filepath=im, threshold_method="multiotsu", category_model=cat_model, denoising_model=denoise_model,
-            minkowski_model=sklearn_model, assess_euler=False, plot=True, nbins=1000)
-        print(test_filter.CNN_classification, test_filter.minkowski_classification)
+            assess_euler=False, minkowski_model=sklearn_model, plot=True, nbins=1000)
+        print(test_filter.CNN_classification)

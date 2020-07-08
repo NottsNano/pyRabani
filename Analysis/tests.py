@@ -6,7 +6,7 @@ def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, saved
     """Progressively add noise to an image and classifying it"""
 
     from Analysis.plot_rabani import show_image
-    from Models.test_model import preds_histogram
+    from Analysis.model_stats import preds_histogram
     fig, axes = plt.subplots(1, 2)
     fig.tight_layout(pad=3)
     img = img.copy()
@@ -27,7 +27,7 @@ def everything_test(filepath, window_size, num_steps, perc_noise):
     from Filters.screening import FileFilter
     from skimage import measure
     from Analysis.plot_rabani import show_image
-    from Models.train_CNN import h5RabaniDataGenerator
+    from Models.h5_iterator import h5RabaniDataGenerator
     from matplotlib.ticker import PercentFormatter
     from tqdm import tqdm
 
@@ -134,7 +134,7 @@ def minkowski_stability_test(filepath, window_size, save):
 
 def adding_noise_euler_test(num_steps, perc_noise, save=True):
     from Rabani_Simulation.rabani import rabani_single
-    from Models.train_CNN import h5RabaniDataGenerator
+    from Models.h5_iterator import h5RabaniDataGenerator
     from Analysis.plot_rabani import show_image
     from skimage import measure
     from matplotlib.ticker import PercentFormatter
@@ -170,7 +170,7 @@ def adding_noise_euler_test(num_steps, perc_noise, save=True):
 
 
 def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
-    from Models.train_CNN import h5RabaniDataGenerator
+    from Models.h5_iterator import h5RabaniDataGenerator
     from Models.predict import ImageClassifier
 
     img = img.copy()  # Do this because of immutability!
@@ -179,3 +179,7 @@ def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
     img_classifier.cnn_classify()
 
     return img_classifier
+
+
+def test_minkowski_scale_invariance(img):
+    pass

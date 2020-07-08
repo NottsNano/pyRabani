@@ -10,7 +10,7 @@ import numpy as np
 import paramiko
 from tqdm import tqdm
 
-from Analysis.get_stats import calculate_stats
+from Analysis.image_stats import calculate_stats
 from Rabani_Simulation.rabani import _run_rabani_sweep
 
 

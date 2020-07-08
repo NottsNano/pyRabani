@@ -8,7 +8,7 @@ from Filters.screening import FileFilter
 from Models.train_regression import load_sklearn_model
 from Models.utils import make_pd_nans_identical
 
-IMAGE_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#"/media/mltest1/Dat Storage/Manu AFM CD Box"  #
+IMAGE_DIR = "/media/mltest1/Dat Storage/Manu AFM CD Box"  #"/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images/Raw"#"/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
 MINKOWSKI_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-07--12-04/model.p"
@@ -37,14 +37,14 @@ for i, file in enumerate(all_files):
 
     filterer = FileFilter()
     filterer.assess_file(filepath=file, threshold_method="multiotsu",
-                         category_model=cnn_model, denoising_model=denoiser_model, minkowski_model=sklearn_model,
+                         category_model=cnn_model, denoising_model=denoiser_model, minkowski_model=None,
                          assess_euler=ASSESS_EULER, nbins=1000)#, savedir=f"{OUTPUT_DIR}/Filtered"
 
     df_summary.loc[i, ["File Path"]] = [file]
     df_summary.loc[i, ["Resolution"]] = [filterer.image_res]
     df_summary.loc[i, ["Size (m)"]] = [filterer.image_size]
     df_summary.loc[i, ["Fail Reasons"]] = [filterer.fail_reasons]
-    # df_summary.loc[i, ["Manual Classification"]] = [file.split("\\")[-2]]
+    # df_summary.loc[i, ["Manual Classification"]] = [file.split("/")[-2]]
 
     if filterer.CNN_classification:
         df_summary.loc[i, ["CNN Classification"]] = [filterer.CNN_classification]
@@ -65,4 +65,4 @@ for i, file in enumerate(all_files):
     t.update(1)
 
 df_summary = make_pd_nans_identical(df_summary)
-# df_summary.to_csv(f"{OUTPUT_DIR}/bad_minkowski_classifications.csv", index=False)
+# df_summary.to_csv(f"{OUTPUT_DIR}/cnn_classifications.csv", index=False)
