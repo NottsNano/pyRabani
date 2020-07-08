@@ -1,5 +1,10 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm
+
+from Analysis.image_stats import calculate_normalised_stats
+from Analysis.plot_rabani import show_image
+from Models.predict import ImageClassifier
 
 
 def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
@@ -181,5 +186,55 @@ def single_prediction_with_noise(img, cnn_model, perc_noise, perc_std):
     return img_classifier
 
 
-def test_minkowski_scale_invariance(img):
-    pass
+def test_minkowski_scale_invariance(img, stride=8, max_subimgs=20):
+    xaxis = np.arange(1, len(img))
+    num_jumps = int((len(img)) / stride)
+    SIA = np.zeros((len(img) - 1, num_jumps ** 2))
+    SIP = np.zeros((len(img) - 1, num_jumps ** 2))
+    SIH0 = np.zeros((len(img) - 1, num_jumps ** 2))
+    SIH1 = np.zeros((len(img) - 1, num_jumps ** 2))
+
+    SIA[:] = np.nan
+    SIP[:] = np.nan
+    SIH0[:] = np.nan
+    SIH1[:] = np.nan
+
+    # For each window size, make sub-images
+    for i in tqdm(xaxis[::2]):
+        sub_imgs = ImageClassifier._wrap_image_to_tensorflow(img=img, network_img_size=i, stride=stride)[:, :, :, 0]
+
+        # For each sub-image, calculate normalised stats
+        rand_inds = np.random.choice(len(sub_imgs), replace=False, size=np.min((max_subimgs, len(sub_imgs))))
+        rand_sub_imgs = sub_imgs[rand_inds, :, :]
+
+        for j, sub_img in enumerate(rand_sub_imgs):
+            SIA[i, j], SIP[i, j], SIH0[i, j], SIH1[i, j] = calculate_normalised_stats(sub_img)
+
+    # Take means
+    SIA_mean = np.nanmean(SIA, axis=1)
+    SIA_std = np.nanstd(SIA, axis=1)
+    SIP_mean = np.nanmean(SIP, axis=1)
+    SIP_std = np.nanstd(SIP, axis=1)
+    SIH0_mean = np.nanmean(SIH0, axis=1)
+    SIH0_std = np.nanstd(SIH0, axis=1)
+    SIH1_mean = np.nanmean(SIH1, axis=1)
+    SIH1_std = np.nanstd(SIH1, axis=1)
+
+    # Plot
+    fig, axs = plt.subplots(1, 5, sharex=True, figsize=(1280/96, 480/96))
+
+    show_image(img, axis=axs[0])
+    axs[1].errorbar(xaxis, SIA_mean, SIA_std, fmt='rx')
+    axs[2].errorbar(xaxis, SIP_mean, SIP_std, fmt='rx')
+    axs[3].errorbar(xaxis, SIH0_mean, SIH0_std, fmt='rx')
+    axs[4].errorbar(xaxis, SIH1_mean, SIH1_std, fmt='rx')
+
+    axs[1].set_ylabel("SIA")
+    axs[2].set_ylabel("SIP")
+    axs[3].set_ylabel("SIH0")
+    axs[4].set_ylabel("SIH1")
+    axs[2].set_xlabel("Window Size")
+
+    fig.tight_layout()
+
+
