@@ -68,7 +68,7 @@ class FileFilter:
             data, phase, norm_data, median_data, flattened_data, binarized_data, assessment_arr, \
             binarized_data_for_plotting = self._load_and_preprocess(filepath, threshold_method, **kwargs)
 
-            if not self.fail_reasons:
+            if binarized_data is not None:
                 assessment_arr, denoised_arr = self._classify(binarized_data, denoising_model,
                                                               category_model, assess_euler, minkowski_model)
 
@@ -406,7 +406,7 @@ class FileFilter:
             self._add_fail_reason("Euler Too Varied")
         if eccentricities.std() >= 0.13:
             self._add_fail_reason("Eccentricity Too Varied")
-        if equiv_diameters.std() >= 6:
+        if equiv_diameters.std() >= 8:
             self._add_fail_reason("Equiv. Diameter Too Varied")
 
     def _get_normalised_euler(self, arr):
@@ -428,7 +428,7 @@ class FileFilter:
 
         if np.max(self.image_classifier.cnn_majority_preds) < 0.8:
             self._add_fail_reason("CNN not confident enough")
-        if np.any(np.std(self.image_classifier.cnn_preds, axis=0) > 0.1):
+        if np.any(np.std(self.image_classifier.cnn_preds, axis=0) > 0.2):
             self._add_fail_reason("CNN distributions too broad")
         # if np.sum(self.image_classifier.cnn_preds[:, max_class] >= 0.9999) > (0.98 * len(
         #         self.image_classifier.cnn_preds)):
@@ -470,11 +470,11 @@ if __name__ == '__main__':
     sklearn_model = load_sklearn_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-07--12-04/model.p")
 
-    ims = ["/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/18-AFM Data 18/070822 - wetting experiment - AFM - C8 - CH2Cl2 - Si and SiO2 - ring 5mm (continue)/SiO2_d8_ring5_05mgmL_0012.ibw"]
+    ims = ["/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/A3-Data EPV 2/060707 AFM - Langmuir films - SiO2 LB C12 Ci4 200uL 1 layer up/C12_Ci4_1up_b_0008.ibw"]
 
     for im in ims:
         test_filter = FileFilter()
         test_filter.assess_file(
             filepath=im, threshold_method="multiotsu", category_model=cat_model, denoising_model=denoise_model,
-            assess_euler=False, minkowski_model=sklearn_model, plot=True, nbins=1000)
+            assess_euler=True, minkowski_model=sklearn_model, plot=True, nbins=1000)
         print(test_filter.CNN_classification)

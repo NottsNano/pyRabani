@@ -126,3 +126,10 @@ def onehot_to_ind(y_preds):
         return np.argmax(y_preds, axis=1)
     else:
         return y_preds
+
+
+def ensure_dframe_is_pandas(dframe):
+    if type(dframe) is str:
+        dframe = pd.read_csv(dframe)
+
+    return dframe

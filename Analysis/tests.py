@@ -1,11 +1,16 @@
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
+from sklearn import metrics
 from tqdm import tqdm
 
+from Analysis.compare_assessments import _restore_stored_list
 from Analysis.image_stats import calculate_normalised_stats
+from Analysis.model_stats import confusion_matrix
 from Analysis.plot_rabani import show_image
 from Models.predict import ImageClassifier
-
+from Models.utils import ensure_dframe_is_pandas
+import matplotlib.ticker as mtick
 
 def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
     """Progressively add noise to an image and classifying it"""
@@ -221,7 +226,7 @@ def test_minkowski_scale_invariance(img, stride=8, max_subimgs=20):
     SIH1_std = np.nanstd(SIH1, axis=1)
 
     # Plot
-    fig, axs = plt.subplots(1, 5, sharex=True, figsize=(1280/96, 480/96))
+    fig, axs = plt.subplots(1, 5, sharex=True, figsize=(1280 / 96, 480 / 96))
 
     show_image(img, axis=axs[0])
     axs[1].errorbar(xaxis, SIA_mean, SIA_std, fmt='rx')
@@ -238,3 +243,51 @@ def test_minkowski_scale_invariance(img, stride=8, max_subimgs=20):
     fig.tight_layout()
 
 
+def test_filtering_fail_reasons(csv_path):
+    # csv_path = "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images/Raw/cnn_classifications_new.csv"
+    dframe = ensure_dframe_is_pandas(csv_path)
+
+    cats = ["cellular", "labyrinth", "island", "fail"]
+
+    truth = [cats.index(i) for i in (list(dframe["Manual Classification"]))]
+    preds = np.zeros(len(truth))
+
+    for i, row in dframe.iterrows():
+        if (row["CNN Classification"] == "hole") or (type(row["Fail Reasons"]) is str):
+            preds[i] = 3
+        else:
+            preds[i] = cats.index(row["CNN Classification"])
+
+    confusion_matrix(y_pred=preds, y_truth=truth, cats=cats)
+
+
+def tune_filtering_with_ROC(csv_path_good, csv_path_bad, labelevery=5):
+    dframe = pd.concat((ensure_dframe_is_pandas(csv_path_good), ensure_dframe_is_pandas(csv_path_bad)))
+    dframe[["CNN Mean", "CNN std"]] = _restore_stored_list(dframe[["CNN Mean", "CNN std"]])
+
+    means = np.max(np.array(dframe["CNN Mean"].tolist()), axis=1)
+    stds = np.max(np.array(dframe["CNN std"].tolist()), axis=1)
+    true = np.array(dframe["Manual Classification"].str.contains("Good")).astype(int)
+
+    fig, axs = plt.subplots(1, 2, sharex=True, sharey=True)
+    axs[0].set_xlabel("Wrongly Filtered In")
+    axs[1].set_xlabel("Wrongly Filtered In")
+    axs[0].set_title("Mean Filter")
+    axs[1].set_title("Std Dev Filter")
+    axs[0].set_ylabel("Rightly Filtered In")
+
+    for i, stat in enumerate([means, stds]):
+        if i == 1:
+            true = np.abs(1 - true)
+
+        fpr, tpr, thold = metrics.roc_curve(y_true=true, y_score=stat)
+        axs[i].plot(fpr, tpr)
+
+        fpr_labels = fpr[::labelevery]
+        tpr_labels = tpr[::labelevery]
+        thold_labels = thold[::labelevery]
+        for j in range(len(fpr_labels)):
+            axs[i].annotate(s=f"{thold_labels[j]:.2f}", xy=(fpr_labels[j], tpr_labels[j]))
+
+        axs[i].xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
+        axs[i].yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))

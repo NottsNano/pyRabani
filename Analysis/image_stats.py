@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.stats import mode
 from skimage import measure
+from skimage.color import label2rgb
 from skimage.measure import label, regionprops
 from skimage.morphology import closing, square
 from sklearn import metrics
@@ -42,12 +43,11 @@ def calculate_normalised_stats(img):
     label_img = label(closing(img, square(3)))
     label_img_inv = label(closing(img_inv, square(3)))
 
-    # image_label_overlay = label2rgb(label_img, image=img, bg_label=0)
-    # image_label_overlay_inv = label2rgb(label_img_inv, image=img, bg_label=0)
-
     # Get stats
     H0 = label_img.max()
     H1 = label_img_inv.max()
+
+    _, num = np.unique(label_img, return_counts=True)
     if H0 > H1:
         average_particle_size = np.sum(label_img > 0) / H0
     else:
@@ -60,8 +60,8 @@ def calculate_normalised_stats(img):
     # Make stats size invariant
     SIA = average_particle_size / np.size(label_img)
     SIP = tot_perimeter / (H0 * np.sqrt(average_particle_size))
-    SIH0 = H0 * average_particle_size
-    SIH1 = H1 * average_particle_size
+    SIH0 = H0 / average_particle_size
+    SIH1 = H1 / average_particle_size
 
     return SIA, SIP, SIH0, SIH1
 
