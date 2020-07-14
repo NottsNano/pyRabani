@@ -1,16 +1,20 @@
 import joblib
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
+from skimage.morphology import closing, square
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
 from Analysis.image_stats import calculate_normalised_stats
 from Analysis.model_stats import test_classifier
-from Models.train_CNN import get_model_storage_path
+from Analysis.plot_rabani import cmap_rabani
 from Models.h5_iterator import h5RabaniDataGenerator
+from Models.train_CNN import get_model_storage_path
+from Models.utils import ensure_dframe_is_pandas
 
 
-def make_dataset(rabani_dir, output_dir=None, batch_size=128):
+def make_dataset(rabani_dir, output_dir=None, batch_size=128, save_ims=False):
     """
     Make a dataset that can be used in sklearn
 
@@ -19,9 +23,11 @@ def make_dataset(rabani_dir, output_dir=None, batch_size=128):
     rabani_dir: str
         Directory of a folder containing h5 files made by Rabani_Simulation.rabani_generator
     output_dir: str, optional
-        Output directory to write csv to
+        Output directory to write csv/images to
     batch_size: int, optional
         Number of h5 files to hold in memory at once. Default 128.
+    save_ims: bool, optional
+        If the images should be saved to the `output_dir' directory. Default False
     """
 
     y_params = ["kT", "mu"]
@@ -50,15 +56,12 @@ def make_dataset(rabani_dir, output_dir=None, batch_size=128):
             dframe.loc[num_img, "SIH0"] = SIH0
             dframe.loc[num_img, "SIH1"] = SIH1
 
-            APS = SIA * (200**2)
-
-            dframe.loc[num_img, "APS"] = APS
-            dframe.loc[num_img, "H0"] = SIH0 / APS
-            dframe.loc[num_img, "H1"] = SIH1 / APS
-            dframe.loc[num_img, "Total Perimeter"] = SIP * np.sqrt(APS) * (SIH0 / APS)
+            if save_ims:
+                img = closing(x[j, :, :, 0], square(3))
+                plt.imsave(f"{output_dir}/{num_img}.png", img, cmap=cmap_rabani)
 
     if output_dir:
-        dframe.to_csv(output_dir)
+        dframe.to_csv(f"{output_dir}/{rabani_dir.split('/')[-1]}.csv")
 
     return dframe
 
@@ -78,8 +81,7 @@ def convert_dframe_to_sklearn(dframe, data_column_headers, cats, num_items=None)
         Don't return the entire dataframe, but a random selection of number num_items. Default None (return all)
     """
 
-    if type(dframe) is str:
-        dframe = pd.read_csv(dframe)
+    dframe = ensure_dframe_is_pandas(dframe)
 
     all_cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
     cats_to_drop = list(set(all_cats) - set(cats))
@@ -117,14 +119,16 @@ def save_classifier(root_dir, model):
 
 
 if __name__ == '__main__':
-    # df = make_dataset("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest",
-    #              output_dir="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_newtest.csv")
-
+    # df_test = make_dataset("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest",
+    #              output_dir="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/Dataset", save_ims=True)
+    # df_train = make_dataset("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/TrainFinal",
+    #              output_dir="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_train.csv")
     cats = ["hole", "cellular", "labyrinth", "island"]
+
     x_train, y_train = convert_dframe_to_sklearn(
         dframe="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_train.csv",
         data_column_headers=["SIA", "SIP", "SIH0", "SIH0"],
-        cats=cats, num_items=5000)
+        cats=cats, num_items=2000)
     x_test, y_test = convert_dframe_to_sklearn(
         dframe="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_newtest.csv",
         data_column_headers=["SIA", "SIP", "SIH0", "SIH0"],
@@ -133,4 +137,4 @@ if __name__ == '__main__':
     model = train_classifier(x_train, y_train, max_iter=1000)
     performance = test_classifier(model, x_test, y_test, cats=cats)
 
-    # save_classifier("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks", model)
+    save_classifier("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks", model)
