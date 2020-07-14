@@ -133,3 +133,8 @@ def ensure_dframe_is_pandas(dframe):
         dframe = pd.read_csv(dframe)
 
     return dframe
+
+
+def make_folder_if_not_exists(dir):
+    if not os.path.isdir(dir):
+        os.mkdir(dir)

@@ -1,3 +1,7 @@
+import os
+import shutil
+
+import matplotlib.ticker as mtick
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -9,8 +13,8 @@ from Analysis.image_stats import calculate_normalised_stats
 from Analysis.model_stats import confusion_matrix
 from Analysis.plot_rabani import show_image
 from Models.predict import ImageClassifier
-from Models.utils import ensure_dframe_is_pandas
-import matplotlib.ticker as mtick
+from Models.utils import ensure_dframe_is_pandas, make_folder_if_not_exists
+
 
 def adding_noise_test(img, model, cats, noise_steps, perc_noise, perc_std, savedir=None):
     """Progressively add noise to an image and classifying it"""
@@ -291,3 +295,22 @@ def tune_filtering_with_ROC(csv_path_good, csv_path_bad, labelevery=5):
 
         axs[i].xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
         axs[i].yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
+
+
+def select_random_images_from_filtered_dataset(filtered_dir, cats, num_imgs, output_dir):
+    dframe = pd.DataFrame(columns=["Image Name", "Category", "Reasonable?"])
+    row = 0
+    for cat in cats:
+        make_folder_if_not_exists(f"{output_dir}/{cat}")
+
+        valid_ims = [img_name for img_name in os.listdir(f"{filtered_dir}/{cat}") if img_name[:5] == "image"]
+        selected_ims = np.random.choice(valid_ims, num_imgs, replace=False)
+
+        for im in selected_ims:
+            shutil.copy(src=f"{filtered_dir}/{cat}/{im}", dst=f"{output_dir}/{cat}/{im}")
+
+            row += 1
+            dframe.loc[row, ["Image Name"]] = [im]
+            dframe.loc[row, ["Category"]] = [cat]
+
+    dframe.to_csv(f"{output_dir}/random_selection.csv")
