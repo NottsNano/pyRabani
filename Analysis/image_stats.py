@@ -47,9 +47,6 @@ def calculate_normalised_stats(img):
     label_img = label(img_close)
     label_img_inv = label(img_close_inv)
 
-    # plt.imsave(f"{name}.png", img_close, cmap=cmap_rabani)
-    # plt.imsave(f"{name}_inverse.png", img_close_inv, cmap=cmap_rabani)
-
     # Get stats
     H0 = label_img.max()
     H1 = label_img_inv.max()
