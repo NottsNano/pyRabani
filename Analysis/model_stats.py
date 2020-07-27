@@ -22,7 +22,10 @@ def confusion_matrix(y_truth, y_pred, cats, cmap=None, normalize=True, title=Non
     accuracy = np.trace(cm) / float(np.sum(cm))
     misclass = 1 - accuracy
 
-    if cmap is None:
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    if not cmap:
         cmap = plt.get_cmap('Blues')
 
     plt.figure(figsize=(8, 6))
@@ -34,9 +37,6 @@ def confusion_matrix(y_truth, y_pred, cats, cmap=None, normalize=True, title=Non
         tick_marks = np.arange(len(cats))
         plt.xticks(tick_marks, cats, rotation=45)
         plt.yticks(tick_marks, cats)
-
-    if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
     thresh = cm.max() / 1.5 if normalize else cm.max() / 2
     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
@@ -149,14 +149,14 @@ def PR_one_vs_all(y_preds, y_truth, cats, title=None, axis=None):
     return recall, prec, tholds, pr_auc
 
 
-def test_classifier(model, x_true, y_true, cats, y_pred=None, average="weighted"):
+def test_classifier(model, x_test, y_true, cats, y_pred=None, average="weighted"):
     """Tests a classifier"""
 
     if "sklearn" in str(type(model)):
-        y_pred = model.predict_proba(x_true)
+        y_pred = model.predict_proba(x_test)
     elif "tensorflow" in str(type(model)):
         if y_pred is None:
-            y_pred = model.predict(x_true)
+            y_pred = model.predict(x_test)
     else:
         raise ValueError("Model must be from sklearn or tensorflow")
 

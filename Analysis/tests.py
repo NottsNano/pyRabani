@@ -1,3 +1,4 @@
+import glob
 import os
 import shutil
 
@@ -200,13 +201,11 @@ def test_minkowski_scale_invariance(img, stride=8, max_subimgs=20):
     num_jumps = int((len(img)) / stride)
     SIA = np.zeros((len(img) - 1, num_jumps ** 2))
     SIP = np.zeros((len(img) - 1, num_jumps ** 2))
-    SIH0 = np.zeros((len(img) - 1, num_jumps ** 2))
-    SIH1 = np.zeros((len(img) - 1, num_jumps ** 2))
+    SIE = np.zeros((len(img) - 1, num_jumps ** 2))
 
     SIA[:] = np.nan
     SIP[:] = np.nan
-    SIH0[:] = np.nan
-    SIH1[:] = np.nan
+    SIE[:] = np.nan
 
     # For each window size, make sub-images
     for i in tqdm(xaxis[::2]):
@@ -217,31 +216,27 @@ def test_minkowski_scale_invariance(img, stride=8, max_subimgs=20):
         rand_sub_imgs = sub_imgs[rand_inds, :, :]
 
         for j, sub_img in enumerate(rand_sub_imgs):
-            SIA[i, j], SIP[i, j], SIH0[i, j], SIH1[i, j] = calculate_normalised_stats(sub_img)
+            SIA[i, j], SIP[i, j], SIE[i, j] = calculate_normalised_stats(sub_img)
 
     # Take means
     SIA_mean = np.nanmean(SIA, axis=1)
     SIA_std = np.nanstd(SIA, axis=1)
     SIP_mean = np.nanmean(SIP, axis=1)
     SIP_std = np.nanstd(SIP, axis=1)
-    SIH0_mean = np.nanmean(SIH0, axis=1)
-    SIH0_std = np.nanstd(SIH0, axis=1)
-    SIH1_mean = np.nanmean(SIH1, axis=1)
-    SIH1_std = np.nanstd(SIH1, axis=1)
+    SIE_mean = np.nanmean(SIE, axis=1)
+    SIE_std = np.nanstd(SIE, axis=1)
 
     # Plot
-    fig, axs = plt.subplots(1, 5, sharex=True, figsize=(1280 / 96, 480 / 96))
+    fig, axs = plt.subplots(1, 4, sharex=True, figsize=(1280 / 96, 480 / 96))
 
     show_image(img, axis=axs[0])
     axs[1].errorbar(xaxis, SIA_mean, SIA_std, fmt='rx')
     axs[2].errorbar(xaxis, SIP_mean, SIP_std, fmt='rx')
-    axs[3].errorbar(xaxis, SIH0_mean, SIH0_std, fmt='rx')
-    axs[4].errorbar(xaxis, SIH1_mean, SIH1_std, fmt='rx')
+    axs[3].errorbar(xaxis, SIE_mean, SIE_std, fmt='rx')
 
     axs[1].set_ylabel("SIA")
     axs[2].set_ylabel("SIP")
-    axs[3].set_ylabel("SIH0")
-    axs[4].set_ylabel("SIH1")
+    axs[3].set_ylabel("SIE")
     axs[2].set_xlabel("Window Size")
 
     fig.tight_layout()
@@ -265,12 +260,13 @@ def test_filtering_fail_reasons(csv_path):
     confusion_matrix(y_pred=preds, y_truth=truth, cats=cats)
 
 
-def tune_filtering_with_ROC(csv_path_good, csv_path_bad, labelevery=5):
+def tune_filtering_with_ROC(csv_path_good, csv_path_bad, labelevery=5, classifier_type="CNN"):
     dframe = pd.concat((ensure_dframe_is_pandas(csv_path_good), ensure_dframe_is_pandas(csv_path_bad)))
-    dframe[["CNN Mean", "CNN std"]] = _restore_stored_list(dframe[["CNN Mean", "CNN std"]])
+    dframe[[f"{classifier_type} Mean", f"{classifier_type} std"]] = _restore_stored_list(
+        dframe[[f"{classifier_type} Mean", f"{classifier_type} std"]])
 
-    means = np.max(np.array(dframe["CNN Mean"].tolist()), axis=1)
-    stds = np.max(np.array(dframe["CNN std"].tolist()), axis=1)
+    means = np.max(np.array(dframe[f"{classifier_type} Mean"].tolist()), axis=1)
+    stds = np.max(np.array(dframe[f"{classifier_type} std"].tolist()), axis=1)
     true = np.array(dframe["Manual Classification"].str.contains("Good")).astype(int)
 
     fig, axs = plt.subplots(1, 2, sharex=True, sharey=True)
@@ -285,7 +281,9 @@ def tune_filtering_with_ROC(csv_path_good, csv_path_bad, labelevery=5):
             true = np.abs(1 - true)
 
         fpr, tpr, thold = metrics.roc_curve(y_true=true, y_score=stat)
-        axs[i].plot(fpr, tpr)
+        auroc = metrics.auc(fpr, tpr)
+        axs[i].plot(fpr, tpr, label=f"AUROC = {auroc:.2f}")
+        axs[i].legend()
 
         fpr_labels = fpr[::labelevery]
         tpr_labels = tpr[::labelevery]
@@ -309,6 +307,25 @@ def select_random_images_from_filtered_dataset(filtered_dir, cats, num_imgs, out
         for im in selected_ims:
             shutil.copy(src=f"{filtered_dir}/{cat}/{im}", dst=f"{output_dir}/{cat}/{im}")
 
+            row += 1
+            dframe.loc[row, ["Image Name"]] = [im]
+            dframe.loc[row, ["Category"]] = [cat]
+
+    dframe.to_csv(f"{output_dir}/random_selection.csv")
+
+
+def select_random_images_from_unfiltered_dataset(filtered_dir, cats, num_imgs, output_dir):
+    all_files = [f for f in glob.glob(f"{filtered_dir}/**/*.png", recursive=True) if "stats_" in f]
+    selected_ims = np.random.choice(all_files, num_imgs * len(cats), replace=False)
+
+    dframe = pd.DataFrame(columns=["Image Name", "Category", "Reasonable?"])
+    row = 0
+
+    for i, cat in enumerate(cats):
+        make_folder_if_not_exists(f"{output_dir}/{cat}")
+        for im in selected_ims[i * num_imgs: (i + 1) * num_imgs]:
+            img_name = im.split("/")[-1]
+            shutil.copy(src=f"{im}", dst=f"{output_dir}/{cat}/{img_name}")
             row += 1
             dframe.loc[row, ["Image Name"]] = [im]
             dframe.loc[row, ["Category"]] = [cat]

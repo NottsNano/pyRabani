@@ -5,7 +5,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
 
-from Analysis.model_stats import plot_model_history
+from Analysis.model_stats import plot_model_history, test_classifier
 from Models.h5_iterator import h5RabaniDataGenerator
 from Models.model_CNN import get_model, autoencoder
 
@@ -105,3 +105,7 @@ if __name__ == '__main__':
     #                             bad_datadir="/home/mltest1/tmp/pycharm_project_883/Data/Autoencoder_Testing/Bad_Images")
 
     save_model(trained_model, "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks")
+
+    preds, truth = validate_CNN(trained_model, testing_data_dir, "classifier",
+                                original_parameters, original_categories, 128, 200)
+    performance = test_classifier(trained_model, x_test=None, y_true=truth, y_pred=preds, cats=original_categories)

@@ -14,18 +14,20 @@ from Models.train_CNN import get_model_storage_path
 from Models.utils import ensure_dframe_is_pandas
 
 
-def make_dataset(rabani_dir, output_dir=None, batch_size=128, save_ims=False):
+def make_dataset(rabani_dir, output_dir=None, batch_size=128, max_ims=5000, save_ims=False):
     """
-    Make a dataset that can be used in sklearn
+    Extract scale invariant stats from h5 simulations to build a dataset that can be used in sklearn
 
     Parameters
     ----------
     rabani_dir: str
         Directory of a folder containing h5 files made by Rabani_Simulation.rabani_generator
     output_dir: str, optional
-        Output directory to write csv/images to
+        File in a directory to write csv/images to
     batch_size: int, optional
         Number of h5 files to hold in memory at once. Default 128.
+    max_ims: int, optional
+        Maximum number of h5 files to use in the final dataset
     save_ims: bool, optional
         If the images should be saved to the `output_dir' directory. Default False
     """
@@ -33,35 +35,34 @@ def make_dataset(rabani_dir, output_dir=None, batch_size=128, save_ims=False):
     y_params = ["kT", "mu"]
     y_cats = ["liquid", "hole", "cellular", "labyrinth", "island"]
 
-    dframe = pd.DataFrame(columns=["label", "SIA", "SIP", "SIH0", "SIH1"])
+    dframe = pd.DataFrame(columns=["label", "SIA", "SIP", "SIE"])
 
     img_generator = h5RabaniDataGenerator(rabani_dir, network_type="classifier", batch_size=batch_size, is_train=False,
                                           imsize=200, force_binarisation=True,
                                           output_parameters_list=y_params, output_categories_list=y_cats)
     img_generator.is_validation_set = True
 
-    # Get each batch of images
-    for i in tqdm(range(img_generator.__len__())):
+    # For each batch of images
+    for i in tqdm(range(min([img_generator.__len__(), max_ims//batch_size]))):
         x, y = img_generator.__getitem__(None)
 
-        # For each image/inverse image
+        # For each image, calculate and store stats
         for j in range(batch_size):
-            SIA, SIP, SIH0, SIH1 = calculate_normalised_stats(x[j, :, :, 0])
+            SIA, SIP, SIE = calculate_normalised_stats(x[j, :, :, 0])
 
             # Place in dframe
             num_img = (i * batch_size) + j
             dframe.loc[num_img, "label"] = y_cats[y[j].argmax()]
             dframe.loc[num_img, "SIA"] = SIA
             dframe.loc[num_img, "SIP"] = SIP
-            dframe.loc[num_img, "SIH0"] = SIH0
-            dframe.loc[num_img, "SIH1"] = SIH1
+            dframe.loc[num_img, "SIE"] = SIE
 
             if save_ims:
                 img = closing(x[j, :, :, 0], square(3))
-                plt.imsave(f"{output_dir}/{num_img}.png", img, cmap=cmap_rabani)
+                plt.imsave(f"{'/'.join(output_dir.split('/')[:-1])}/Imgs/{num_img}.png", img, cmap=cmap_rabani)
 
     if output_dir:
-        dframe.to_csv(f"{output_dir}/{rabani_dir.split('/')[-1]}.csv")
+        dframe.to_csv(output_dir)
 
     return dframe
 
@@ -93,9 +94,6 @@ def convert_dframe_to_sklearn(dframe, data_column_headers, cats, num_items=None)
     x = np.array(dframe[data_column_headers])
     y = [cats.index(struct) for struct in dframe["label"]]
 
-    # scaler = MinMaxScaler()
-    # x = scaler.fit_transform(x)
-
     return x, y
 
 
@@ -119,19 +117,20 @@ def save_classifier(root_dir, model):
 
 
 if __name__ == '__main__':
-    # df_test = make_dataset("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest",
-    #              output_dir="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/Dataset", save_ims=True)
-    # df_train = make_dataset("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/TrainFinal",
-    #              output_dir="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_train.csv")
+    df_test = make_dataset("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/NewTest",
+                        output_dir="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_newtest_newstats.csv",
+                           save_ims=True)
+    df_train = make_dataset("/home/mltest1/tmp/pycharm_project_883/Data/Simulated_Images/TrainFinal",
+                        output_dir="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_train_newstats.csv")
     cats = ["hole", "cellular", "labyrinth", "island"]
 
     x_train, y_train = convert_dframe_to_sklearn(
-        dframe="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_train.csv",
-        data_column_headers=["SIA", "SIP", "SIH0", "SIH0"],
+        dframe="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_train_newstats.csv",
+        data_column_headers=["SIA", "SIP", "SIE"],
         cats=cats, num_items=2000)
     x_test, y_test = convert_dframe_to_sklearn(
-        dframe="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_newtest.csv",
-        data_column_headers=["SIA", "SIP", "SIH0", "SIH0"],
+        dframe="/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_newtest_newstats.csv",
+        data_column_headers=["SIA", "SIP", "SIE"],
         cats=cats)
 
     model = train_classifier(x_train, y_train, max_iter=1000)

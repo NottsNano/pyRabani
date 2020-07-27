@@ -6,8 +6,9 @@ from skimage.measure import label, regionprops
 from skimage.morphology import closing, square
 from sklearn import metrics
 from tensorflow.python.keras.models import load_model
-
+from matplotlib import pyplot as plt
 from Analysis.model_stats import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
+from Analysis.plot_rabani import cmap_rabani
 
 
 def calculate_stats(img, image_res, substrate_num=0, liquid_num=1, nano_num=2):
@@ -38,37 +39,39 @@ def calculate_stats(img, image_res, substrate_num=0, liquid_num=1, nano_num=2):
 
 
 def calculate_normalised_stats(img):
+    assert len(np.unique(img)) == 2, "Input image must be binary"
+
     # Find unique sections
-    img_inv = np.abs(1 - img)
-    label_img = label(closing(img, square(3)))
-    label_img_inv = label(closing(img_inv, square(3)))
+    img_close = closing(img, square(3))
+    img_close_inv = np.abs(1 - img_close)
+    label_img = label(img_close)
+    label_img_inv = label(img_close_inv)
+
+    # plt.imsave(f"{name}.png", img_close, cmap=cmap_rabani)
+    # plt.imsave(f"{name}_inverse.png", img_close_inv, cmap=cmap_rabani)
 
     # Get stats
     H0 = label_img.max()
     H1 = label_img_inv.max()
 
-    _, num = np.unique(label_img, return_counts=True)
     if H0 > H1:
         average_particle_size = np.sum(label_img > 0) / H0
     else:
         average_particle_size = np.sum(label_img_inv > 0) / H1
 
-    tot_perimeter = 0
-    for region, region_inv in zip(regionprops(label_img), regionprops(label_img_inv)):
-        tot_perimeter += region["perimeter"] + region_inv["perimeter"]
+    tot_perimeter = regionprops(img_close_inv.astype(int))[0]["perimeter"]
 
     # Make stats size invariant
     SIA = average_particle_size / np.size(label_img)
     SIP = tot_perimeter / (H0 * np.sqrt(average_particle_size))
-    SIH0 = H0 / average_particle_size
-    SIH1 = H1 / average_particle_size
+    SIE = H0 / H1
 
-    return SIA, SIP, SIH0, SIH1
+    return SIA, SIP, SIE
 
 
 if __name__ == '__main__':
     from Models.train_CNN import validate_CNN
-    from Analysis.plot_rabani import plot_random_simulated_images
+    from Analysis.plot_rabani import plot_random_simulated_images, cmap_rabani
 
     trained_model = load_model("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-03-30--18-10/model.h5")
 

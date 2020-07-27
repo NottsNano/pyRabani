@@ -117,13 +117,12 @@ class ImageClassifier:
     def minkowski_classify(self):
         SIA = np.zeros((len(self.cnn_arr), 1))
         SIP = np.zeros((len(self.cnn_arr), 1))
-        SIH0 = np.zeros((len(self.cnn_arr), 1))
-        SIH1 = np.zeros((len(self.cnn_arr), 1))
+        SIE = np.zeros((len(self.cnn_arr), 1))
 
         for i, img in enumerate(self.cnn_arr):
-            SIA[i], SIP[i], SIH0[i], SIH1[i] = calculate_normalised_stats(img[:, :, 0])
+            SIA[i], SIP[i], SIE[i] = calculate_normalised_stats(img[:, :, 0])
 
-        x = np.hstack((SIA, SIP, SIH0, SIH1))
+        x = np.hstack((SIA, SIP, SIE))
 
         self.minkowski_preds = self.sklearn_model.predict_proba(x)
         self.minkowski_majority_preds = self._majority_preds(self.minkowski_preds)

@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
 from tensorflow.python.keras.models import load_model
 
+from Analysis.image_stats import calculate_normalised_stats
 from Analysis.plot_rabani import show_image, cmap_rabani
 from Models.predict import ImageClassifier
 from Analysis.model_stats import preds_pie, preds_histogram
@@ -120,7 +121,7 @@ class FileFilter:
         if denoising_model:
             arr = self._wrap_image_to_tensorflow(arr, denoising_model.input_shape[1])
             assessment_arr = self._denoise(arr, denoising_model)
-            denoised_arr = None  # ImageClassifier._unwrap_image_from_tensorflow(assessment_arr, self.image_res)
+            denoised_arr = ImageClassifier._unwrap_image_from_tensorflow(assessment_arr, self.image_res)
         else:
             assessment_arr = arr
             denoised_arr = None
@@ -135,6 +136,7 @@ class FileFilter:
             self._euler_classify()
 
         if minkowski_model:
+            self.SIA, self.SIP, self.SIE = calculate_normalised_stats(denoised_arr[:-8, :-8])
             self._minkowski_classify()
 
         return assessment_arr, denoised_arr
@@ -176,9 +178,10 @@ class FileFilter:
             axs[0, 3].set_title('Binarized')
         if self.image_classifier is not None:
             if self.image_classifier.cnn_preds is not None:
-                preds_histogram(self.image_classifier.cnn_preds[:, 1:], self.minkowski_cats, axis=axs[1, 1])
-                preds_pie(self.image_classifier.cnn_preds[:, 1:], self.minkowski_cats, axis=axs[1, 2])
+                preds_histogram(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 1])
+                preds_pie(self.image_classifier.cnn_preds, self.cats, axis=axs[1, 2])
                 axs[1, 1].set_title('Network Predictions')
+                axs[1,1].set_ylim(0, 15)
                 axs[1, 2].set_title('Network Predictions')
             if self.image_classifier.euler_preds is not None:
                 preds_pie(self.image_classifier.euler_preds, self.cats + ["none"], axis=axs[1, 3])
@@ -468,13 +471,16 @@ if __name__ == '__main__':
     denoise_model = load_model(
         "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5")
     sklearn_model = load_sklearn_model(
-        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-07--12-04/model.p")
+        "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-27--16-20/model.p")
 
-    ims = ["/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 2/A3-Data EPV 2/060707 AFM - Langmuir films - SiO2 LB C12 Ci4 200uL 1 layer up/C12_Ci4_1up_b_0008.ibw"]
+    ims = [
+        "/media/mltest1/Dat Storage/Manu AFM CD Box/DATA 3/A6-AFMdata4/070926 - wetting experiment - AFM - C10 - toluene + xs thiol - Si and SiO2 - ring 5mm (continue)/SiO2_t10th_ring5_05mgmL_0000.ibw",
+        "Data/Images/Parsed Dewetting 2020 for ML/thres_img/tp/SiO2_d10th_ring5_05mgmL_0004.ibw",
+        ]
 
     for im in ims:
         test_filter = FileFilter()
         test_filter.assess_file(
             filepath=im, threshold_method="multiotsu", category_model=cat_model, denoising_model=denoise_model,
-            assess_euler=True, minkowski_model=sklearn_model, plot=True, nbins=1000)
-        print(test_filter.CNN_classification)
+            assess_euler=True, minkowski_model=None, plot=True, nbins=1000)
+        print(test_filter.fail_reasons)
