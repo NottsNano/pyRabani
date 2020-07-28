@@ -52,14 +52,16 @@ def calculate_normalised_stats(img):
     H1 = label_img_inv.max()
 
     if H0 > H1:
-        average_particle_size = np.sum(label_img > 0) / H0
+        tot_particle_area = np.sum(label_img > 0)
+        average_particle_size = tot_particle_area / H0
     else:
-        average_particle_size = np.sum(label_img_inv > 0) / H1
+        tot_particle_area = np.sum(label_img_inv > 0)
+        average_particle_size = tot_particle_area / H1
 
     tot_perimeter = regionprops(img_close_inv.astype(int))[0]["perimeter"]
 
     # Make stats size invariant
-    SIA = average_particle_size / np.size(label_img)
+    SIA = tot_particle_area / np.size(label_img)
     SIP = tot_perimeter / (H0 * np.sqrt(average_particle_size))
     SIE = H0 / H1
 

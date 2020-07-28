@@ -14,6 +14,7 @@ from Analysis.image_stats import calculate_normalised_stats
 from Analysis.model_stats import confusion_matrix
 from Analysis.plot_rabani import show_image
 from Models.predict import ImageClassifier
+from Models.train_regression import load_sklearn_model, convert_dframe_to_sklearn
 from Models.utils import ensure_dframe_is_pandas, make_folder_if_not_exists
 
 
@@ -242,8 +243,7 @@ def test_minkowski_scale_invariance(img, stride=8, max_subimgs=20):
     fig.tight_layout()
 
 
-def test_filtering_fail_reasons(csv_path):
-    # csv_path = "/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images/Raw/cnn_classifications_new.csv"
+def test_filtering_fail_reasons(csv_path, classifier_type="CNN"):
     dframe = ensure_dframe_is_pandas(csv_path)
 
     cats = ["cellular", "labyrinth", "island", "fail"]
@@ -252,10 +252,10 @@ def test_filtering_fail_reasons(csv_path):
     preds = np.zeros(len(truth))
 
     for i, row in dframe.iterrows():
-        if (row["CNN Classification"] == "hole") or (type(row["Fail Reasons"]) is str):
+        if (row[f"{classifier_type} Classification"] == "hole") or (type(row["Fail Reasons"]) is str):
             preds[i] = 3
         else:
-            preds[i] = cats.index(row["CNN Classification"])
+            preds[i] = cats.index(row[f"{classifier_type} Classification"])
 
     confusion_matrix(y_pred=preds, y_truth=truth, cats=cats)
 
@@ -331,3 +331,24 @@ def select_random_images_from_unfiltered_dataset(filtered_dir, cats, num_imgs, o
             dframe.loc[row, ["Category"]] = [cat]
 
     dframe.to_csv(f"{output_dir}/random_selection.csv")
+
+
+def plot_regression_3d(sklearn_model, cats, dframe_path):
+    x_test, y_test = convert_dframe_to_sklearn(
+            dframe=dframe_path,
+            data_column_headers=["SIA", "SIP", "SIE"],
+            cats=cats)
+    y_pred = sklearn_model.predict(x_test)
+
+    SIA = x_test[:, 0]
+    SIP = x_test[:, 1]
+    SIE = x_test[:, 2]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    sc = ax.scatter(np.log(SIA), np.log(SIP), np.log(SIE), c=y_pred)
+    ax.set_xlabel("Log SIA")
+    ax.set_ylabel("Log SIP")
+    ax.set_zlabel("Log SIE")
+
+    ax.legend(sc.legend_elements()[0], cats)

@@ -121,7 +121,7 @@ class FileFilter:
         if denoising_model:
             arr = self._wrap_image_to_tensorflow(arr, denoising_model.input_shape[1])
             assessment_arr = self._denoise(arr, denoising_model)
-            denoised_arr = None#ImageClassifier._unwrap_image_from_tensorflow(assessment_arr, self.image_res)
+            denoised_arr = None     #ImageClassifier._unwrap_image_from_tensorflow(assessment_arr, self.image_res)
         else:
             assessment_arr = arr
             denoised_arr = None
@@ -137,7 +137,6 @@ class FileFilter:
 
         if minkowski_model:
             self._minkowski_classify()
-
         return assessment_arr, denoised_arr
 
     def _plot(self, data=None, median_data=None, flattened_data=None,

@@ -8,10 +8,10 @@ from Filters.screening import FileFilter
 from Models.train_regression import load_sklearn_model
 from Models.utils import make_pd_nans_identical
 
-IMAGE_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#"/media/mltest1/Dat Storage/Manu AFM CD Box" #"/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images/Raw"#
+IMAGE_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Good_Images"#"/home/mltest1/tmp/pycharm_project_883/Data/Steff_Images/Raw"#"/media/mltest1/Dat Storage/Manu AFM CD Box" #
 CNN_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-06-15--12-18/model.h5"
 DENOISER_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-05-29--14-07/model.h5"
-MINKOWSKI_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-27--16-20/model.p"
+MINKOWSKI_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks/2020-07-28--11-15/model.p"
 OUTPUT_DIR = "/home/mltest1/tmp/pycharm_project_883/Data/Classification_Performance_Images/Final"
 ASSESS_EULER = False
 SEARCH_RECURSIVE = True
@@ -60,10 +60,6 @@ for i, file in enumerate(all_files):
         df_summary.loc[i, ["Stats Regression Classification"]] = [filterer.minkowski_classification]
         df_summary.loc[i, ["Stats Regression Mean"]] = [filterer.image_classifier.minkowski_preds.mean(axis=0)]
         df_summary.loc[i, ["Stats Regression std"]] = [filterer.image_classifier.minkowski_preds.std(axis=0)]
-
-        df_summary.loc[i, ["SIA"]] = [filterer.SIA]
-        df_summary.loc[i, ["SIP"]] = [filterer.SIP]
-        df_summary.loc[i, ["SIE"]] = [filterer.SIE]
 
     del filterer  # Just to be safe!
     t.update(1)

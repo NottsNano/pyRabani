@@ -9,6 +9,7 @@ from tqdm import tqdm
 from Analysis.image_stats import calculate_normalised_stats
 from Analysis.model_stats import test_classifier
 from Analysis.plot_rabani import cmap_rabani
+from Analysis.tests import plot_regression_3d
 from Models.h5_iterator import h5RabaniDataGenerator
 from Models.train_CNN import get_model_storage_path
 from Models.utils import ensure_dframe_is_pandas
@@ -135,5 +136,6 @@ if __name__ == '__main__':
 
     model = train_classifier(x_train, y_train, max_iter=1000)
     performance = test_classifier(model, x_test, y_test, cats=cats)
+    plot_regression_3d(model, cats, "/home/mltest1/tmp/pycharm_project_883/Data/Classical_Stats/simulated_newtest_newstats.csv")
 
     save_classifier("/home/mltest1/tmp/pycharm_project_883/Data/Trained_Networks", model)
