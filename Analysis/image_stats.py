@@ -1,14 +1,11 @@
 import numpy as np
 from scipy.stats import mode
 from skimage import measure
-from skimage.color import label2rgb
 from skimage.measure import label, regionprops
 from skimage.morphology import closing, square
 from sklearn import metrics
 from tensorflow.python.keras.models import load_model
-from matplotlib import pyplot as plt
 from Analysis.model_stats import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
-from Analysis.plot_rabani import cmap_rabani
 
 
 def calculate_stats(img, image_res, substrate_num=0, liquid_num=1, nano_num=2):

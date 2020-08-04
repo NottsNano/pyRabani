@@ -14,7 +14,7 @@ from Analysis.image_stats import calculate_normalised_stats
 from Analysis.model_stats import confusion_matrix
 from Analysis.plot_rabani import show_image
 from Models.predict import ImageClassifier
-from Models.train_regression import load_sklearn_model, convert_dframe_to_sklearn
+from Models.train_regression import convert_dframe_to_sklearn
 from Models.utils import ensure_dframe_is_pandas, make_folder_if_not_exists
 
 

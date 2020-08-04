@@ -8,7 +8,6 @@ from matplotlib import pyplot as plt
 from scipy import stats, ndimage, signal
 from tensorflow.python.keras.models import load_model
 
-from Analysis.image_stats import calculate_normalised_stats
 from Analysis.plot_rabani import show_image, cmap_rabani
 from Models.predict import ImageClassifier
 from Analysis.model_stats import preds_pie, preds_histogram

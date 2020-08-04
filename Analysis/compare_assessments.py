@@ -6,7 +6,6 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 
 from Analysis.model_stats import confusion_matrix, ROC_one_vs_all, PR_one_vs_all
-from Filters.screening import FileFilter
 from Analysis.plot_rabani import show_image
 
 
@@ -120,6 +119,8 @@ def stats_filtering(df_multiclass):
 
 
 def compare_classifications(df):
+    from Filters.screening import FileFilter
+
     ngridpts = int(np.sqrt(len(df)))
     fig, axs = plt.subplots(ngridpts, ngridpts)
     axs = axs.reshape((-1,))
