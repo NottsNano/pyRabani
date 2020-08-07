@@ -1,11 +1,5 @@
 # Code offers a selection of preprocessing techniques, saving a figure of all the results
 
-# To-Do:
-## Write in Ostu Mask and old Poly BG sub method if required
-## Comment the code you ape
-## Add the toggle to simply save the images produced by plot-all and a simple format for final preprocessed image in 2-ste
-## Make a separate code that
-## Make it so spline dof 1 can be used by changing it from df -1 to df +1
 
 # Images
 ## 'C12b_Ci_ring8_0006.ibw'
@@ -36,12 +30,10 @@ file_path = r'imageR/' + file_name
 aligner = (
     "mod"   # Median of differences
     #"otsu"
-    #"maskotsu"  #TBI
 )
 detrender = (
     "spline"
     #"poly"
-    #"oldpoly"  # TBI?  Old redundant method
 )
 plot_all = (  # Choose whether to ignore the above two options and perform all of them
     "yes"

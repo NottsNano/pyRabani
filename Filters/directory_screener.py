@@ -287,7 +287,7 @@ for k in files_ibw:
 
     plt.close('all')
 
-    if p_s == 0:
+    if p_s == 0: # Turns progress statements back on for start of loop
         sys.stdout = sys.__stdout__
 
 print('\nDone! ' + str(successes) + ' of ' + str(files_ibw.__len__()) + ' files passed.  Saving results to table...')

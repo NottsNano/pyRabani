@@ -1,10 +1,6 @@
 # Code runs a MoD aligner and then a spline and polynomial detrend of degree of freedom = 2 and saves it to a specified
 # folder.
 
-# To-Do:
-## Write in an image mask for the final images in RdGy space
-## Comment the code you ape
-
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
@@ -160,8 +156,10 @@ for file_path in matches:
     plt.imsave(sav_loc + str(Df) + '_df_spline.png', spline_dt_data_Trace_Array, origin='lower', cmap='gray')
     plt.imsave(sav_loc + str(Df) + 'df_poly.png', poly_dt_data_Trace_Array, origin='lower', cmap='gray')
 
+    trunc_aligned_data_Trace_Array = img_mask(aligned_data_Trace_Array, 3)
     trunc_spline_dt_data_Trace_Array = img_mask(spline_dt_data_Trace_Array, 3)
     trunc_poly_dt_data_Trace_Array = img_mask(poly_dt_data_Trace_Array, 3)
 
+    plt.imsave(pres_sav_loc + str(Df) + '_df_mod.png', trunc_aligned_data_Trace_Array, origin='lower', cmap='RdGy')
     plt.imsave(pres_sav_loc + str(Df) + '_df_spline.png', trunc_spline_dt_data_Trace_Array, origin='lower', cmap='RdGy')
     plt.imsave(pres_sav_loc + str(Df) + 'df_poly.png', trunc_poly_dt_data_Trace_Array, origin='lower', cmap='RdGy')

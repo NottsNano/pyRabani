@@ -1,7 +1,7 @@
 # This code was used in testing of a few unique images provided by University of Loughborough.
 # It deployed 3 unique techniques to remove the polynomial background ie inherent wavy-ness of AFM images
 # as well as tested a new way to find the perfect binary image of each image, using Otsu's thresholding.
-# Images are aligned horizontally using a median row aligner
+# Images are aligned horizontally using a median of differences row aligner
 
 import pycroscopy as scope
 import matplotlib.pyplot as plt
