@@ -1,33 +1,21 @@
 """
-rabani.py
-
-rabani model in python - adapted from:
-
-Rabani.m - Andrew Stannard 27/06/19, Rabani model in Matlab
+rabani model in python - adapted from Rabani.m - Andrew Stannard 27/06/19, Rabani model in Matlab
 """
+
 from math import exp
 
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import colors
 from numba import jit, prange
+
+from Analysis.plot_rabani import show_image
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
-    # L = 128  # System length
+def rabani_single(kT, mu, MR, C, e_nl, e_nn, L, MCS_max, early_stop):
+    """A single rabani simulation """
+
     N = L ** 2  # System volume
-
-    MCS = 20000  # Max mc steps
-    # MR = 1  # Mobility ratio
-    # C = 0.30  # Nano-particle coverage
-
-    # kT = 0.6
     B = 1 / kT
-
-    # e_nl = 1.5  # nanoparticle-liquid interaction energy
-    # e_nn = 2.0  # nanoparticle-nanoparticle interaction energy
-    # mu = 2.8  # liquid chemical potential
 
     # Seed system array
     I = np.random.choice(N, int(C * N), replace=False)
@@ -43,7 +31,7 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
     perc_similarities = np.random.random((4,))
     perc_similarities_std = np.std(perc_similarities)
     m = 1
-    for m in range(MCS):
+    for m in range(MCS_max+1):
         # random position arrays for the evaporation/condensation loop
         x = np.ceil(L * np.random.random((N,))) - 1
         y = np.ceil(L * np.random.random((N,))) - 1
@@ -265,37 +253,56 @@ def rabani_single(kT, mu, MR, C, e_nl, e_nn, L):
                         liquid_array[int(x[i]), int(y[i])] = 1
                         liquid_array[int(x[i]), int(yp1[i])] = 0
 
-        # Early stopping
         out = 2 * nano_particles + liquid_array
-        if m % 25 == 0:  # Check every 25th iteration
-            perc_similarities[-1] = np.mean(checkpoint_out == out)
-            perc_similarities = np.roll(perc_similarities, -1)
-            perc_similarities_std = np.std(np.diff(perc_similarities))
-            checkpoint_out = 2 * nano_particles + liquid_array
 
-        if 0 < perc_similarities_std < 0.002 and m > 200:
-            break
+        if early_stop:
+            if m % 25 == 0:  # Check every 25th iteration
+                perc_similarities[-1] = np.mean(checkpoint_out == out)
+                perc_similarities = np.roll(perc_similarities, -1)
+                perc_similarities_std = np.std(np.diff(perc_similarities))
+                checkpoint_out = 2 * nano_particles + liquid_array
+
+            if 0 < perc_similarities_std < 0.002 and m > 200:
+                break
 
     return out, m
 
 
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def _run_rabani_sweep(params):
+    """Create multiple rabanis in parallel
+
+    Parameters
+    ----------
+    params : ndarray
+        (Nx9) array of the N simulations to run. The 9 values are kT, mu, MR, C, e_nl, e_nn, L, MCS_max, early_stop
+
+    Returns
+    -------
+    runs : ndarray
+        (NxLxL) array of simulations
+    m_all : ndarray
+        1D array of length N showing the number of MC steps taken in each of the N simulations
+
+    See Also
+    --------
+    Rabani_Simulation.gen_rabanis.RabaniSweeper
+    """
     axis_steps = len(params)
-    runs = np.zeros((int(params[0, 6]), int(params[0, 6]), axis_steps))
+    runs = np.zeros((axis_steps, int(params[0, 6]), int(params[0, 6])))
     m_all = np.zeros((axis_steps,))
 
     for i in prange(axis_steps):
-        runs[:, :, i], m_all[i] = rabani_single(kT=params[i, 0], mu=params[i, 1], MR=int(params[i, 2]), C=params[i, 3],
-                                                e_nl=params[i, 4], e_nn=params[i, 5], L=int(params[i, 6]))
+        runs[i, :, :], m_all[i] = rabani_single(kT=float(params[i, 0]), mu=float(params[i, 1]),
+                                                MR=int(params[i, 2]), C=float(params[i, 3]),
+                                                e_nl=float(params[i, 4]), e_nn=float(params[i, 5]), L=int(params[i, 6]),
+                                                MCS_max=int(params[i, 7]), early_stop=bool(params[i, 8]))
 
     return runs, m_all
 
 
 if __name__ == '__main__':
-    img, num_steps = rabani_single(kT=0.6, mu=2.8, MR=1, C=0.3, e_nl=1.5, e_nn=2, L=128)
-
-    cmap = colors.ListedColormap(["black", "white", "orange"])
-    boundaries = [0, 0.5, 1]
-    norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
-    plt.imshow(img, cmap=cmap)
+    # for MCS in np.linspace(100, 2000, 5):
+    img, num_steps = rabani_single(kT=0.35, mu=3, MR=1, C=0.4, e_nl=1.5,
+                               e_nn=2, L=128, MCS_max=300, early_stop=False)
+    show_image(img)
